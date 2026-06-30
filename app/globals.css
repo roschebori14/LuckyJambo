@@ -1,0 +1,114 @@
+@import "tailwindcss";
+
+/* ── Lucky Jambo brand tokens ── */
+:root {
+  --lj-navy:      #04091a;
+  --lj-navy-2:    #0a1428;
+  --lj-navy-3:    #0f1f3d;
+  --lj-blue:      #1a56ff;
+  --lj-blue-2:    #2d7fff;
+  --lj-cyan:      #00c2ff;
+  --lj-glow:      rgba(26, 86, 255, 0.35);
+  --lj-gold:      #ffd700;
+  --lj-success:   #00d68f;
+  --lj-danger:    #ff3d5a;
+  --lj-text:      #e8edf8;
+  --lj-muted:     #6b7fa8;
+  --lj-border:    rgba(45, 127, 255, 0.18);
+  --lj-card:      rgba(15, 31, 61, 0.85);
+  --lj-card-2:    rgba(10, 20, 40, 0.9);
+}
+
+* { box-sizing: border-box; }
+
+body {
+  background: var(--lj-navy);
+  color: var(--lj-text);
+  font-family: Inter, system-ui, -apple-system, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: var(--lj-navy-2); }
+::-webkit-scrollbar-thumb { background: var(--lj-blue); border-radius: 3px; }
+
+/* Brand gradient text */
+.lj-gradient-text {
+  background: linear-gradient(135deg, #ffffff 0%, var(--lj-cyan) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* Glowing card */
+.lj-card {
+  background: var(--lj-card);
+  border: 1px solid var(--lj-border);
+  backdrop-filter: blur(12px);
+  border-radius: 16px;
+}
+
+.lj-card-hover {
+  transition: all 0.2s ease;
+}
+.lj-card-hover:hover {
+  border-color: var(--lj-blue);
+  box-shadow: 0 0 20px var(--lj-glow);
+  transform: translateY(-2px);
+}
+
+/* Primary button */
+.lj-btn-primary {
+  background: linear-gradient(135deg, var(--lj-blue) 0%, var(--lj-cyan) 100%);
+  color: white;
+  font-weight: 700;
+  border-radius: 12px;
+  padding: 12px 24px;
+  border: none;
+  cursor: pointer;
+  transition: all 0.2s;
+  box-shadow: 0 4px 15px var(--lj-glow);
+}
+.lj-btn-primary:hover { opacity: 0.9; box-shadow: 0 6px 25px var(--lj-glow); }
+.lj-btn-primary:active { transform: scale(0.98); }
+.lj-btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+
+/* Input */
+.lj-input {
+  background: rgba(255,255,255,0.05);
+  border: 1px solid var(--lj-border);
+  border-radius: 12px;
+  padding: 12px 16px;
+  color: var(--lj-text);
+  width: 100%;
+  font-size: 14px;
+  outline: none;
+  transition: border-color 0.2s;
+}
+.lj-input:focus { border-color: var(--lj-blue); box-shadow: 0 0 0 3px var(--lj-glow); }
+.lj-input::placeholder { color: var(--lj-muted); }
+
+/* Nav active glow */
+.lj-nav-active {
+  background: linear-gradient(90deg, rgba(26,86,255,0.2) 0%, transparent 100%);
+  border-left: 3px solid var(--lj-blue);
+  color: white;
+}
+
+/* Stat badge */
+.lj-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 10px;
+  border-radius: 20px;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+/* Page header gradient */
+.lj-page-header {
+  background: linear-gradient(180deg, rgba(26,86,255,0.1) 0%, transparent 100%);
+  border-bottom: 1px solid var(--lj-border);
+}
