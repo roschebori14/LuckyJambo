@@ -52,7 +52,6 @@ export default async function MatchPlayPage({ params }: PageProps) {
         gameSlug={gameSlug}
         userId={user.id}
         stakeAmount={match.stake_amount ?? 0}
-        initialStatus={match.status}
       />
     </div>
   );

@@ -46,4 +46,12 @@ export class DepositService {
     if (error) throw error;
     return data ?? [];
   }
+
+  static async markStatus(reference: string, status: "completed" | "failed" | "expired", providerTransactionId?: string) {
+    const supabase = await createClient();
+    const update: Record<string, unknown> = { status };
+    if (providerTransactionId) update.provider_transaction_id = providerTransactionId;
+    const { error } = await supabase.from("deposits").update(update).eq("payment_reference", reference);
+    if (error) throw error;
+  }
 }

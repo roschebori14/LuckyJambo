@@ -2,13 +2,15 @@ import { requireAdmin } from "@/lib/auth/require-admin";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
-import { LayoutDashboard, Users, Wallet, Swords, AlertTriangle, ArrowLeft, Shield } from "lucide-react";
+import { LayoutDashboard, Users, Wallet, Swords, AlertTriangle, ArrowLeft, Shield, Flag, TrendingUp } from "lucide-react";
 
 const ADMIN_NAV = [
   { href: "/admin",             icon: LayoutDashboard, label: "Overview" },
   { href: "/admin/withdrawals", icon: Wallet,          label: "Withdrawals" },
   { href: "/admin/users",       icon: Users,           label: "Users" },
   { href: "/admin/matches",     icon: Swords,          label: "Matches" },
+  { href: "/admin/reports",     icon: Flag,            label: "Reports" },
+  { href: "/admin/revenue",     icon: TrendingUp,      label: "Revenue" },
 ];
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {

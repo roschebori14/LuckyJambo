@@ -1,39 +1,96 @@
 "use client";
 
 import { useState } from "react";
+import { MINIMUM_DEPOSIT, MAXIMUM_DEPOSIT } from "@/lib/wallet/wallet-constants";
+import { ArrowDownCircle, AlertCircle } from "lucide-react";
 
 export default function DepositForm() {
   const [amount, setAmount] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const quick = [500, 1000, 5000, 10000, 25000];
+
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    setError("");
 
-    console.log("Deposit:", amount);
-  };
+    const parsed = Number(amount);
+    if (!parsed || parsed < MINIMUM_DEPOSIT) {
+      setError(`Minimum deposit is ${MINIMUM_DEPOSIT.toLocaleString()} XAF`);
+      return;
+    }
+    if (parsed > MAXIMUM_DEPOSIT) {
+      setError(`Maximum deposit is ${MAXIMUM_DEPOSIT.toLocaleString()} XAF`);
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const res = await fetch("/api/deposits/create", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ amount: parsed }),
+      });
+      const json = await res.json();
+      if (!json.success) {
+        setError(json.message ?? "Failed to start deposit");
+        return;
+      }
+      // Redirect to Fapshi's hosted payment page
+      window.location.href = json.paymentLink;
+    } catch {
+      setError("Connection error. Please try again.");
+    } finally {
+      setLoading(false);
+    }
+  }
 
   return (
-    <form
-      onSubmit={handleSubmit}
-      className="rounded-xl border bg-white p-6 shadow-sm"
-    >
-      <h2 className="mb-4 text-xl font-semibold">Make Deposit</h2>
+    <form onSubmit={handleSubmit} className="lj-card p-5 space-y-4">
+      <h2 className="text-lg font-bold text-white">Deposit Funds</h2>
 
-      <div className="space-y-4">
+      {error && (
+        <div className="flex items-center gap-2 rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-400">
+          <AlertCircle size={16} /> {error}
+        </div>
+      )}
+
+      <div>
+        <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-[var(--lj-muted)]">
+          Amount (XAF)
+        </label>
         <input
           type="number"
-          placeholder="Enter amount"
+          min={MINIMUM_DEPOSIT}
+          max={MAXIMUM_DEPOSIT}
+          placeholder={`${MINIMUM_DEPOSIT.toLocaleString()} – ${MAXIMUM_DEPOSIT.toLocaleString()}`}
           value={amount}
-          onChange={(e) => setAmount(e.target.value)}
-          className="w-full rounded-lg border p-3"
+          onChange={e => setAmount(e.target.value)}
+          className="lj-input"
         />
-
-        <button
-          type="submit"
-          className="w-full rounded-lg bg-green-600 py-3 font-medium text-white"
-        >
-          Continue to Payment
-        </button>
+        <div className="mt-2 flex flex-wrap gap-2">
+          {quick.map(v => (
+            <button key={v} type="button" onClick={() => setAmount(String(v))}
+              className="rounded-lg px-3 py-1 text-xs font-medium text-[var(--lj-text)] transition-colors hover:bg-white/10"
+              style={{ background: "rgba(255,255,255,0.05)" }}>
+              {v.toLocaleString()}
+            </button>
+          ))}
+        </div>
       </div>
+
+      <p className="text-xs text-[var(--lj-muted)]">
+        You&apos;ll be redirected to Fapshi to complete payment via MTN or Orange Mobile Money.
+      </p>
+
+      <button type="submit" disabled={loading || !amount}
+        className="lj-btn-primary flex w-full items-center justify-center gap-2">
+        {loading
+          ? <span className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+          : <ArrowDownCircle size={16} />}
+        {loading ? "Starting payment…" : `Deposit ${amount ? Number(amount).toLocaleString() + " XAF" : ""}`}
+      </button>
     </form>
   );
 }

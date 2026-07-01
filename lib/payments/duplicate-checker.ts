@@ -1,15 +1,13 @@
-import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 
 export class DuplicateChecker {
   static async alreadyCompleted(reference: string) {
-    const supabase = await createClient();
-
-    const { data } = await supabase
+    const admin = createAdminClient();
+    const { data } = await admin
       .from("deposits")
       .select("status")
       .eq("payment_reference", reference)
       .single();
-
     return data?.status === "completed";
   }
 }

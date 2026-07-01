@@ -4,6 +4,15 @@ import { useState, useEffect, use } from "react";
 import Link from "next/link";
 import Image from "next/image";
 
+const GAME_IMAGES: Record<string, string> = {
+  chess: "/images/games/chess.jpg",
+  draughts: "/images/games/draughts.jpg",
+  "tic-tac-toe": "/images/games/tic-tac-toe.jpg",
+  dice: "/images/games/dice.jpg",
+  rock_paper_scissors: "/images/games/rock_paper_scissors.jpg",
+  coin_flip: "/images/games/coin_flip.jpg",
+};
+
 interface Match {
   id: string;
   stake_amount: number;
@@ -19,11 +28,6 @@ interface GameInfo {
   max_stake: number;
   description: string | null;
 }
-
-const GAME_EMOJI: Record<string, string> = {
-  chess: "♟️", draughts: "🔴", "tic-tac-toe": "✖️",
-  dice: "🎲", rock_paper_scissors: "✊", coin_flip: "🪙",
-};
 
 export default function GameLobbyPage({ params }: { params: Promise<{ id: string }> }) {
   const { id: slug } = use(params);
@@ -108,22 +112,15 @@ export default function GameLobbyPage({ params }: { params: Promise<{ id: string
       </Link>
 
       {/* Header */}
-      <div className="relative flex items-center justify-between rounded-2xl bg-white overflow-hidden shadow-sm border border-gray-200">
-        <div className="p-6 relative z-10">
-          <h1 className="text-3xl font-extrabold text-gray-900 drop-shadow-sm">{game.name}</h1>
-          <p className="mt-1 text-sm font-medium text-gray-700 bg-white/60 px-2 py-1 rounded inline-block backdrop-blur-sm">
+      <div className="flex items-center gap-4 rounded-2xl bg-white p-5 shadow-sm border">
+        <span className="relative flex h-16 w-16 shrink-0 overflow-hidden rounded-xl bg-gradient-to-br from-blue-600 to-blue-900">
+          <Image src={GAME_IMAGES[slug] ?? "/images/games/dice.jpg"} alt={game.name} fill className="object-cover" />
+        </span>
+        <div>
+          <h1 className="text-xl font-extrabold text-gray-900">{game.name}</h1>
+          <p className="text-sm text-gray-500">
             Stake {game.min_stake.toLocaleString()}–{game.max_stake.toLocaleString()} XAF
           </p>
-        </div>
-        <div className="absolute top-0 right-0 h-full w-1/2 md:w-1/3">
-          <div className="absolute inset-0 bg-gradient-to-r from-white via-white/80 to-transparent z-10" />
-          <Image 
-            src={`/images/${slug}.png`}
-            alt={game.name}
-            fill
-            className="object-cover object-right opacity-90"
-            priority
-          />
         </div>
       </div>
 

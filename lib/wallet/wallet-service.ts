@@ -86,9 +86,16 @@ export class WalletService {
   static async applyTransaction(
     input: ApplyTransactionInput,
   ): Promise<LedgerEntry> {
-    const supabase = await createClient();
+    // Uses the service-role client deliberately. apply_wallet_transaction
+    // is locked down (migration 017) so it can no longer be called
+    // directly by a regular user session - only by service_role
+    // (this method, used by the deposit webhook) or internally by the
+    // other security-definer RPCs (create_match, settle_match, etc.)
+    // which call it via `perform` rather than over PostgREST.
+    const { createAdminClient } = await import("@/lib/supabase/admin");
+    const admin = createAdminClient();
 
-    const { data, error } = await supabase.rpc("apply_wallet_transaction", {
+    const { data, error } = await admin.rpc("apply_wallet_transaction", {
       p_user_id: input.userId,
       p_type: input.type,
       p_amount: input.amount,

@@ -73,10 +73,10 @@ export async function POST(request: Request) {
     let updatePayload: Record<string, unknown> = { game_state: newState };
 
     if (chess.isGameOver()) {
-      updatePayload.status = "completed";
       if (chess.isCheckmate()) {
         // The side that just moved is the winner
         const winnerId = chess.turn() === "w" ? state.black_player_id : state.white_player_id;
+        updatePayload.status = "completed";
         updatePayload.winner_id = winnerId;
 
         await supabase.rpc("settle_match", {
@@ -84,21 +84,10 @@ export async function POST(request: Request) {
           p_winner_id: winnerId,
         });
       } else {
-        // Draw - refund both players
-        await supabase.rpc("apply_wallet_transaction", {
-          p_user_id: state.white_player_id,
-          p_type: "refund",
-          p_amount: match.stake_amount,
-          p_reference: match.id,
-          p_description: "Chess draw - stake refunded",
-        });
-        await supabase.rpc("apply_wallet_transaction", {
-          p_user_id: state.black_player_id,
-          p_type: "refund",
-          p_amount: match.stake_amount,
-          p_reference: match.id,
-          p_description: "Chess draw - stake refunded",
-        });
+        // Draw - refund_draw sets status to 'cancelled' itself, so we
+        // deliberately don't include `status` in this update below or
+        // we'd stomp that back to whatever stale value we compute here.
+        await supabase.rpc("refund_draw", { p_match_id: validated.match_id });
       }
     }
 
