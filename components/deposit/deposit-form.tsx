@@ -6,6 +6,7 @@ import { ArrowDownCircle, AlertCircle } from "lucide-react";
 
 export default function DepositForm() {
   const [amount, setAmount] = useState("");
+  const [phone, setPhone] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
@@ -24,13 +25,17 @@ export default function DepositForm() {
       setError(`Maximum deposit is ${MAXIMUM_DEPOSIT.toLocaleString()} XAF`);
       return;
     }
+    if (phone.length < 9) {
+      setError("Enter a valid phone number");
+      return;
+    }
 
     setLoading(true);
     try {
       const res = await fetch("/api/deposits/create", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ amount: parsed }),
+        body: JSON.stringify({ amount: parsed, phone }),
       });
       const json = await res.json();
       if (!json.success) {
@@ -80,11 +85,24 @@ export default function DepositForm() {
         </div>
       </div>
 
+      <div>
+        <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-[var(--lj-muted)]">
+          MTN / Orange Phone Number
+        </label>
+        <input
+          type="tel"
+          placeholder="6XXXXXXXX"
+          value={phone}
+          onChange={e => setPhone(e.target.value.replace(/\D/g, ""))}
+          className="lj-input"
+        />
+      </div>
+
       <p className="text-xs text-[var(--lj-muted)]">
         You&apos;ll be redirected to Fapshi to complete payment via MTN or Orange Mobile Money.
       </p>
 
-      <button type="submit" disabled={loading || !amount}
+      <button type="submit" disabled={loading || !amount || !phone}
         className="lj-btn-primary flex w-full items-center justify-center gap-2">
         {loading
           ? <span className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
