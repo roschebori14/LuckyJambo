@@ -3,6 +3,7 @@
 import { useState, useEffect, use } from "react";
 import Link from "next/link";
 import Image from "next/image";
+import { ArrowLeft, Swords, Users, Loader2 } from "lucide-react";
 
 interface Match {
   id: string;
@@ -95,16 +96,19 @@ export default function GameLobbyPage({ params }: { params: Promise<{ id: string
   if (!game) {
     return (
       <div className="flex min-h-[60vh] items-center justify-center">
-        <div className="h-8 w-8 animate-spin rounded-full border-4 border-green-600 border-t-transparent" />
+        <Loader2 className="h-8 w-8 animate-spin" style={{ color: "var(--lj-cyan)" }} />
       </div>
     );
   }
 
+  const netPot = stake * 2 * 0.95;
+  const stakeInvalid = stake < game.min_stake || stake > game.max_stake;
+
   return (
-    <div className="mx-auto max-w-2xl space-y-6">
+    <div className="mx-auto max-w-2xl space-y-5">
       {/* Back */}
-      <Link href="/games" className="flex items-center gap-1 text-sm text-gray-500 hover:text-gray-800">
-        ← All Games
+      <Link href="/games" className="flex items-center gap-1 text-sm text-[var(--lj-muted)] hover:text-white">
+        <ArrowLeft size={14} /> All Games
       </Link>
 
       {/* Header */}
@@ -128,17 +132,24 @@ export default function GameLobbyPage({ params }: { params: Promise<{ id: string
       </div>
 
       {message && (
-        <div className={`rounded-xl px-4 py-3 text-sm font-medium ${message.startsWith("✅") ? "bg-green-50 text-green-700" : "bg-red-50 text-red-700"}`}>
+        <div
+          className="rounded-xl px-4 py-3 text-sm font-medium"
+          style={
+            message.startsWith("✅")
+              ? { background: "rgba(0,214,143,0.1)", color: "var(--lj-success)", border: "1px solid rgba(0,214,143,0.25)" }
+              : { background: "rgba(255,61,90,0.1)", color: "var(--lj-danger)", border: "1px solid rgba(255,61,90,0.25)" }
+          }
+        >
           {message}
         </div>
       )}
 
       {/* Create match */}
-      <div className="rounded-2xl border bg-white p-5 shadow-sm space-y-4">
-        <h2 className="font-bold text-gray-900">Create a Match</h2>
+      <div className="lj-card space-y-4 p-5">
+        <h2 className="font-bold text-white">Create a Match</h2>
 
         <div>
-          <label className="mb-1.5 block text-xs font-semibold text-gray-600 uppercase tracking-wide">
+          <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-[var(--lj-muted)]">
             Your Stake (XAF)
           </label>
           <input
@@ -148,52 +159,60 @@ export default function GameLobbyPage({ params }: { params: Promise<{ id: string
             step={50}
             value={stake}
             onChange={(e) => setStake(Number(e.target.value))}
-            className="w-full rounded-xl border border-gray-200 px-4 py-2.5 text-sm focus:border-green-400 focus:outline-none focus:ring-2 focus:ring-green-100"
+            className="lj-input"
           />
-          <p className="mt-1 text-xs text-gray-400">
-            Winner takes {(stake * 2 * 0.95).toLocaleString()} XAF (after 5% platform fee)
+          <p className="mt-1.5 text-xs text-[var(--lj-muted)]">
+            Winner takes {netPot.toLocaleString()} XAF (after 5% platform fee)
           </p>
         </div>
 
         <button
           onClick={createMatch}
-          disabled={creating || stake < game.min_stake || stake > game.max_stake}
-          className="w-full rounded-xl bg-green-600 py-3 text-sm font-bold text-white transition-colors hover:bg-green-700 disabled:opacity-50"
+          disabled={creating || stakeInvalid}
+          className="lj-btn-primary flex w-full items-center justify-center gap-2"
         >
+          {creating && <Loader2 size={15} className="animate-spin" />}
           {creating ? "Creating…" : `Create Match — ${stake.toLocaleString()} XAF`}
         </button>
       </div>
 
       {/* Open matches */}
-      <div className="rounded-2xl border bg-white p-5 shadow-sm">
-        <h2 className="mb-3 font-bold text-gray-900">
+      <div className="lj-card p-5">
+        <h2 className="mb-3 flex items-center gap-2 font-bold text-white">
           Open Matches
-          <span className="ml-2 rounded-full bg-green-100 px-2 py-0.5 text-xs text-green-700">
+          <span className="lj-badge" style={{ background: "rgba(0,214,143,0.12)", color: "var(--lj-success)" }}>
             {openMatches.length}
           </span>
         </h2>
 
         {openMatches.length === 0 ? (
-          <p className="py-6 text-center text-sm text-gray-400">
-            No open matches yet — create the first one!
-          </p>
+          <div className="flex flex-col items-center gap-2 py-8 text-center">
+            <Users size={28} className="text-[var(--lj-muted)]" />
+            <p className="text-sm text-[var(--lj-muted)]">No open matches yet — create the first one!</p>
+          </div>
         ) : (
           <div className="space-y-2">
             {openMatches.map((m) => (
-              <div key={m.id} className="flex items-center justify-between rounded-xl bg-gray-50 px-4 py-3">
+              <div
+                key={m.id}
+                className="flex items-center justify-between rounded-xl px-4 py-3"
+                style={{ background: "rgba(255,255,255,0.03)", border: "1px solid var(--lj-border)" }}
+              >
                 <div>
-                  <p className="text-sm font-semibold text-gray-800">
+                  <p className="text-sm font-semibold text-white">
                     {m.stake_amount.toLocaleString()} XAF stake
                   </p>
-                  <p className="text-xs text-gray-400">
+                  <p className="text-xs text-[var(--lj-muted)]">
                     Pot: {(m.stake_amount * 2 * 0.95).toLocaleString()} XAF net
                   </p>
                 </div>
                 <button
                   onClick={() => joinMatch(m.id)}
                   disabled={joining === m.id}
-                  className="rounded-xl bg-green-600 px-4 py-2 text-xs font-bold text-white hover:bg-green-700 disabled:opacity-50"
+                  className="lj-btn-primary flex items-center gap-1.5 text-xs"
+                  style={{ padding: "8px 16px" }}
                 >
+                  {joining === m.id && <Loader2 size={12} className="animate-spin" />}
                   {joining === m.id ? "Joining…" : "Join"}
                 </button>
               </div>
@@ -204,3 +223,4 @@ export default function GameLobbyPage({ params }: { params: Promise<{ id: string
     </div>
   );
 }
+
