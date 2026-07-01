@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import type { Wallet, WalletTransactionType } from "@/types/wallet";
 import type { LedgerEntry } from "@/types/ledger";
 
@@ -28,7 +29,11 @@ export class WalletService {
   }
 
   static async createWallet(userId: string): Promise<Wallet> {
-    const supabase = await createClient();
+    // Regular users have no INSERT policy on wallets (by design - the
+    // 003_handle_new_user.sql trigger creates it on signup instead).
+    // This is only a fallback for accounts predating that trigger, so
+    // it needs the service-role client to actually succeed.
+    const supabase = createAdminClient();
 
     const { data, error } = await supabase
       .from("wallets")
@@ -80,22 +85,22 @@ export class WalletService {
    * row - all inside a single DB transaction so concurrent requests
    * can't race each other into an incorrect balance.
    *
-   * Not yet called from any route. Phase 3E / Phase 4 will call this
-   * once a deposit is confirmed by Fapshi, or once a match settles.
+   * apply_wallet_transaction takes an explicit p_user_id instead of
+   * deriving identity from auth.uid(), so (per migration 012) it's
+   * only executable by service_role - calling it with the anon-key,
+   * cookie-scoped client would fail with "permission denied" now, and
+   * would have been a privilege-escalation hole before that migration
+   * (any authenticated user could've called it directly with someone
+   * else's user id). Every caller here is trusted server-side code
+   * (webhook handlers, payment completion, admin actions) that has
+   * already done its own authorization check before calling this.
    */
   static async applyTransaction(
     input: ApplyTransactionInput,
   ): Promise<LedgerEntry> {
-    // Uses the service-role client deliberately. apply_wallet_transaction
-    // is locked down (migration 017) so it can no longer be called
-    // directly by a regular user session - only by service_role
-    // (this method, used by the deposit webhook) or internally by the
-    // other security-definer RPCs (create_match, settle_match, etc.)
-    // which call it via `perform` rather than over PostgREST.
-    const { createAdminClient } = await import("@/lib/supabase/admin");
-    const admin = createAdminClient();
+    const supabase = createAdminClient();
 
-    const { data, error } = await admin.rpc("apply_wallet_transaction", {
+    const { data, error } = await supabase.rpc("apply_wallet_transaction", {
       p_user_id: input.userId,
       p_type: input.type,
       p_amount: input.amount,

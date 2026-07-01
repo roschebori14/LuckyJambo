@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { FapshiService } from "@/lib/fapshi/fapshi-service";
+import { depositSchema } from "@/lib/deposits/deposit-validator";
 import { createClient } from "@/lib/supabase/server";
 
 export async function POST(request: Request) {
@@ -15,12 +16,12 @@ export async function POST(request: Request) {
     }
 
     const body = await request.json();
-
-    const amount = Number(body.amount);
+    const validated = depositSchema.parse(body);
 
     const result = await FapshiService.createPaymentLink(
       user.id,
-      amount,
+      validated.amount,
+      validated.phone,
     );
 
     return NextResponse.json({

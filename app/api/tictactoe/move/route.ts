@@ -54,8 +54,8 @@ export async function POST(request: Request) {
     const updatePayload: Record<string, unknown> = { game_state: fullState };
 
     if (newState.game_over) {
+      updatePayload.status = "completed";
       if (newState.winner) {
-        updatePayload.status = "completed";
         const winnerId = newState.winner === "X" ? state.x_player_id : state.o_player_id;
         updatePayload.winner_id = winnerId;
         await supabase.rpc("settle_match", {
@@ -63,9 +63,17 @@ export async function POST(request: Request) {
           p_winner_id: winnerId,
         });
       } else {
-        // Draw – refund_draw sets status to 'cancelled' itself; don't
-        // include `status` here or we'd overwrite it back.
-        await supabase.rpc("refund_draw", { p_match_id: validated.match_id });
+        // Draw – refund both
+        await supabase.rpc("apply_wallet_transaction", {
+          p_user_id: state.x_player_id, p_type: "refund",
+          p_amount: match.stake_amount, p_reference: match.id,
+          p_description: "Tic Tac Toe draw - stake refunded",
+        });
+        await supabase.rpc("apply_wallet_transaction", {
+          p_user_id: state.o_player_id, p_type: "refund",
+          p_amount: match.stake_amount, p_reference: match.id,
+          p_description: "Tic Tac Toe draw - stake refunded",
+        });
       }
     }
 

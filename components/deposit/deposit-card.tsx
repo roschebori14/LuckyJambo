@@ -4,6 +4,14 @@ interface DepositCardProps {
   createdAt: string;
 }
 
+const STATUS_CLASSES: Record<string, string> = {
+  completed: "bg-green-100 text-green-700",
+  pending: "bg-yellow-100 text-yellow-700",
+  processing: "bg-blue-100 text-blue-700",
+  failed: "bg-red-100 text-red-600",
+  cancelled: "bg-gray-100 text-gray-600",
+};
+
 export default function DepositCard({
   amount,
   status,
@@ -14,7 +22,7 @@ export default function DepositCard({
       <div className="flex items-center justify-between">
         <h3 className="font-semibold">Deposit</h3>
 
-        <span className="rounded-full bg-gray-100 px-3 py-1 text-sm">
+        <span className={`rounded-full px-3 py-1 text-sm font-medium ${STATUS_CLASSES[status] ?? "bg-gray-100 text-gray-600"}`}>
           {status}
         </span>
       </div>

@@ -78,22 +78,22 @@ export default function RegisterForm() {
       <div className="relative">
         <User size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-[var(--lj-muted)]" />
         <input type="text" placeholder="Username (e.g. kwame_striker)" required value={username}
-          onChange={e => setUsername(e.target.value)} className="lj-input pl-10" />
+          onChange={e => setUsername(e.target.value)} className="lj-input !pl-11" />
       </div>
       <div className="relative">
         <Mail size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-[var(--lj-muted)]" />
         <input type="email" placeholder="Email address" required value={email}
-          onChange={e => setEmail(e.target.value)} className="lj-input pl-10" />
+          onChange={e => setEmail(e.target.value)} className="lj-input !pl-11" />
       </div>
       <div className="relative">
         <Lock size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-[var(--lj-muted)]" />
         <input type="password" placeholder="Password (min 8 chars)" required value={password}
-          onChange={e => setPassword(e.target.value)} className="lj-input pl-10" />
+          onChange={e => setPassword(e.target.value)} className="lj-input !pl-11" />
       </div>
       <div className="relative">
         <Lock size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-[var(--lj-muted)]" />
         <input type="password" placeholder="Confirm password" required value={confirm}
-          onChange={e => setConfirm(e.target.value)} className="lj-input pl-10" />
+          onChange={e => setConfirm(e.target.value)} className="lj-input !pl-11" />
       </div>
 
       <button type="submit" disabled={loading} className="lj-btn-primary flex w-full items-center justify-center gap-2">

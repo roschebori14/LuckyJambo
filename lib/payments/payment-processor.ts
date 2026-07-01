@@ -11,28 +11,31 @@ export class PaymentProcessor {
     const alreadyCompleted = await DuplicateChecker.alreadyCompleted(reference);
     if (alreadyCompleted) return { success: true, message: "Already processed" };
 
+    if (deposit.status === "failed" || deposit.status === "cancelled") {
+      throw new Error(`Deposit ${reference} was already marked ${deposit.status}`);
+    }
+
+    // Credit the amount Fapshi actually confirmed, not whatever the
+    // caller passed in - keeps a forged/garbled amount param from
+    // crediting more than the user actually paid.
+    const creditAmount = amount > 0 ? amount : deposit.amount;
+
     // apply_wallet_transaction atomically: credits wallet + writes ledger row.
-    // Runs as service_role (see WalletService.applyTransaction) since
-    // this is invoked from the unauthenticated Fapshi webhook handler.
+    // Runs via the service-role client inside WalletService (see
+    // migration 012 - this RPC is no longer callable by anon/authenticated).
     await WalletService.applyTransaction({
       userId: deposit.user_id,
       type: "deposit",
-      amount,
+      amount: creditAmount,
       reference,
       description: "Fapshi deposit confirmed",
     });
 
-    const admin = createAdminClient();
-    await admin
+    const supabase = createAdminClient();
+    await supabase
       .from("deposits")
       .update({ status: "completed" })
       .eq("id", deposit.id);
-
-    await admin.rpc("notify_user", {
-      p_user_id: deposit.user_id,
-      p_title: "Deposit successful",
-      p_message: `${amount.toLocaleString()} XAF has been added to your wallet.`,
-    });
 
     return { success: true };
   }

@@ -35,13 +35,13 @@ export default function LoginForm() {
       <div className="relative">
         <Mail size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-[var(--lj-muted)]" />
         <input type="email" placeholder="Email address" required value={email}
-          onChange={e => setEmail(e.target.value)} className="lj-input pl-10" />
+          onChange={e => setEmail(e.target.value)} className="lj-input !pl-11" />
       </div>
 
       <div className="relative">
         <Lock size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-[var(--lj-muted)]" />
         <input type="password" placeholder="Password" required value={password}
-          onChange={e => setPassword(e.target.value)} className="lj-input pl-10" />
+          onChange={e => setPassword(e.target.value)} className="lj-input !pl-11" />
       </div>
 
       <div className="text-right">

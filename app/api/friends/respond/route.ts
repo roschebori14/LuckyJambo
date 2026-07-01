@@ -1,22 +1,54 @@
 import { NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
-import { z } from "zod";
 
-const schema = z.object({ request_id: z.string().uuid(), accept: z.boolean() });
+import { createClient } from "@/lib/supabase/server";
 
 export async function POST(request: Request) {
   try {
-    const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return NextResponse.json({ success: false }, { status: 401 });
+    const body = await request.json();
 
-    const body = schema.parse(await request.json());
-    const { data, error } = await supabase.rpc("respond_friend_request", {
-      p_request_id: body.request_id, p_accept: body.accept,
+    const supabase = await createClient();
+
+    const { request_id, action } = body;
+
+    const { data: friendRequest } = await supabase
+      .from("friend_requests")
+      .select("*")
+      .eq("id", request_id)
+      .single();
+
+    if (!friendRequest) {
+      throw new Error("Request not found");
+    }
+
+    await supabase
+      .from("friend_requests")
+      .update({
+        status: action,
+      })
+      .eq("id", request_id);
+
+    if (action === "accepted") {
+      await supabase.from("friends").insert([
+        {
+          user_id: friendRequest.sender_id,
+          friend_id: friendRequest.receiver_id,
+        },
+        {
+          user_id: friendRequest.receiver_id,
+          friend_id: friendRequest.sender_id,
+        },
+      ]);
+    }
+
+    return NextResponse.json({
+      success: true,
     });
-    if (error) throw error;
-    return NextResponse.json({ success: true, request: data });
   } catch (error) {
-    return NextResponse.json({ success: false, message: (error as Error).message }, { status: 400 });
+    return NextResponse.json(
+      {
+        success: false,
+      },
+      { status: 400 },
+    );
   }
 }

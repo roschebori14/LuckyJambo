@@ -1,26 +1,35 @@
-interface Deposit { id: string; amount: number; status: string; created_at: string }
+import DepositCard from "./deposit-card";
 
-const STATUS_COLOR: Record<string, string> = {
-  completed: "bg-green-500/20 text-green-400",
-  pending:   "bg-yellow-500/20 text-yellow-400",
-  failed:    "bg-red-500/20 text-red-400",
-  expired:   "bg-gray-500/20 text-gray-400",
-};
+interface Deposit {
+  id: string;
+  amount: number;
+  status: string;
+  created_at: string;
+}
 
-export default function DepositHistory({ deposits }: { deposits: Deposit[] }) {
+interface DepositHistoryProps {
+  deposits: Deposit[];
+}
+
+export default function DepositHistory({
+  deposits,
+}: DepositHistoryProps) {
   return (
-    <div className="lj-card overflow-hidden">
-      <div className="divide-y" style={{ borderColor: "var(--lj-border)" }}>
-        {deposits.map(d => (
-          <div key={d.id} className="flex items-center justify-between px-5 py-3 text-sm">
-            <div>
-              <p className="font-semibold text-white">{d.amount.toLocaleString()} XAF</p>
-              <p className="text-xs text-[var(--lj-muted)]">{new Date(d.created_at).toLocaleString()}</p>
-            </div>
-            <span className={`lj-badge ${STATUS_COLOR[d.status] ?? "bg-gray-500/20 text-gray-400"}`}>{d.status}</span>
-          </div>
-        ))}
-      </div>
+    <div className="space-y-4">
+      {deposits.length === 0 ? (
+        <div className="rounded-xl border bg-white p-6 text-center">
+          No deposits found
+        </div>
+      ) : (
+        deposits.map((deposit) => (
+          <DepositCard
+            key={deposit.id}
+            amount={deposit.amount}
+            status={deposit.status}
+            createdAt={deposit.created_at}
+          />
+        ))
+      )}
     </div>
   );
 }

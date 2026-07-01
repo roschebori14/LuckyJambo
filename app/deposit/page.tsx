@@ -1,14 +1,9 @@
-import DepositForm from "@/components/deposit/deposit-form";
-import DepositHistory from "@/components/deposit/deposit-history";
+import { redirect } from "next/navigation";
 
-export default function DepositPage() {
-  return (
-    <div className="mx-auto max-w-5xl space-y-6 p-6">
-      <h1 className="text-3xl font-bold">Deposit Funds</h1>
-
-      <DepositForm />
-
-      <DepositHistory deposits={[]} />
-    </div>
-  );
+// This route predates /wallet/deposit, which is the real, fully wired
+// deposit page (auth-guarded, real balance/history, functional Fapshi
+// flow). Keeping this as a redirect instead of deleting it so any
+// old bookmarks/links to /deposit still land somewhere that works.
+export default function LegacyDepositPage() {
+  redirect("/wallet/deposit");
 }

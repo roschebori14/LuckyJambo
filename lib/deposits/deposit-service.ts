@@ -1,8 +1,9 @@
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { generateDepositReference } from "./deposit-utils";
 
 export class DepositService {
-  static async createDeposit(userId: string, amount: number) {
+  static async createDeposit(userId: string, amount: number, phone: string) {
     const supabase = await createClient();
     const reference = generateDepositReference();
 
@@ -11,10 +12,34 @@ export class DepositService {
       .insert({
         user_id: userId,
         amount,
+        phone,
         status: "pending",
         payment_reference: reference,
         provider: "fapshi",
       })
+      .select()
+      .single();
+
+    if (error) throw error;
+    return data;
+  }
+
+  static async attachProviderDetails(
+    depositId: string,
+    providerTransactionId: string,
+    paymentUrl: string,
+  ) {
+    // Regular users only have an INSERT policy on deposits, not
+    // UPDATE - this follow-up write (recording Fapshi's transId once
+    // we have it) needs the service-role client.
+    const supabase = createAdminClient();
+    const { data, error } = await supabase
+      .from("deposits")
+      .update({
+        provider_transaction_id: providerTransactionId,
+        payment_url: paymentUrl,
+      })
+      .eq("id", depositId)
       .select()
       .single();
 
@@ -45,13 +70,5 @@ export class DepositService {
 
     if (error) throw error;
     return data ?? [];
-  }
-
-  static async markStatus(reference: string, status: "completed" | "failed" | "expired", providerTransactionId?: string) {
-    const supabase = await createClient();
-    const update: Record<string, unknown> = { status };
-    if (providerTransactionId) update.provider_transaction_id = providerTransactionId;
-    const { error } = await supabase.from("deposits").update(update).eq("payment_reference", reference);
-    if (error) throw error;
   }
 }
