@@ -2,6 +2,7 @@
 
 import { useState, useEffect, use } from "react";
 import Link from "next/link";
+import Image from "next/image";
 
 interface Match {
   id: string;
@@ -107,13 +108,22 @@ export default function GameLobbyPage({ params }: { params: Promise<{ id: string
       </Link>
 
       {/* Header */}
-      <div className="flex items-center gap-4 rounded-2xl bg-white p-5 shadow-sm border">
-        <span className="text-5xl">{GAME_EMOJI[slug] ?? "🎮"}</span>
-        <div>
-          <h1 className="text-xl font-extrabold text-gray-900">{game.name}</h1>
-          <p className="text-sm text-gray-500">
+      <div className="relative flex items-center justify-between rounded-2xl bg-white overflow-hidden shadow-sm border border-gray-200">
+        <div className="p-6 relative z-10">
+          <h1 className="text-3xl font-extrabold text-gray-900 drop-shadow-sm">{game.name}</h1>
+          <p className="mt-1 text-sm font-medium text-gray-700 bg-white/60 px-2 py-1 rounded inline-block backdrop-blur-sm">
             Stake {game.min_stake.toLocaleString()}–{game.max_stake.toLocaleString()} XAF
           </p>
+        </div>
+        <div className="absolute top-0 right-0 h-full w-1/2 md:w-1/3">
+          <div className="absolute inset-0 bg-gradient-to-r from-white via-white/80 to-transparent z-10" />
+          <Image 
+            src={`/images/${slug}.png`}
+            alt={game.name}
+            fill
+            className="object-cover object-right opacity-90"
+            priority
+          />
         </div>
       </div>
 

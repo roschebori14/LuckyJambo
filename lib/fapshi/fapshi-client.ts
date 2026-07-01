@@ -83,3 +83,50 @@ export async function initiateFapshiPayment(input: InitiatePayInput) {
     config,
   );
 }
+
+function getPayoutConfig(): FapshiConfig {
+  const apiUser = process.env.FAPSHI_PAYOUT_API_KEY;
+  const apiKey = process.env.FAPSHI_PAYOUT_API_SECRET;
+
+  if (!apiUser || !apiKey) {
+    throw new Error("Missing Fapshi payout credentials");
+  }
+
+  return {
+    baseUrl: process.env.FAPSHI_BASE_URL ?? DEFAULT_FAPSHI_BASE_URL,
+    apiUser,
+    apiKey,
+  };
+}
+
+export interface PayoutInput {
+  amount: number;
+  phone: string;
+  medium: "mobile money" | "orange money";
+  userId: string;
+  externalId: string;
+  message: string;
+}
+
+export interface PayoutResponse {
+  transId: string;
+  message: string;
+}
+
+export async function initiateFapshiPayout(input: PayoutInput) {
+  const config = getPayoutConfig();
+
+  return requestFapshi<PayoutResponse>(
+    "/payout",
+    {
+      amount: Math.round(input.amount),
+      phone: input.phone,
+      medium: input.medium,
+      userId: input.userId,
+      externalId: input.externalId,
+      message: input.message,
+    },
+    config,
+  );
+}
+
