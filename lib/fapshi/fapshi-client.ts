@@ -23,9 +23,8 @@ export interface InitiatePayResponse {
 }
 
 function getCollectionConfig(): FapshiConfig {
-  const apiUser = process.env.FAPSHI_COLLECTION_API_USER ?? process.env.FAPSHI_COLLECTION_API_KEY;
-  const apiKey =
-    process.env.FAPSHI_COLLECTION_API_SECRET ?? process.env.FAPSHI_COLLECTION_API_KEY_SECRET;
+  const apiUser = process.env.FAPSHI_COLLECTION_API_USER;
+  const apiKey = process.env.FAPSHI_COLLECTION_API_KEY;
 
   if (!apiUser || !apiKey) {
     throw new Error("Missing Fapshi collection credentials");
@@ -131,8 +130,8 @@ export async function initiateFapshiPayment(input: InitiatePayInput) {
 }
 
 function getPayoutConfig(): FapshiConfig {
-  const apiUser = process.env.FAPSHI_PAYOUT_API_KEY;
-  const apiKey = process.env.FAPSHI_PAYOUT_API_SECRET;
+  const apiUser = process.env.FAPSHI_PAYOUT_API_USER;
+  const apiKey = process.env.FAPSHI_PAYOUT_API_KEY;
 
   if (!apiUser || !apiKey) {
     throw new Error("Missing Fapshi payout credentials");
