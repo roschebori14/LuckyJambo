@@ -61,6 +61,9 @@ export default function RegisterForm() {
     if (m.includes("network") || m.includes("fetch")) {
       return "Network error - please check your connection and try again.";
     }
+    if (m.includes("database error saving new user")) {
+      return "That username may already be taken. Please try a different username.";
+    }
     return (
       message ||
       "Something went wrong while creating your account. Please try again."
