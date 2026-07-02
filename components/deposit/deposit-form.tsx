@@ -120,8 +120,8 @@ export default function DepositForm() {
 
   if (phase === "awaiting-payment" || phase === "completed" || phase === "failed") {
     return (
-      <div className="rounded-2xl border bg-white p-5 shadow-sm space-y-4">
-        <h2 className="text-lg font-bold text-gray-900">Deposit {Number(amount).toLocaleString()} XAF</h2>
+      <div className="lj-card space-y-4 p-5">
+        <h2 className="text-lg font-bold text-white">Deposit {Number(amount).toLocaleString()} XAF</h2>
 
         {phase === "awaiting-payment" && (
           <>
@@ -139,7 +139,7 @@ export default function DepositForm() {
             <PaymentStatus status="failed" />
             <button
               onClick={reset}
-              className="w-full rounded-xl bg-blue-600 py-3 text-sm font-bold text-white hover:bg-blue-700"
+              className="lj-btn-primary w-full"
             >
               Try Again
             </button>
@@ -149,7 +149,8 @@ export default function DepositForm() {
         {phase === "completed" && (
           <button
             onClick={reset}
-            className="w-full rounded-xl bg-gray-100 py-3 text-sm font-bold text-gray-700 hover:bg-gray-200"
+            className="w-full rounded-xl py-3 text-sm font-bold text-[var(--lj-text)] transition-colors hover:bg-white/5"
+            style={{ border: "1px solid var(--lj-border)" }}
           >
             Make Another Deposit
           </button>
@@ -161,13 +162,20 @@ export default function DepositForm() {
   const quick = QUICK_AMOUNTS.filter((v) => v <= MAXIMUM_DEPOSIT);
 
   return (
-    <form onSubmit={handleSubmit} className="rounded-2xl border bg-white p-5 shadow-sm space-y-5">
-      <h2 className="text-lg font-bold text-gray-900">Deposit Funds</h2>
+    <form onSubmit={handleSubmit} className="lj-card space-y-5 p-5">
+      <h2 className="text-lg font-bold text-white">Deposit Funds</h2>
 
-      {error && <div className="rounded-xl bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>}
+      {error && (
+        <div
+          className="rounded-xl px-4 py-3 text-sm"
+          style={{ background: "rgba(255, 61, 90, 0.1)", color: "var(--lj-danger)" }}
+        >
+          {error}
+        </div>
+      )}
 
       <div>
-        <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-gray-500">
+        <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-[var(--lj-muted)]">
           Amount (XAF)
         </label>
         <input
@@ -177,7 +185,7 @@ export default function DepositForm() {
           placeholder={`${MINIMUM_DEPOSIT.toLocaleString()} – ${MAXIMUM_DEPOSIT.toLocaleString()}`}
           value={amount}
           onChange={(e) => setAmount(e.target.value)}
-          className="w-full rounded-xl border border-gray-200 px-4 py-2.5 text-sm focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100"
+          className="lj-input"
         />
         <div className="mt-2 flex flex-wrap gap-2">
           {quick.map((v) => (
@@ -185,7 +193,10 @@ export default function DepositForm() {
               key={v}
               type="button"
               onClick={() => setAmount(String(v))}
-              className="rounded-lg bg-gray-100 px-3 py-1 text-xs font-medium text-gray-700 hover:bg-blue-50 hover:text-blue-700"
+              className="rounded-lg px-3 py-1 text-xs font-medium text-[var(--lj-text)] transition-colors hover:text-white"
+              style={{
+                background: amount === String(v) ? "var(--lj-blue)" : "rgba(255,255,255,0.05)",
+              }}
             >
               {v.toLocaleString()}
             </button>
@@ -193,12 +204,15 @@ export default function DepositForm() {
         </div>
       </div>
 
-      <div className="rounded-xl bg-blue-50 px-4 py-3 text-xs text-blue-700">
+      <div
+        className="rounded-xl px-4 py-3 text-xs"
+        style={{ background: "rgba(26, 86, 255, 0.1)", color: "var(--lj-blue-2)" }}
+      >
         📱 You&apos;ll be redirected to Fapshi to pay with MTN MoMo or Orange Money.
       </div>
 
       <div>
-        <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-gray-500">
+        <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-[var(--lj-muted)]">
           MTN / Orange Phone Number
         </label>
         <input
@@ -206,14 +220,14 @@ export default function DepositForm() {
           placeholder="6XXXXXXXX"
           value={phone}
           onChange={(e) => setPhone(e.target.value.replace(/\D/g, ""))}
-          className="w-full rounded-xl border border-gray-200 px-4 py-2.5 text-sm focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100"
+          className="lj-input"
         />
       </div>
 
       <button
         type="submit"
         disabled={loading || !amount || !phone}
-        className="w-full rounded-xl bg-blue-600 py-3 text-sm font-bold text-white transition-colors hover:bg-blue-700 disabled:opacity-50"
+        className="lj-btn-primary w-full"
       >
         {loading ? "Starting payment…" : `Continue to Payment${amount ? ` — ${Number(amount).toLocaleString()} XAF` : ""}`}
       </button>

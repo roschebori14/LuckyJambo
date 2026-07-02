@@ -17,7 +17,7 @@ export default function DepositHistory({
   return (
     <div className="space-y-4">
       {deposits.length === 0 ? (
-        <div className="rounded-xl border bg-white p-6 text-center">
+        <div className="lj-card p-6 text-center text-sm text-[var(--lj-muted)]">
           No deposits found
         </div>
       ) : (

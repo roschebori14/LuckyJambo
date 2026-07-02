@@ -1,3 +1,5 @@
+import { Loader2, CheckCircle2, XCircle } from "lucide-react";
+
 interface PaymentStatusProps {
   status: "pending" | "completed" | "failed";
 }
@@ -6,25 +8,32 @@ export default function PaymentStatus({ status }: PaymentStatusProps) {
   const config = {
     pending: {
       text: "Waiting for payment…",
-      classes: "bg-amber-50 text-amber-700 border-amber-200",
-      icon: (
-        <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-amber-500 border-t-transparent" />
-      ),
+      color: "#f59e0b",
+      bg: "rgba(245, 158, 11, 0.1)",
+      border: "rgba(245, 158, 11, 0.3)",
+      icon: <Loader2 size={16} className="animate-spin" />,
     },
     completed: {
       text: "Payment completed — funds added to your wallet",
-      classes: "bg-green-50 text-green-700 border-green-200",
-      icon: <span>✅</span>,
+      color: "var(--lj-success)",
+      bg: "rgba(0, 214, 143, 0.1)",
+      border: "rgba(0, 214, 143, 0.3)",
+      icon: <CheckCircle2 size={16} />,
     },
     failed: {
       text: "Payment failed or was cancelled",
-      classes: "bg-red-50 text-red-700 border-red-200",
-      icon: <span>❌</span>,
+      color: "var(--lj-danger)",
+      bg: "rgba(255, 61, 90, 0.1)",
+      border: "rgba(255, 61, 90, 0.3)",
+      icon: <XCircle size={16} />,
     },
   }[status];
 
   return (
-    <div className={`flex items-center gap-2 rounded-xl border px-4 py-3 text-sm font-medium ${config.classes}`}>
+    <div
+      className="flex items-center gap-2 rounded-xl border px-4 py-3 text-sm font-medium"
+      style={{ color: config.color, background: config.bg, borderColor: config.border }}
+    >
       {config.icon}
       <p>{config.text}</p>
     </div>
