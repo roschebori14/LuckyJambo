@@ -5,9 +5,14 @@ import DepositForm from "@/components/deposit/deposit-form";
 import DepositHistory from "@/components/deposit/deposit-history";
 import { DepositService } from "@/lib/deposits/deposit-service";
 
-export default async function DepositPage() {
+export default async function DepositPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ ref?: string }>;
+}) {
   const user = await requireAuth();
   const deposits = await DepositService.getHistory(user.id, 20);
+  const { ref } = await searchParams;
 
   return (
     <div className="mx-auto max-w-lg space-y-5">
@@ -23,7 +28,7 @@ export default async function DepositPage() {
         </h1>
       </div>
 
-      <DepositForm />
+      <DepositForm pendingReference={ref} />
 
       {deposits.length > 0 && (
         <div>

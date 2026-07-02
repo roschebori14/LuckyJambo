@@ -10,15 +10,23 @@ const QUICK_AMOUNTS = [500, 1000, 2000, 5000, 10000];
 const POLL_INTERVAL_MS = 4000;
 const POLL_TIMEOUT_MS = 5 * 60 * 1000; // give up polling after 5 minutes
 
-type Phase = "form" | "awaiting-payment" | "completed" | "failed";
+type Phase = "form" | "reconciling" | "awaiting-payment" | "completed" | "failed";
 
-export default function DepositForm() {
+interface DepositFormProps {
+  // Fapshi's redirectUrl sends the user back here as ?ref=<payment_reference>
+  // after they leave the hosted payment page. The in-memory polling state
+  // from the original submit is gone at that point (full navigation), so
+  // this is what lets us pick reconciliation back up.
+  pendingReference?: string;
+}
+
+export default function DepositForm({ pendingReference }: DepositFormProps) {
   const router = useRouter();
   const [amount, setAmount] = useState("");
   const [phone, setPhone] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const [phase, setPhase] = useState<Phase>("form");
+  const [phase, setPhase] = useState<Phase>(pendingReference ? "reconciling" : "form");
   const [paymentLink, setPaymentLink] = useState("");
   const [transId, setTransId] = useState("");
   const [confirmedAmount, setConfirmedAmount] = useState(0);
@@ -33,15 +41,13 @@ export default function DepositForm() {
     };
   }, []);
 
-  function startPolling(id: string) {
+  // Generic poller: `check` runs once per tick and returns the latest
+  // status, used for both the transId-based flow (fresh submit, still on
+  // this page) and the reference-based flow (returned via redirect).
+  function startPolling(check: () => Promise<{ success: boolean; status?: string; amount?: number }>) {
     pollRef.current = setInterval(async () => {
       try {
-        const res = await fetch("/api/fapshi/verify", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ transId: id }),
-        });
-        const json = await res.json();
+        const json = await check();
         if (!json.success) return;
 
         if (json.status === "SUCCESSFUL") {
@@ -64,6 +70,70 @@ export default function DepositForm() {
       if (pollRef.current) clearInterval(pollRef.current);
     }, POLL_TIMEOUT_MS);
   }
+
+  async function verifyByTransId(id: string) {
+    const res = await fetch("/api/fapshi/verify", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ transId: id }),
+    });
+    return res.json();
+  }
+
+  async function verifyByReference(reference: string) {
+    const res = await fetch("/api/deposits/verify", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ reference }),
+    });
+    return res.json();
+  }
+
+  // On landing back from Fapshi's hosted page, immediately reconcile the
+  // deposit by its reference, then keep polling in case Fapshi hasn't
+  // confirmed the transaction yet on their end.
+  useEffect(() => {
+    if (!pendingReference) return;
+
+    let cancelled = false;
+
+    (async () => {
+      try {
+        const json = await verifyByReference(pendingReference);
+        if (cancelled) return;
+
+        if (!json.success) {
+          setPhase("form");
+          return;
+        }
+
+        if (json.status === "SUCCESSFUL") {
+          setPhase("completed");
+          setConfirmedAmount(json.amount ?? 0);
+          router.replace("/wallet/deposit");
+          router.refresh();
+          return;
+        }
+
+        if (json.status === "FAILED" || json.status === "EXPIRED") {
+          setPhase("failed");
+          return;
+        }
+
+        // Still PENDING on Fapshi's side - keep checking.
+        setPhase("awaiting-payment");
+        setAmount(String(json.amount ?? ""));
+        startPolling(() => verifyByReference(pendingReference));
+      } catch {
+        if (!cancelled) setPhase("form");
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pendingReference]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -100,7 +170,7 @@ export default function DepositForm() {
       setPaymentLink(json.paymentLink);
       setTransId(json.transId);
       setPhase("awaiting-payment");
-      startPolling(json.transId);
+      startPolling(() => verifyByTransId(json.transId));
     } catch {
       setError("Network error — please check your connection and try again.");
     } finally {
@@ -118,6 +188,15 @@ export default function DepositForm() {
     setTransId("");
   }
 
+  if (phase === "reconciling") {
+    return (
+      <div className="lj-card space-y-4 p-5">
+        <h2 className="text-lg font-bold text-white">Checking your payment…</h2>
+        <PaymentStatus status="pending" />
+      </div>
+    );
+  }
+
   if (phase === "awaiting-payment" || phase === "completed" || phase === "failed") {
     return (
       <div className="lj-card space-y-4 p-5">
@@ -125,7 +204,7 @@ export default function DepositForm() {
 
         {phase === "awaiting-payment" && (
           <>
-            <PaymentLinkCard paymentLink={paymentLink} amount={Number(amount)} />
+            {paymentLink && <PaymentLinkCard paymentLink={paymentLink} amount={Number(amount)} />}
             <PaymentStatus status="pending" />
           </>
         )}
