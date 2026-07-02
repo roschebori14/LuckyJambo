@@ -30,9 +30,6 @@ export default function HomePage() {
       })();
     `}
   </Script>
-
-  {/* Rest of your page */}
-</main>
       
       {/* Navigation */}
       <nav className="mx-auto flex max-w-7xl items-center justify-between p-6">
