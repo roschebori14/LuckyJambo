@@ -19,9 +19,9 @@ export default async function ProtectedLayout({ children }: { children: ReactNod
   return (
     <div className="min-h-screen" style={{ background: "var(--lj-navy)" }}>
       <Navbar />
-      <div className="flex">
+      <div className="flex flex-col md:flex-row">
         <Sidebar isAdmin={isAdmin} />
-        <main className="flex-1 p-4 pb-24 md:p-6 md:pb-6">{children}</main>
+        <main className="flex-1 p-4 md:p-6">{children}</main>
       </div>
       <SupportChatWidget />
     </div>

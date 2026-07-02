@@ -22,7 +22,7 @@ export default function Sidebar({ isAdmin }: { isAdmin?: boolean }) {
   return (
     <>
       {/* ── Mobile top bar ── */}
-      <div className="flex items-center justify-between border-b px-4 py-3 md:hidden"
+      <div className="sticky top-0 z-40 flex items-center justify-between border-b px-4 py-3 md:hidden"
         style={{ background: "var(--lj-navy-2)", borderColor: "var(--lj-border)" }}>
         <Link href="/dashboard" className="flex items-center gap-2">
           <Image src="/logo.png" alt="LJ" width={28} height={28} />
@@ -90,23 +90,6 @@ export default function Sidebar({ isAdmin }: { isAdmin?: boolean }) {
           )}
         </nav>
       </aside>
-
-      {/* ── Mobile bottom tab bar ── */}
-      <nav className="fixed bottom-0 left-0 right-0 z-50 md:hidden"
-        style={{ background: "var(--lj-navy-2)", borderTop: "1px solid var(--lj-border)" }}>
-        <div className="grid grid-cols-6">
-          {NAV.map(({ href, icon: Icon, label }) => {
-            const active = pathname.startsWith(href);
-            return (
-              <Link key={href} href={href}
-                className={`flex flex-col items-center gap-0.5 py-2.5 text-[10px] font-medium transition-colors ${active ? "text-[var(--lj-cyan)]" : "text-[var(--lj-muted)]"}`}>
-                <Icon size={20} />
-                <span>{label}</span>
-              </Link>
-            );
-          })}
-        </div>
-      </nav>
     </>
   );
 }
