@@ -15,8 +15,7 @@ const FEATURED_GAMES = [
 export default function HomePage() {
   return (
     <main className="min-h-screen bg-gray-50 text-gray-900 selection:bg-blue-200">
-
-      <main className="min-h-screen bg-gray-50 text-gray-900 selection:bg-blue-200">
+      
   <Script id="tawk-to" strategy="afterInteractive">
     {`
       var Tawk_API=Tawk_API||{}, Tawk_LoadStart=new Date();
@@ -32,9 +31,8 @@ export default function HomePage() {
     `}
   </Script>
 
-  {/* Navigation */}
-  <nav className="mx-auto flex max-w-7xl items-center justify-between p-6">
-    ...
+  {/* Rest of your page */}
+</main>
       
       {/* Navigation */}
       <nav className="mx-auto flex max-w-7xl items-center justify-between p-6">
