@@ -2,51 +2,39 @@ import { NextResponse } from "next/server";
 
 import { createClient } from "@/lib/supabase/server";
 
+import { FriendService } from "@/lib/friends/friend-service";
+import { respondFriendRequestSchema } from "@/lib/friends/friend-validator";
+
 export async function POST(request: Request) {
   try {
     const body = await request.json();
+    const validated = respondFriendRequestSchema.parse(body);
 
     const supabase = await createClient();
 
-    const { request_id, action } = body;
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
 
-    const { data: friendRequest } = await supabase
-      .from("friend_requests")
-      .select("*")
-      .eq("id", request_id)
-      .single();
-
-    if (!friendRequest) {
-      throw new Error("Request not found");
+    if (!user) {
+      return NextResponse.json(
+        { success: false, message: "Unauthorized" },
+        { status: 401 },
+      );
     }
 
-    await supabase
-      .from("friend_requests")
-      .update({
-        status: action,
-      })
-      .eq("id", request_id);
+    const result = await FriendService.respondToRequest(
+      user.id,
+      validated.request_id,
+      validated.action,
+    );
 
-    if (action === "accepted") {
-      await supabase.from("friends").insert([
-        {
-          user_id: friendRequest.sender_id,
-          friend_id: friendRequest.receiver_id,
-        },
-        {
-          user_id: friendRequest.receiver_id,
-          friend_id: friendRequest.sender_id,
-        },
-      ]);
-    }
-
-    return NextResponse.json({
-      success: true,
-    });
+    return NextResponse.json({ success: true, ...result });
   } catch (error) {
     return NextResponse.json(
       {
         success: false,
+        message: error instanceof Error ? error.message : "Request failed",
       },
       { status: 400 },
     );

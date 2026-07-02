@@ -9,3 +9,11 @@ export const respondFriendRequestSchema = z.object({
 
   action: z.enum(["accepted", "rejected"]),
 });
+
+export const searchUsernameSchema = z.object({
+  q: z.string().trim().min(1).max(50),
+});
+
+export const acceptInviteSchema = z.object({
+  code: z.string().trim().min(1).max(50),
+});

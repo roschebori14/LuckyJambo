@@ -13,8 +13,8 @@ interface FriendListProps {
 export default function FriendList({ friends }: FriendListProps) {
   if (!friends.length) {
     return (
-      <div className="rounded-xl border bg-white p-6 text-center">
-        No friends found
+      <div className="lj-card p-6 text-center text-sm text-[var(--lj-muted)]">
+        No friends yet — search a username above or share your invite link.
       </div>
     );
   }

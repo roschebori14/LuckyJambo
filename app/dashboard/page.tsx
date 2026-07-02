@@ -4,15 +4,17 @@ import { WalletService } from "@/lib/wallet/wallet-service";
 import { LedgerService } from "@/lib/wallet/ledger-service";
 import Link from "next/link";
 import Image from "next/image";
-import { Gamepad2, Swords, TrendingUp, Wallet, ArrowRight, Trophy, Clock } from "lucide-react";
+import { Gamepad2, Swords, TrendingUp, Wallet, ArrowRight, Trophy, Clock, Users } from "lucide-react";
+import AvatarUpload from "@/components/profile/avatar-upload";
 
 export default async function DashboardPage() {
   const user = await requireAuth();
   const supabase = await createClient();
 
-  const [wallet, ledger] = await Promise.all([
+  const [wallet, ledger, { data: profile }] = await Promise.all([
     WalletService.getOrCreateWallet(user.id),
     LedgerService.getHistory(user.id, 5),
+    supabase.from("profiles").select("avatar_url").eq("id", user.id).single(),
   ]);
 
   const { data: recentMatches } = await supabase
@@ -39,9 +41,14 @@ export default async function DashboardPage() {
         <div className="absolute right-0 top-0 opacity-10">
           <Image src="/logo-banner.png" alt="" width={300} height={120} className="object-cover" />
         </div>
-        <p className="text-sm text-blue-200">Welcome back,</p>
-        <h1 className="mt-1 text-2xl font-black text-white">{username} 👋</h1>
-        <p className="mt-1 text-sm text-blue-200">Ready to compete? Your arena awaits.</p>
+        <div className="flex items-center gap-4">
+          <AvatarUpload userId={user.id} initialAvatarUrl={profile?.avatar_url ?? null} username={username} />
+          <div>
+            <p className="text-sm text-blue-200">Welcome back,</p>
+            <h1 className="mt-1 text-2xl font-black text-white">{username} 👋</h1>
+          </div>
+        </div>
+        <p className="mt-3 text-sm text-blue-200">Ready to compete? Your arena awaits.</p>
         <Link href="/games"
           className="mt-4 inline-flex items-center gap-2 rounded-xl bg-white px-5 py-2.5 text-sm font-bold text-[var(--lj-blue)] hover:bg-blue-50 transition-colors">
           <Gamepad2 size={16} /> Play Now <ArrowRight size={14} />
@@ -76,9 +83,10 @@ export default async function DashboardPage() {
               { href: "/matches", label: "My Matches", icon: Swords, bg: "#6d28d9" },
               { href: "/wallet/deposit", label: "Deposit", icon: Wallet, bg: "var(--lj-success)" },
               { href: "/wallet/withdraw", label: "Withdraw", icon: ArrowRight, bg: "var(--lj-danger)" },
-            ].map(({ href, label, icon: Icon, bg }) => (
+              { href: "/friends", label: "Friends", icon: Users, bg: "var(--lj-blue-2)", full: true },
+            ].map(({ href, label, icon: Icon, bg, full }) => (
               <Link key={href} href={href}
-                className="flex items-center gap-2 rounded-xl px-3 py-3 text-sm font-semibold text-white transition-all hover:brightness-110 active:scale-95"
+                className={`flex items-center gap-2 rounded-xl px-3 py-3 text-sm font-semibold text-white transition-all hover:brightness-110 active:scale-95 ${full ? "col-span-2" : ""}`}
                 style={{ background: bg }}>
                 <Icon size={16} /> {label}
               </Link>

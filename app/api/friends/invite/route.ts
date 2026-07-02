@@ -14,29 +14,21 @@ export async function GET() {
 
     if (!user) {
       return NextResponse.json(
-        {
-          success: false,
-        },
+        { success: false, message: "Unauthorized" },
         { status: 401 },
       );
     }
 
-    const [friends, requests] = await Promise.all([
-      FriendService.getFriends(user.id),
-      FriendService.getRequests(user.id),
-    ]);
+    const invite = await FriendService.getInviteLink(user.id);
 
-    return NextResponse.json({
-      success: true,
-      friends,
-      requests,
-    });
-  } catch {
+    return NextResponse.json({ success: true, ...invite });
+  } catch (error) {
     return NextResponse.json(
       {
         success: false,
+        message: error instanceof Error ? error.message : "Could not load invite link",
       },
-      { status: 500 },
+      { status: 400 },
     );
   }
 }

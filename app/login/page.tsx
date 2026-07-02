@@ -1,5 +1,6 @@
 import Image from "next/image";
 import Link from "next/link";
+import { Suspense } from "react";
 import LoginForm from "@/components/auth/login-form";
 
 export default function LoginPage() {
@@ -23,7 +24,9 @@ export default function LoginPage() {
         <div className="lj-card p-8">
           <h2 className="mb-1 text-xl font-bold text-white">Welcome back</h2>
           <p className="mb-6 text-sm text-[var(--lj-muted)]">Sign in to your account to continue</p>
-          <LoginForm />
+          <Suspense fallback={null}>
+            <LoginForm />
+          </Suspense>
         </div>
 
         <p className="mt-6 text-center text-xs text-[var(--lj-muted)]">

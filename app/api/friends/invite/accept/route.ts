@@ -3,14 +3,12 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 
 import { FriendService } from "@/lib/friends/friend-service";
-import { searchUsernameSchema } from "@/lib/friends/friend-validator";
+import { acceptInviteSchema } from "@/lib/friends/friend-validator";
 
-export async function GET(request: Request) {
+export async function POST(request: Request) {
   try {
-    const { searchParams } = new URL(request.url);
-    const validated = searchUsernameSchema.parse({
-      q: searchParams.get("q") ?? "",
-    });
+    const body = await request.json();
+    const validated = acceptInviteSchema.parse(body);
 
     const supabase = await createClient();
 
@@ -25,14 +23,14 @@ export async function GET(request: Request) {
       );
     }
 
-    const results = await FriendService.searchByUsername(validated.q, user.id);
+    const friend = await FriendService.acceptInvite(user.id, validated.code);
 
-    return NextResponse.json({ success: true, results });
+    return NextResponse.json({ success: true, friend });
   } catch (error) {
     return NextResponse.json(
       {
         success: false,
-        message: error instanceof Error ? error.message : "Search failed",
+        message: error instanceof Error ? error.message : "Could not accept invite",
       },
       { status: 400 },
     );

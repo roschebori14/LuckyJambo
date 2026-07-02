@@ -1,13 +1,14 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { Mail, Lock, LogIn, AlertCircle } from "lucide-react";
 
 export default function LoginForm() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const supabase = createClient();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -20,7 +21,13 @@ export default function LoginForm() {
     const { error } = await supabase.auth.signInWithPassword({ email, password });
     setLoading(false);
     if (error) { setError(error.message); return; }
-    router.push("/dashboard");
+    // Only follow same-origin, in-app paths - never an absolute/external
+    // URL a query param could otherwise smuggle in.
+    const redirect = searchParams.get("redirect");
+    const destination = redirect && redirect.startsWith("/") && !redirect.startsWith("//")
+      ? redirect
+      : "/dashboard";
+    router.push(destination);
     router.refresh();
   }
 
