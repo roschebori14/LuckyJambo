@@ -38,8 +38,8 @@ export default async function DashboardPage() {
       {/* Hero greeting */}
       <div className="relative overflow-hidden rounded-2xl p-6"
         style={{ background: "linear-gradient(135deg, var(--lj-blue) 0%, #0a1f6e 100%)", border: "1px solid var(--lj-border)" }}>
-        <div className="absolute right-0 top-0 opacity-10">
-          <Image src="/logo-banner.png" alt="" width={300} height={120} className="object-cover" />
+        <div className="pointer-events-none absolute inset-0 opacity-10">
+          <Image src="/logo-banner.png" alt="" fill className="object-cover" sizes="100vw" />
         </div>
         <div className="flex items-center gap-4">
           <AvatarUpload userId={user.id} initialAvatarUrl={profile?.avatar_url ?? null} username={username} />
