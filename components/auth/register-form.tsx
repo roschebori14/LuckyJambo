@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
-import { User, Mail, Lock, UserPlus, AlertCircle, CheckCircle } from "lucide-react";
+import { User, Mail, Lock, UserPlus, AlertCircle, CheckCircle, Eye, EyeOff } from "lucide-react";
 
 export default function RegisterForm() {
   const router = useRouter();
@@ -16,6 +16,8 @@ export default function RegisterForm() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [done, setDone] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirm, setShowConfirm] = useState(false);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -87,13 +89,23 @@ export default function RegisterForm() {
       </div>
       <div className="relative">
         <Lock size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-[var(--lj-muted)]" />
-        <input type="password" placeholder="Password (min 8 chars)" required value={password}
-          onChange={e => setPassword(e.target.value)} className="lj-input !pl-11" />
+        <input type={showPassword ? "text" : "password"} placeholder="Password (min 8 chars)" required value={password}
+          onChange={e => setPassword(e.target.value)} className="lj-input !pl-11 !pr-11" />
+        <button type="button" onClick={() => setShowPassword(v => !v)}
+          aria-label={showPassword ? "Hide password" : "Show password"}
+          className="absolute right-4 top-1/2 -translate-y-1/2 text-[var(--lj-muted)] hover:text-white">
+          {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+        </button>
       </div>
       <div className="relative">
         <Lock size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-[var(--lj-muted)]" />
-        <input type="password" placeholder="Confirm password" required value={confirm}
-          onChange={e => setConfirm(e.target.value)} className="lj-input !pl-11" />
+        <input type={showConfirm ? "text" : "password"} placeholder="Confirm password" required value={confirm}
+          onChange={e => setConfirm(e.target.value)} className="lj-input !pl-11 !pr-11" />
+        <button type="button" onClick={() => setShowConfirm(v => !v)}
+          aria-label={showConfirm ? "Hide password" : "Show password"}
+          className="absolute right-4 top-1/2 -translate-y-1/2 text-[var(--lj-muted)] hover:text-white">
+          {showConfirm ? <EyeOff size={16} /> : <Eye size={16} />}
+        </button>
       </div>
 
       <button type="submit" disabled={loading} className="lj-btn-primary flex w-full items-center justify-center gap-2">
