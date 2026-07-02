@@ -88,6 +88,26 @@ export default function RegisterForm() {
 
     setLoading(true);
 
+    // Username availability check - queries profiles directly so the user
+    // gets an accurate "username taken" message before we ever call
+    // signUp(). Without this, a collision surfaces later as a generic
+    // "Database error saving new user" from the handle_new_user trigger.
+    // Fails open (allows signup to proceed to the next check) if the RPC
+    // itself errors, since the trigger now also handles collisions safely.
+    try {
+      const { data: available, error: checkErr } = await supabase.rpc(
+        "is_username_available",
+        { p_username: username },
+      );
+      if (!checkErr && available === false) {
+        setError("That username is taken. Please choose another.");
+        setLoading(false);
+        return;
+      }
+    } catch {
+      /* fail open - proceed with signup */
+    }
+
     // AI content check - catches impersonation/profanity beyond what
     // the regex above can detect. Fails open (allows signup) if the
     // moderation call itself errors, so an AI outage never blocks signups.

@@ -142,9 +142,9 @@ export default function HomePage() {
           </div>
           <p className="text-sm text-gray-500">© {new Date().getFullYear()} Lucky Jambo. All rights reserved.</p>
           <div className="flex gap-4 text-sm text-gray-500">
-            <Link href="#" className="hover:text-gray-900 transition-colors">Terms</Link>
-            <Link href="#" className="hover:text-gray-900 transition-colors">Privacy</Link>
-            <Link href="#" className="hover:text-gray-900 transition-colors">Contact</Link>
+            <Link href="/legal/terms" className="hover:text-gray-900 transition-colors">Terms</Link>
+            <Link href="/legal/privacy" className="hover:text-gray-900 transition-colors">Privacy</Link>
+            <Link href="/contact" className="hover:text-gray-900 transition-colors">Contact</Link>
           </div>
         </div>
       </footer>

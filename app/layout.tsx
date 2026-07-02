@@ -1,5 +1,6 @@
 import "./globals.css";
 import { ReactNode } from "react";
+import TawkWidget from "@/components/tawk-widget";
 
 export const metadata = {
   title: "Lucky Jambo",
@@ -13,7 +14,10 @@ interface RootLayoutProps {
 export default function RootLayout({ children }: RootLayoutProps) {
   return (
     <html lang="en">
-      <body className="bg-gray-50 text-gray-900">{children}</body>
+      <body className="bg-gray-50 text-gray-900">
+        {children}
+        <TawkWidget />
+      </body>
     </html>
   );
 }
