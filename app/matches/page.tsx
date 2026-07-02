@@ -32,14 +32,15 @@ export default async function MatchesPage() {
     FriendService.getFriends(user.id),
   ]);
 
-  // Resolve creator + friend usernames in one batch. matches.creator_id
-  // isn't embeddable via a single `profiles(username)` select because
+  // Resolve creator usernames in one batch. matches.creator_id isn't
+  // embeddable via a single `profiles(username)` select because
   // matches has two FKs into profiles (creator_id and winner_id), which
   // PostgREST can't disambiguate without knowing the exact constraint
   // name - simpler and more robust to just fetch profiles separately.
-  const friendIds = (friends ?? []).map((f) => f.friend_id);
+  // getFriends() already embeds each friend's profile, so no separate
+  // lookup is needed for those.
   const creatorIds = (matches ?? []).map((m) => m.creator_id).filter(Boolean);
-  const profileIds = Array.from(new Set([...friendIds, ...creatorIds]));
+  const profileIds = Array.from(new Set(creatorIds));
 
   const { data: profiles } = profileIds.length
     ? await supabase.from("profiles").select("id, username").in("id", profileIds)
@@ -57,10 +58,13 @@ export default async function MatchesPage() {
     isOwn: m.creator_id === user.id,
   }));
 
-  const friendOptions = (friends ?? []).map((f) => ({
-    id: f.friend_id,
-    username: usernameById.get(f.friend_id) ?? "Friend",
-  }));
+  const friendOptions = (friends ?? []).map((f) => {
+    const friend = f.friend as unknown as { id: string; username: string } | null;
+    return {
+      id: friend?.id ?? f.id,
+      username: friend?.username ?? "Friend",
+    };
+  });
 
   return (
     <div className="mx-auto max-w-7xl space-y-6 p-6">
