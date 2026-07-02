@@ -1,5 +1,6 @@
 import Link from "next/link";
 import Image from "next/image";
+import Script from "next/script";
 import { Wallet, Trophy, ShieldCheck, Zap } from "lucide-react";
 
 const FEATURED_GAMES = [
@@ -14,6 +15,26 @@ const FEATURED_GAMES = [
 export default function HomePage() {
   return (
     <main className="min-h-screen bg-gray-50 text-gray-900 selection:bg-blue-200">
+
+      <main className="min-h-screen bg-gray-50 text-gray-900 selection:bg-blue-200">
+  <Script id="tawk-to" strategy="afterInteractive">
+    {`
+      var Tawk_API=Tawk_API||{}, Tawk_LoadStart=new Date();
+      (function(){
+        var s1=document.createElement("script"),
+            s0=document.getElementsByTagName("script")[0];
+        s1.async=true;
+        s1.src='https://embed.tawk.to/6a469854c5bc5d1d4917960e/default';
+        s1.charset='UTF-8';
+        s1.setAttribute('crossorigin','*');
+        s0.parentNode.insertBefore(s1,s0);
+      })();
+    `}
+  </Script>
+
+  {/* Navigation */}
+  <nav className="mx-auto flex max-w-7xl items-center justify-between p-6">
+    ...
       
       {/* Navigation */}
       <nav className="mx-auto flex max-w-7xl items-center justify-between p-6">
