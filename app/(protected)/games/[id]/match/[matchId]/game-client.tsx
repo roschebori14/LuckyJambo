@@ -35,8 +35,9 @@ export default function GameClient({ matchId, gameSlug, userId, stakeAmount, ini
       const res = await fetch(`/api/matches/status?id=${matchId}`);
       if (res.ok) {
         const data = await res.json();
-        if (data.status && data.status !== status) {
-          setStatus(data.status);
+        const nextStatus = data.match?.status;
+        if (nextStatus && nextStatus !== status) {
+          setStatus(nextStatus);
         }
       }
     } catch (e) {
