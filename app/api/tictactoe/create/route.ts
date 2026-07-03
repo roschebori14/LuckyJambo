@@ -41,7 +41,9 @@ export async function POST(request: Request) {
 
     return NextResponse.json({ success: true, match });
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Failed to create match";
+    const message =
+      error instanceof Error ? error.message : "Failed to create match";
+    console.error("Tic-tac-toe match creation failed", { message, error });
     return NextResponse.json({ success: false, message }, { status: 400 });
   }
 }

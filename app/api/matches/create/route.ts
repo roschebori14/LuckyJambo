@@ -31,6 +31,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ success: true, match: data });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Match creation failed";
+    console.error("Match creation failed", { message, error });
     return NextResponse.json({ success: false, message }, { status: 400 });
   }
 }
