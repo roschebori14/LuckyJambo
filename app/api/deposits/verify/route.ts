@@ -19,14 +19,21 @@ export async function POST(request: Request) {
     } = await supabase.auth.getUser();
 
     if (!user) {
-      return NextResponse.json({ success: false, message: "Unauthorized" }, { status: 401 });
+      return NextResponse.json(
+        { success: false, message: "Unauthorized" },
+        { status: 401 },
+      );
     }
 
     const body = await request.json();
-    const reference = typeof body.reference === "string" ? body.reference : null;
+    const reference =
+      typeof body.reference === "string" ? body.reference : null;
 
     if (!reference) {
-      return NextResponse.json({ success: false, message: "reference is required" }, { status: 400 });
+      return NextResponse.json(
+        { success: false, message: "reference is required" },
+        { status: 400 },
+      );
     }
 
     const admin = createAdminClient();
@@ -37,26 +44,48 @@ export async function POST(request: Request) {
       .maybeSingle();
 
     if (!deposit || deposit.user_id !== user.id) {
-      return NextResponse.json({ success: false, message: "Deposit not found" }, { status: 404 });
+      return NextResponse.json(
+        { success: false, message: "Deposit not found" },
+        { status: 404 },
+      );
     }
 
     if (deposit.status === "completed") {
-      return NextResponse.json({ success: true, status: "SUCCESSFUL", amount: deposit.amount });
+      return NextResponse.json({
+        success: true,
+        status: "SUCCESSFUL",
+        amount: deposit.amount,
+      });
     }
 
     if (!deposit.provider_transaction_id) {
-      return NextResponse.json({ success: true, status: "PENDING", amount: deposit.amount });
+      return NextResponse.json({
+        success: true,
+        status: "PENDING",
+        amount: deposit.amount,
+      });
     }
 
-    const verified = await getFapshiPaymentStatus(deposit.provider_transaction_id);
+    const verified = await getFapshiPaymentStatus(
+      deposit.provider_transaction_id,
+    );
 
     if (verified.status === "SUCCESSFUL") {
       await PaymentProcessor.completeDeposit(reference, verified.amount);
     }
 
-    return NextResponse.json({ success: true, status: verified.status, amount: verified.amount });
+    return NextResponse.json({
+      success: true,
+      status: verified.status,
+      amount: verified.amount,
+    });
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Verification failed";
+    const message =
+      error instanceof Error ? error.message : "Verification failed";
+    // Previously this returned 400 with no server-side trace at all, which is
+    // why we had to guess at the cause from client console output. Log it so
+    // the real error (rate limit, bad credentials, etc.) shows up in Vercel logs.
+    console.error("Deposit verification failed", { message, error });
     return NextResponse.json({ success: false, message }, { status: 400 });
   }
 }
