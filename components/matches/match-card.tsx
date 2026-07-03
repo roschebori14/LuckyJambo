@@ -49,18 +49,18 @@ export default function MatchCard({
   }
 
   return (
-    <div className="rounded-xl border bg-white p-5 shadow-sm">
+    <div className="rounded-xl border border-[var(--lj-border)] bg-[var(--lj-card-2)] p-5 shadow-sm">
       <div className="flex items-center justify-between">
-        <h3 className="text-lg font-semibold text-gray-900">{gameName}</h3>
+        <h3 className="text-lg font-semibold text-white">{gameName}</h3>
 
-        <span className="rounded-full bg-blue-100 px-3 py-1 text-sm text-blue-700">
+        <span className="rounded-full bg-blue-100 px-3 py-1 text-sm text-blue-300">
           {status}
         </span>
       </div>
 
-      <p className="mt-2 text-sm text-gray-500">Created by {isOwn ? "you" : creatorName}</p>
+      <p className="mt-2 text-sm text-[var(--lj-muted)]">Created by {isOwn ? "you" : creatorName}</p>
 
-      <p className="mt-3 font-medium text-gray-800">Stake: {stakeAmount.toLocaleString()} XAF</p>
+      <p className="mt-3 font-medium text-white">Stake: {stakeAmount.toLocaleString()} XAF</p>
 
       {error && <p className="mt-2 text-xs text-red-600">{error}</p>}
 

@@ -46,15 +46,15 @@ export default function WithdrawalForm({ availableBalance }: { availableBalance:
   const quick = [500, 1000, 5000, 10000].filter(v => v <= availableBalance);
 
   return (
-    <div className="rounded-2xl border bg-white p-5 shadow-sm space-y-5">
-      <h2 className="text-lg font-bold text-gray-900">Withdraw Funds</h2>
+    <div className="rounded-2xl border border-[var(--lj-border)] bg-[var(--lj-card-2)] p-5 shadow-sm space-y-5">
+      <h2 className="text-lg font-bold text-white">Withdraw Funds</h2>
 
-      {error && <div className="rounded-xl bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>}
-      {success && <div className="rounded-xl bg-green-50 px-4 py-3 text-sm text-green-700">{success}</div>}
+      {error && <div className="rounded-xl bg-red-500/10 px-4 py-3 text-sm text-red-300">{error}</div>}
+      {success && <div className="rounded-xl bg-green-500/10 px-4 py-3 text-sm text-green-300">{success}</div>}
 
       {/* Amount */}
       <div>
-        <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-gray-500">
+        <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-[var(--lj-muted)]">
           Amount (XAF)
         </label>
         <input
@@ -64,14 +64,14 @@ export default function WithdrawalForm({ availableBalance }: { availableBalance:
           placeholder={`${MINIMUM_WITHDRAWAL.toLocaleString()} – ${Math.min(MAXIMUM_WITHDRAWAL, availableBalance).toLocaleString()}`}
           value={amount}
           onChange={(e) => setAmount(e.target.value)}
-          className="w-full rounded-xl border border-gray-200 px-4 py-2.5 text-sm focus:border-green-400 focus:outline-none focus:ring-2 focus:ring-green-100"
+          className="lj-input"
         />
         {quick.length > 0 && (
           <div className="mt-2 flex flex-wrap gap-2">
             {quick.map(v => (
               <button key={v} type="button"
                 onClick={() => setAmount(String(v))}
-                className="rounded-lg bg-gray-100 px-3 py-1 text-xs font-medium text-gray-700 hover:bg-green-50 hover:text-green-700">
+                className="rounded-lg bg-white/5 px-3 py-1 text-xs font-medium text-[var(--lj-text)] hover:bg-green-500/10 hover:text-green-300">
                 {v.toLocaleString()}
               </button>
             ))}
@@ -81,7 +81,7 @@ export default function WithdrawalForm({ availableBalance }: { availableBalance:
 
       {/* Provider */}
       <div>
-        <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-gray-500">
+        <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-[var(--lj-muted)]">
           Provider
         </label>
         <div className="grid grid-cols-2 gap-2">
@@ -90,9 +90,9 @@ export default function WithdrawalForm({ availableBalance }: { availableBalance:
               onClick={() => setProvider(p)}
               className={`rounded-xl border-2 py-3 text-sm font-semibold transition-all ${
                 provider === p
-                  ? p === "mtn" ? "border-yellow-400 bg-yellow-50 text-yellow-800"
-                                : "border-orange-400 bg-orange-50 text-orange-800"
-                  : "border-gray-200 text-gray-600 hover:border-gray-300"
+                  ? p === "mtn" ? "border-yellow-400 bg-yellow-500/10 text-yellow-300"
+                                : "border-orange-400 bg-orange-500/10 text-orange-300"
+                  : "border-[var(--lj-border)] text-[var(--lj-muted)] hover:border-[var(--lj-border)]"
               }`}>
               {p === "mtn" ? "📱 MTN MoMo" : "🟠 Orange Money"}
             </button>
@@ -102,7 +102,7 @@ export default function WithdrawalForm({ availableBalance }: { availableBalance:
 
       {/* Phone number */}
       <div>
-        <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-gray-500">
+        <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-[var(--lj-muted)]">
           {provider === "mtn" ? "MTN" : "Orange"} Phone Number
         </label>
         <input
@@ -110,7 +110,7 @@ export default function WithdrawalForm({ availableBalance }: { availableBalance:
           placeholder={provider === "mtn" ? "6XXXXXXXX" : "6XXXXXXXX"}
           value={accountNumber}
           onChange={(e) => setAccountNumber(e.target.value.replace(/\D/g, ""))}
-          className="w-full rounded-xl border border-gray-200 px-4 py-2.5 text-sm focus:border-green-400 focus:outline-none focus:ring-2 focus:ring-green-100"
+          className="lj-input"
         />
       </div>
 

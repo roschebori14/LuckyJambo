@@ -77,7 +77,7 @@ export default function ChallengeFriendForm({
 
   if (games.length === 0) {
     return (
-      <div className="rounded-2xl border bg-white p-6 shadow-sm text-sm text-gray-500">
+      <div className="rounded-2xl border border-[var(--lj-border)] bg-[var(--lj-card-2)] p-6 shadow-sm text-sm text-[var(--lj-muted)]">
         No games are available to play right now.
       </div>
     );
@@ -85,13 +85,13 @@ export default function ChallengeFriendForm({
 
   if (shareLink) {
     return (
-      <div className="rounded-2xl border bg-white p-6 shadow-sm space-y-3">
-        <h2 className="text-xl font-bold text-gray-900">Challenge Ready 🎯</h2>
-        <p className="text-sm text-gray-500">
+      <div className="rounded-2xl border border-[var(--lj-border)] bg-[var(--lj-card-2)] p-6 shadow-sm space-y-3">
+        <h2 className="text-xl font-bold text-white">Challenge Ready 🎯</h2>
+        <p className="text-sm text-[var(--lj-muted)]">
           Send this link to {selectedFriend?.username ?? "your friend"} — the first person to open it and join takes the challenge.
         </p>
-        <div className="flex items-center gap-2 rounded-xl border border-gray-200 bg-gray-50 px-3 py-2">
-          <input readOnly value={shareLink} className="flex-1 bg-transparent text-xs text-gray-700 outline-none" />
+        <div className="flex items-center gap-2 rounded-xl border border-[var(--lj-border)] bg-white/5 px-3 py-2">
+          <input readOnly value={shareLink} className="flex-1 bg-transparent text-xs text-[var(--lj-text)] outline-none" />
           <button
             onClick={copyLink}
             className="shrink-0 rounded-lg bg-purple-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-purple-700"
@@ -101,7 +101,7 @@ export default function ChallengeFriendForm({
         </div>
         <button
           onClick={() => setShareLink("")}
-          className="text-xs font-semibold text-gray-500 hover:text-gray-700"
+          className="text-xs font-semibold text-[var(--lj-muted)] hover:text-[var(--lj-text)]"
         >
           ← Create another challenge
         </button>
@@ -110,22 +110,22 @@ export default function ChallengeFriendForm({
   }
 
   return (
-    <form onSubmit={challengeFriend} className="rounded-2xl border bg-white p-6 shadow-sm space-y-4">
-      <h2 className="text-xl font-bold text-gray-900">Challenge a Friend</h2>
+    <form onSubmit={challengeFriend} className="rounded-2xl border border-[var(--lj-border)] bg-[var(--lj-card-2)] p-6 shadow-sm space-y-4">
+      <h2 className="text-xl font-bold text-white">Challenge a Friend</h2>
 
-      {error && <div className="rounded-xl bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>}
+      {error && <div className="rounded-xl bg-red-500/10 px-4 py-3 text-sm text-red-300">{error}</div>}
 
       <div>
-        <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-gray-500">Friend</label>
+        <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-[var(--lj-muted)]">Friend</label>
         {friends.length === 0 ? (
-          <p className="rounded-xl bg-gray-50 px-4 py-3 text-xs text-gray-500">
+          <p className="rounded-xl bg-white/5 px-4 py-3 text-xs text-[var(--lj-muted)]">
             You don&apos;t have any friends added yet — add some from the Friends page, or just create an open match and share the link with anyone.
           </p>
         ) : (
           <select
             value={friendId}
             onChange={(e) => setFriendId(e.target.value)}
-            className="w-full rounded-xl border border-gray-200 px-4 py-2.5 text-sm focus:border-purple-400 focus:outline-none focus:ring-2 focus:ring-purple-100"
+            className="lj-input"
           >
             {friends.map((f) => (
               <option key={f.id} value={f.id}>{f.username}</option>
@@ -135,7 +135,7 @@ export default function ChallengeFriendForm({
       </div>
 
       <div>
-        <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-gray-500">Game</label>
+        <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-[var(--lj-muted)]">Game</label>
         <select
           value={gameSlug}
           onChange={(e) => {
@@ -143,7 +143,7 @@ export default function ChallengeFriendForm({
             setGameSlug(e.target.value);
             if (g) setStakeAmount(String(g.min_stake));
           }}
-          className="w-full rounded-xl border border-gray-200 px-4 py-2.5 text-sm focus:border-purple-400 focus:outline-none focus:ring-2 focus:ring-purple-100"
+          className="lj-input"
         >
           {games.map((g) => (
             <option key={g.slug} value={g.slug}>{g.name}</option>
@@ -152,14 +152,14 @@ export default function ChallengeFriendForm({
       </div>
 
       <div>
-        <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-gray-500">Stake Amount (XAF)</label>
+        <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-[var(--lj-muted)]">Stake Amount (XAF)</label>
         <input
           type="number"
           min={selectedGame?.min_stake}
           max={selectedGame?.max_stake}
           value={stakeAmount}
           onChange={(e) => setStakeAmount(e.target.value)}
-          className="w-full rounded-xl border border-gray-200 px-4 py-2.5 text-sm focus:border-purple-400 focus:outline-none focus:ring-2 focus:ring-purple-100"
+          className="lj-input"
         />
       </div>
 

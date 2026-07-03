@@ -6,12 +6,12 @@ export default function BalanceCard({
   totalBalance,
 }: BalanceCardProps) {
   return (
-    <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
+    <div className="rounded-xl border border-[var(--lj-border)] bg-[var(--lj-card-2)] p-6 shadow-sm">
       <h2 className="mb-4 text-lg font-semibold">Wallet Balance</h2>
 
       <div className="space-y-3">
         <div className="flex items-center justify-between">
-          <span className="text-gray-600">Available Balance</span>
+          <span className="text-[var(--lj-muted)]">Available Balance</span>
 
           <span className="font-semibold">
             {availableBalance.toLocaleString()} XAF
@@ -19,7 +19,7 @@ export default function BalanceCard({
         </div>
 
         <div className="flex items-center justify-between">
-          <span className="text-gray-600">Locked Balance</span>
+          <span className="text-[var(--lj-muted)]">Locked Balance</span>
 
           <span className="font-semibold">
             {lockedBalance.toLocaleString()} XAF

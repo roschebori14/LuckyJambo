@@ -69,8 +69,8 @@ export default async function MatchesPage() {
   return (
     <div className="mx-auto max-w-7xl space-y-6 p-6">
       <div>
-        <h1 className="text-3xl font-bold text-gray-900">Matchmaking</h1>
-        <p className="mt-1 text-sm text-gray-500">Create an open match, challenge a friend, or jump into one that's already waiting.</p>
+        <h1 className="text-3xl font-bold text-white">Matchmaking</h1>
+        <p className="mt-1 text-sm text-[var(--lj-muted)]">Create an open match, challenge a friend, or jump into one that's already waiting.</p>
       </div>
 
       <div className="grid gap-6 lg:grid-cols-2">
@@ -79,8 +79,8 @@ export default async function MatchesPage() {
       </div>
 
       <div>
-        <h2 className="mb-3 text-xl font-bold text-gray-900">
-          Open Matches <span className="ml-1 text-sm font-normal text-gray-400">({openMatches.length})</span>
+        <h2 className="mb-3 text-xl font-bold text-white">
+          Open Matches <span className="ml-1 text-sm font-normal text-[var(--lj-muted)]">({openMatches.length})</span>
         </h2>
         <MatchList matches={openMatches} />
       </div>

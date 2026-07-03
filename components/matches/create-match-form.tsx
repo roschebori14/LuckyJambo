@@ -58,20 +58,20 @@ export default function CreateMatchForm({ games }: { games: GameOption[] }) {
 
   if (games.length === 0) {
     return (
-      <div className="rounded-2xl border bg-white p-6 shadow-sm text-sm text-gray-500">
+      <div className="rounded-2xl border border-[var(--lj-border)] bg-[var(--lj-card-2)] p-6 shadow-sm text-sm text-[var(--lj-muted)]">
         No games are available to play right now.
       </div>
     );
   }
 
   return (
-    <form onSubmit={createMatch} className="rounded-2xl border bg-white p-6 shadow-sm space-y-4">
-      <h2 className="text-xl font-bold text-gray-900">Create Match</h2>
+    <form onSubmit={createMatch} className="rounded-2xl border border-[var(--lj-border)] bg-[var(--lj-card-2)] p-6 shadow-sm space-y-4">
+      <h2 className="text-xl font-bold text-white">Create Match</h2>
 
-      {error && <div className="rounded-xl bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>}
+      {error && <div className="rounded-xl bg-red-500/10 px-4 py-3 text-sm text-red-300">{error}</div>}
 
       <div>
-        <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-gray-500">Game</label>
+        <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-[var(--lj-muted)]">Game</label>
         <select
           value={gameSlug}
           onChange={(e) => {
@@ -79,7 +79,7 @@ export default function CreateMatchForm({ games }: { games: GameOption[] }) {
             setGameSlug(e.target.value);
             if (g) setStakeAmount(String(g.min_stake));
           }}
-          className="w-full rounded-xl border border-gray-200 px-4 py-2.5 text-sm focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100"
+          className="lj-input"
         >
           {games.map((g) => (
             <option key={g.slug} value={g.slug}>{g.name}</option>
@@ -88,7 +88,7 @@ export default function CreateMatchForm({ games }: { games: GameOption[] }) {
       </div>
 
       <div>
-        <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-gray-500">
+        <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-[var(--lj-muted)]">
           Stake Amount (XAF)
         </label>
         <input
@@ -98,10 +98,10 @@ export default function CreateMatchForm({ games }: { games: GameOption[] }) {
           value={stakeAmount}
           onChange={(e) => setStakeAmount(e.target.value)}
           placeholder="Stake Amount (XAF)"
-          className="w-full rounded-xl border border-gray-200 px-4 py-2.5 text-sm focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100"
+          className="lj-input"
         />
         {selectedGame && (
-          <p className="mt-1 text-xs text-gray-400">
+          <p className="mt-1 text-xs text-[var(--lj-muted)]">
             {selectedGame.min_stake.toLocaleString()}–{selectedGame.max_stake.toLocaleString()} XAF · winner takes {(Number(stakeAmount || 0) * 2 * 0.95).toLocaleString()} XAF after fee
           </p>
         )}

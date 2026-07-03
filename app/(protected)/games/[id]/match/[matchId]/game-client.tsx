@@ -63,18 +63,18 @@ export default function GameClient({ matchId, gameSlug, userId, stakeAmount, ini
 
   if (status === "waiting") {
     return (
-      <div className="flex flex-col items-center justify-center rounded-2xl border bg-white p-8 shadow-sm text-center">
+      <div className="flex flex-col items-center justify-center rounded-2xl border border-[var(--lj-border)] bg-[var(--lj-card-2)] p-8 shadow-sm text-center">
         <div className="mb-4 h-12 w-12 animate-spin rounded-full border-4 border-blue-600 border-t-transparent"></div>
-        <h3 className="mb-2 text-xl font-bold text-gray-900">Waiting for an opponent...</h3>
-        <p className="mb-6 text-sm text-gray-500">
+        <h3 className="mb-2 text-xl font-bold text-white">Waiting for an opponent...</h3>
+        <p className="mb-6 text-sm text-[var(--lj-muted)]">
           Share this link with a friend to invite them to play.
         </p>
-        <div className="flex w-full max-w-sm items-center gap-2 rounded-lg border bg-gray-50 p-2">
+        <div className="flex w-full max-w-sm items-center gap-2 rounded-lg border bg-white/5 p-2">
           <input 
             type="text" 
             readOnly 
             value={shareUrl} 
-            className="w-full bg-transparent text-sm text-gray-600 outline-none"
+            className="w-full bg-transparent text-sm text-[var(--lj-muted)] outline-none"
           />
           <button 
             onClick={copyLink}
@@ -90,17 +90,17 @@ export default function GameClient({ matchId, gameSlug, userId, stakeAmount, ini
   return (
     <>
       {/* Stake info */}
-      <div className="flex items-center justify-between rounded-xl bg-white px-4 py-3 border text-sm shadow-sm">
-        <span className="text-gray-500">Stake</span>
-        <span className="font-bold text-gray-900">{stakeAmount.toLocaleString()} XAF each</span>
-        <span className="text-gray-500">Prize</span>
-        <span className="font-bold text-green-700">
+      <div className="flex items-center justify-between rounded-xl bg-[var(--lj-card-2)] px-4 py-3 border text-sm shadow-sm">
+        <span className="text-[var(--lj-muted)]">Stake</span>
+        <span className="font-bold text-white">{stakeAmount.toLocaleString()} XAF each</span>
+        <span className="text-[var(--lj-muted)]">Prize</span>
+        <span className="font-bold text-green-300">
           {Math.round(stakeAmount * 2 * 0.95).toLocaleString()} XAF
         </span>
       </div>
 
       {/* Game board */}
-      <div className="rounded-2xl border bg-white p-5 shadow-sm">
+      <div className="rounded-2xl border border-[var(--lj-border)] bg-[var(--lj-card-2)] p-5 shadow-sm">
         {gameSlug === "chess" && <ChessBoard matchId={matchId} userId={userId} />}
         {gameSlug === "tic-tac-toe" && <TicTacToeBoard matchId={matchId} userId={userId} />}
         {isInstant && (
@@ -110,10 +110,10 @@ export default function GameClient({ matchId, gameSlug, userId, stakeAmount, ini
           />
         )}
         {gameSlug === "draughts" && (
-          <div className="py-10 text-center text-gray-500">
+          <div className="py-10 text-center text-[var(--lj-muted)]">
             <p className="text-4xl mb-3">🔴</p>
             <p className="font-semibold">Draughts board UI — Phase 9</p>
-            <p className="text-sm text-gray-400 mt-1">Engine is complete, board UI coming next.</p>
+            <p className="text-sm text-[var(--lj-muted)] mt-1">Engine is complete, board UI coming next.</p>
           </div>
         )}
       </div>

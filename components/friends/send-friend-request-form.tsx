@@ -34,7 +34,7 @@ export default function SendFriendRequestForm() {
   return (
     <form
       onSubmit={handleSubmit}
-      className="rounded-xl border bg-white p-6 shadow-sm"
+      className="rounded-xl border border-[var(--lj-border)] bg-[var(--lj-card-2)] p-6 shadow-sm"
     >
       <h2 className="mb-4 text-xl font-semibold">Add Friend</h2>
 

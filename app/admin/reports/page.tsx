@@ -63,7 +63,7 @@ export default async function AdminReportsPage() {
             {resolved.map(r => (
               <div key={r.id} className="flex items-center justify-between px-5 py-3 text-sm">
                 <p className="text-[var(--lj-muted)] truncate max-w-md">{r.reason}</p>
-                <span className={`lj-badge ${r.status === "resolved_refund" ? "bg-green-500/20 text-green-400" : "bg-gray-500/20 text-gray-400"}`}>
+                <span className={`lj-badge ${r.status === "resolved_refund" ? "bg-green-500/20 text-green-400" : "bg-gray-500/20 text-[var(--lj-muted)]"}`}>
                   {r.status === "resolved_refund" ? "refunded" : "dismissed"}
                 </span>
               </div>

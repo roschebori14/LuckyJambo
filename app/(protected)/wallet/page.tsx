@@ -41,7 +41,7 @@ export default async function WalletPage() {
         {/* Actions */}
         <div className="mt-5 flex gap-3">
           <Link href="/wallet/deposit"
-            className="flex items-center gap-2 rounded-xl bg-white px-5 py-2.5 text-sm font-bold text-[var(--lj-blue)] hover:bg-blue-50 transition-colors">
+            className="flex items-center gap-2 rounded-xl bg-[var(--lj-card-2)] px-5 py-2.5 text-sm font-bold text-[var(--lj-blue)] hover:bg-blue-500/10 transition-colors">
             <ArrowDownCircle size={16} /> Deposit
           </Link>
           <Link href="/wallet/withdraw"

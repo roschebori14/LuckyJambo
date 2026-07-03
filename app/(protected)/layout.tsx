@@ -4,6 +4,7 @@ import Sidebar from "@/components/layout/sidebar";
 import SupportChatWidget from "@/components/ai/support-chat-widget";
 import { requireAuth } from "@/lib/auth/require-auth";
 import { createClient } from "@/lib/supabase/server";
+import { PresenceProvider } from "@/lib/presence/presence-context";
 
 export default async function ProtectedLayout({ children }: { children: ReactNode }) {
   await requireAuth();
@@ -17,13 +18,15 @@ export default async function ProtectedLayout({ children }: { children: ReactNod
   }
 
   return (
-    <div className="min-h-screen" style={{ background: "var(--lj-navy)" }}>
-      <Navbar />
-      <div className="flex flex-col md:flex-row">
-        <Sidebar isAdmin={isAdmin} />
-        <main className="flex-1 p-4 md:p-6">{children}</main>
+    <PresenceProvider userId={user?.id ?? ""}>
+      <div className="min-h-screen" style={{ background: "var(--lj-navy)" }}>
+        <Navbar />
+        <div className="flex flex-col md:flex-row">
+          <Sidebar isAdmin={isAdmin} />
+          <main className="flex-1 p-4 pb-20 md:p-6 md:pb-6">{children}</main>
+        </div>
+        <SupportChatWidget />
       </div>
-      <SupportChatWidget />
-    </div>
+    </PresenceProvider>
   );
 }

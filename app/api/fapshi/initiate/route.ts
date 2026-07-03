@@ -18,10 +18,17 @@ export async function POST(request: Request) {
     const body = await request.json();
     const validated = depositSchema.parse(body);
 
+    // NEXT_PUBLIC_APP_URL is the canonical override, but if it's unset
+    // (or misconfigured) the redirect back from Fapshi should still
+    // land on this deployment rather than silently building a relative
+    // URL that Fapshi can't do anything useful with.
+    const origin = new URL(request.url).origin;
+
     const result = await FapshiService.createPaymentLink(
       user.id,
       validated.amount,
       validated.phone,
+      origin,
     );
 
     return NextResponse.json({

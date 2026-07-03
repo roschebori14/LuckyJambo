@@ -76,7 +76,7 @@ export default async function AdminWithdrawalsPage() {
                 <span className={`lj-badge ${
                   w.status === "completed" ? "bg-green-500/20 text-green-400" :
                   w.status === "rejected"  ? "bg-red-500/20 text-red-400" :
-                  "bg-gray-500/20 text-gray-400"}`}>
+                  "bg-gray-500/20 text-[var(--lj-muted)]"}`}>
                   {w.status}
                 </span>
               </div>

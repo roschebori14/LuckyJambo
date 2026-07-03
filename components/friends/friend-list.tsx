@@ -1,9 +1,11 @@
+"use client";
+
 import FriendCard from "./friend-card";
+import { useOnlineUsers } from "@/lib/presence/presence-context";
 
 interface Friend {
   id: string;
   username: string;
-  online?: boolean;
 }
 
 interface FriendListProps {
@@ -11,6 +13,8 @@ interface FriendListProps {
 }
 
 export default function FriendList({ friends }: FriendListProps) {
+  const onlineIds = useOnlineUsers();
+
   if (!friends.length) {
     return (
       <div className="lj-card p-6 text-center text-sm text-[var(--lj-muted)]">
@@ -26,7 +30,7 @@ export default function FriendList({ friends }: FriendListProps) {
           key={friend.id}
           id={friend.id}
           username={friend.username}
-          online={friend.online}
+          online={onlineIds.has(friend.id)}
         />
       ))}
     </div>

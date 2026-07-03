@@ -66,7 +66,7 @@ export default function TicTacToeBoard({ matchId, userId }: Props) {
     );
   }
 
-  if (!state) return <p className="text-center text-gray-500">Failed to load game state.</p>;
+  if (!state) return <p className="text-center text-[var(--lj-muted)]">Failed to load game state.</p>;
 
   const mySymbol = state.x_player_id === userId ? "X" : "O";
   const isMyTurn = state.current_turn === mySymbol && !state.game_over;
@@ -86,8 +86,8 @@ export default function TicTacToeBoard({ matchId, userId }: Props) {
       {/* Status */}
       <div className={`w-full rounded-xl px-4 py-3 text-center text-sm font-semibold ${
         state.game_over
-          ? state.winner === mySymbol ? "bg-green-50 text-green-700" : state.is_draw ? "bg-yellow-50 text-yellow-700" : "bg-red-50 text-red-700"
-          : isMyTurn ? "bg-blue-50 text-blue-700" : "bg-gray-50 text-gray-600"
+          ? state.winner === mySymbol ? "bg-green-500/10 text-green-300" : state.is_draw ? "bg-yellow-500/10 text-yellow-300" : "bg-red-500/10 text-red-300"
+          : isMyTurn ? "bg-blue-500/10 text-blue-300" : "bg-white/5 text-[var(--lj-muted)]"
       }`}>
         {statusText}
         <span className="ml-2 text-xs opacity-70">You are {mySymbol}</span>
@@ -105,7 +105,7 @@ export default function TicTacToeBoard({ matchId, userId }: Props) {
             className={`aspect-square rounded-xl text-3xl font-extrabold transition-all ${
               cell === "X" ? "bg-blue-100 text-blue-600" :
               cell === "O" ? "bg-red-100 text-red-600" :
-              isMyTurn && !cell ? "bg-gray-100 hover:bg-green-50 active:scale-95 cursor-pointer" : "bg-gray-100"
+              isMyTurn && !cell ? "bg-white/5 hover:bg-green-500/10 active:scale-95 cursor-pointer" : "bg-white/5"
             } disabled:cursor-default`}
           >
             {cell}
@@ -115,12 +115,12 @@ export default function TicTacToeBoard({ matchId, userId }: Props) {
 
       {/* Turn indicator */}
       {!state.game_over && (
-        <div className="flex items-center gap-4 text-xs text-gray-500">
-          <span className={`flex items-center gap-1 font-semibold ${state.current_turn === "X" ? "text-blue-600" : "text-gray-400"}`}>
+        <div className="flex items-center gap-4 text-xs text-[var(--lj-muted)]">
+          <span className={`flex items-center gap-1 font-semibold ${state.current_turn === "X" ? "text-blue-600" : "text-[var(--lj-muted)]"}`}>
             ✖ X {state.x_player_id === userId ? "(you)" : ""}
           </span>
           <span>vs</span>
-          <span className={`flex items-center gap-1 font-semibold ${state.current_turn === "O" ? "text-red-600" : "text-gray-400"}`}>
+          <span className={`flex items-center gap-1 font-semibold ${state.current_turn === "O" ? "text-red-600" : "text-[var(--lj-muted)]"}`}>
             ○ O {state.o_player_id === userId ? "(you)" : ""}
           </span>
         </div>

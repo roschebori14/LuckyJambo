@@ -13,10 +13,10 @@ interface Props {
 
 export default function TransactionTable({ transactions }: Props) {
   return (
-    <div className="overflow-x-auto rounded-lg border bg-white">
+    <div className="overflow-x-auto rounded-lg border border-[var(--lj-border)] bg-[var(--lj-card-2)]">
       <table className="w-full">
         <thead>
-          <tr className="border-b bg-gray-50">
+          <tr className="border-b bg-white/5">
             <th className="p-3 text-left">Reference</th>
 
             <th className="p-3 text-left">Type</th>

@@ -3,8 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useState } from "react";
-import { LayoutDashboard, Gamepad2, Swords, Wallet, Users, User, Menu, X, Shield } from "lucide-react";
+import { LayoutDashboard, Gamepad2, Swords, Wallet, Users, User, Shield } from "lucide-react";
 
 const NAV = [
   { href: "/dashboard", icon: LayoutDashboard, label: "Dashboard" },
@@ -17,7 +16,6 @@ const NAV = [
 
 export default function Sidebar({ isAdmin }: { isAdmin?: boolean }) {
   const pathname = usePathname();
-  const [open, setOpen] = useState(false);
 
   return (
     <>
@@ -28,33 +26,38 @@ export default function Sidebar({ isAdmin }: { isAdmin?: boolean }) {
           <Image src="/logo.png" alt="LJ" width={28} height={28} />
           <span className="text-sm font-black tracking-wide text-white">LUCKY <span style={{color:"var(--lj-cyan)"}}>JAMBO</span></span>
         </Link>
-        <button onClick={() => setOpen(v => !v)} className="rounded-lg p-2 text-[var(--lj-muted)] hover:text-white">
-          {open ? <X size={20} /> : <Menu size={20} />}
-        </button>
+        {isAdmin && (
+          <Link href="/admin" className="rounded-lg p-2 text-yellow-400 hover:bg-yellow-400/10">
+            <Shield size={20} />
+          </Link>
+        )}
       </div>
 
-      {/* ── Mobile slide-down ── */}
-      {open && (
-        <div className="border-b shadow-2xl md:hidden" style={{ background: "var(--lj-navy-2)", borderColor: "var(--lj-border)" }}>
-          <nav className="flex flex-col gap-1 p-3">
-            {NAV.map(({ href, icon: Icon, label }) => {
-              const active = pathname.startsWith(href);
-              return (
-                <Link key={href} href={href} onClick={() => setOpen(false)}
-                  className={`flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all ${active ? "lj-nav-active text-white" : "text-[var(--lj-muted)] hover:bg-white/5 hover:text-white"}`}>
-                  <Icon size={18} /> {label}
-                </Link>
-              );
-            })}
-            {isAdmin && (
-              <Link href="/admin" onClick={() => setOpen(false)}
-                className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-yellow-400 hover:bg-yellow-400/10">
-                <Shield size={18} /> Admin Panel
-              </Link>
-            )}
-          </nav>
-        </div>
-      )}
+      {/* ── Mobile bottom tab bar ── */}
+      <nav
+        className="fixed inset-x-0 bottom-0 z-40 grid grid-cols-6 md:hidden"
+        style={{
+          background: "var(--lj-navy-2)",
+          borderTop: "1px solid var(--lj-border)",
+          paddingBottom: "env(safe-area-inset-bottom)",
+        }}
+      >
+        {NAV.map(({ href, icon: Icon, label }) => {
+          const active = pathname.startsWith(href);
+          return (
+            <Link
+              key={href}
+              href={href}
+              className={`flex flex-col items-center justify-center gap-1 py-2.5 text-[10px] font-medium transition-colors ${
+                active ? "text-white" : "text-[var(--lj-muted)]"
+              }`}
+            >
+              <Icon size={20} style={active ? { color: "var(--lj-cyan)" } : undefined} />
+              {label}
+            </Link>
+          );
+        })}
+      </nav>
 
       {/* ── Desktop sidebar ── */}
       <aside className="hidden min-h-screen w-60 flex-shrink-0 flex-col md:flex"

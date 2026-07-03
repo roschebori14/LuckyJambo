@@ -19,7 +19,7 @@ export default function WithdrawalHistory({
   return (
     <div className="space-y-4">
       {withdrawals.length === 0 ? (
-        <div className="rounded-xl border bg-white p-6 text-center">
+        <div className="rounded-xl border border-[var(--lj-border)] bg-[var(--lj-card-2)] p-6 text-center">
           No withdrawals found
         </div>
       ) : (

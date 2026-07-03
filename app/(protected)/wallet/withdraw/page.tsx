@@ -14,22 +14,22 @@ export default async function WithdrawPage() {
   return (
     <div className="mx-auto max-w-lg space-y-5">
       <div className="flex items-center gap-3">
-        <Link href="/wallet" className="text-sm text-gray-500 hover:text-gray-800">← Wallet</Link>
-        <h1 className="text-xl font-extrabold text-gray-900">Withdraw</h1>
+        <Link href="/wallet" className="text-sm text-[var(--lj-muted)] hover:text-white">← Wallet</Link>
+        <h1 className="text-xl font-extrabold text-white">Withdraw</h1>
       </div>
 
       {/* Balance summary */}
       <div className="grid grid-cols-2 gap-3">
-        <div className="rounded-2xl border bg-white p-4 shadow-sm">
-          <p className="text-xs text-gray-500">Available</p>
-          <p className="text-xl font-extrabold text-gray-900">
-            {wallet.available_balance.toLocaleString()}<span className="ml-1 text-sm font-medium text-gray-400">XAF</span>
+        <div className="rounded-2xl border border-[var(--lj-border)] bg-[var(--lj-card-2)] p-4 shadow-sm">
+          <p className="text-xs text-[var(--lj-muted)]">Available</p>
+          <p className="text-xl font-extrabold text-white">
+            {wallet.available_balance.toLocaleString()}<span className="ml-1 text-sm font-medium text-[var(--lj-muted)]">XAF</span>
           </p>
         </div>
-        <div className="rounded-2xl border bg-white p-4 shadow-sm">
-          <p className="text-xs text-gray-500">Locked</p>
+        <div className="rounded-2xl border border-[var(--lj-border)] bg-[var(--lj-card-2)] p-4 shadow-sm">
+          <p className="text-xs text-[var(--lj-muted)]">Locked</p>
           <p className="text-xl font-extrabold text-amber-600">
-            {wallet.locked_balance.toLocaleString()}<span className="ml-1 text-sm font-medium text-gray-400">XAF</span>
+            {wallet.locked_balance.toLocaleString()}<span className="ml-1 text-sm font-medium text-[var(--lj-muted)]">XAF</span>
           </p>
         </div>
       </div>
@@ -44,22 +44,22 @@ export default async function WithdrawPage() {
 
       {/* History */}
       {withdrawals.length > 0 && (
-        <div className="rounded-2xl border bg-white shadow-sm">
+        <div className="rounded-2xl border border-[var(--lj-border)] bg-[var(--lj-card-2)] shadow-sm">
           <div className="border-b px-5 py-3">
-            <h2 className="font-bold text-gray-900">Withdrawal History</h2>
+            <h2 className="font-bold text-white">Withdrawal History</h2>
           </div>
           <div className="divide-y">
             {withdrawals.slice(0, 10).map(w => (
               <div key={w.id} className="flex items-center justify-between px-5 py-3 text-sm">
                 <div>
-                  <p className="font-medium text-gray-800">{w.amount.toLocaleString()} XAF</p>
-                  <p className="text-xs text-gray-400">{w.provider?.toUpperCase()} · {w.account_number}</p>
+                  <p className="font-medium text-white">{w.amount.toLocaleString()} XAF</p>
+                  <p className="text-xs text-[var(--lj-muted)]">{w.provider?.toUpperCase()} · {w.account_number}</p>
                 </div>
                 <span className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${
-                  w.status === "completed" ? "bg-green-100 text-green-700" :
-                  w.status === "pending"   ? "bg-yellow-100 text-yellow-700" :
+                  w.status === "completed" ? "bg-green-100 text-green-300" :
+                  w.status === "pending"   ? "bg-yellow-100 text-yellow-300" :
                   w.status === "rejected"  ? "bg-red-100 text-red-600" :
-                  "bg-gray-100 text-gray-600"
+                  "bg-white/5 text-[var(--lj-muted)]"
                 }`}>
                   {w.status}
                 </span>

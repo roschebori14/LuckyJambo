@@ -73,7 +73,7 @@ export default function ChessBoard({ matchId, userId }: ChessBoardProps) {
   }
 
   if (loading) return <div className="flex h-48 items-center justify-center"><div className="h-8 w-8 animate-spin rounded-full border-4 border-green-600 border-t-transparent" /></div>;
-  if (!state) return <p className="text-center text-gray-500">Failed to load game.</p>;
+  if (!state) return <p className="text-center text-[var(--lj-muted)]">Failed to load game.</p>;
 
   const isWhite = state.white_player_id === userId;
   const myTurn = !gameOver && ((isWhite && state.current_turn === "w") || (!isWhite && state.current_turn === "b"));
@@ -81,9 +81,9 @@ export default function ChessBoard({ matchId, userId }: ChessBoardProps) {
   return (
     <div className="flex flex-col gap-4">
       {gameOver ? (
-        <div className="rounded-xl bg-green-50 px-4 py-3 text-center text-sm font-semibold text-green-700">{gameOverMsg}</div>
+        <div className="rounded-xl bg-green-500/10 px-4 py-3 text-center text-sm font-semibold text-green-300">{gameOverMsg}</div>
       ) : (
-        <div className={`rounded-xl px-4 py-3 text-center text-sm font-semibold ${myTurn ? "bg-blue-50 text-blue-700" : "bg-gray-50 text-gray-600"}`}>
+        <div className={`rounded-xl px-4 py-3 text-center text-sm font-semibold ${myTurn ? "bg-blue-500/10 text-blue-300" : "bg-white/5 text-[var(--lj-muted)]"}`}>
           {myTurn ? "Your turn" : "Waiting for opponent…"}
           <span className="ml-2 text-xs opacity-70">You are {isWhite ? "White ♔" : "Black ♚"}</span>
         </div>
@@ -103,7 +103,7 @@ export default function ChessBoard({ matchId, userId }: ChessBoardProps) {
         />
       </div>
       {!gameOver && (
-        <button onClick={resign} className="mx-auto rounded-xl border border-red-200 bg-white px-5 py-2 text-sm font-semibold text-red-600 hover:bg-red-50">
+        <button onClick={resign} className="mx-auto rounded-xl border border-red-200 bg-[var(--lj-card-2)] px-5 py-2 text-sm font-semibold text-red-600 hover:bg-red-500/10">
           Resign
         </button>
       )}
