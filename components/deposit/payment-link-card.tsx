@@ -1,54 +1,91 @@
-import { Check, ExternalLink } from "lucide-react";
+import { NextResponse } from "next/server";
 
-interface PaymentLinkCardProps {
-  paymentLink: string;
-  amount: number;
-}
+import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
+import { getFapshiPaymentStatus } from "@/lib/fapshi/fapshi-client";
+import { PaymentProcessor } from "@/lib/payments/payment-processor";
 
-export default function PaymentLinkCard({
-  paymentLink,
-  amount,
-}: PaymentLinkCardProps) {
-  return (
-    <div
-      className="rounded-2xl p-5 space-y-3"
-      style={{
-        border: "1px solid var(--lj-border)",
-        background: "rgba(26, 86, 255, 0.08)",
-      }}
-    >
-      <div className="flex items-center gap-2">
-        <span
-          className="flex h-8 w-8 items-center justify-center rounded-full text-sm text-white"
-          style={{ background: "var(--lj-blue)" }}
-        >
-          <Check size={16} />
-        </span>
-        <div>
-          <p className="text-sm font-bold text-white">Payment link ready</p>
-          <p className="text-xs text-[var(--lj-muted)]">
-            Pay {amount.toLocaleString()} XAF to complete your deposit
-          </p>
-        </div>
-      </div>
+/**
+ * Same idea as /api/fapshi/verify but keyed by our own deposit
+ * reference (?ref=... on the Fapshi redirect URL) instead of Fapshi's
+ * transId - convenient for the page the user lands back on after
+ * paying, which only has the reference in its query string.
+ */
+export async function POST(request: Request) {
+  try {
+    const supabase = await createClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
 
-      {/* Same-tab navigation on purpose: opening this in a new tab (target="_blank")
-          left the original tab's poller alive alongside the new tab's poller once
-          Fapshi redirected back, and both pollers hitting Fapshi's status endpoint
-          for the same transId concurrently tripped Fapshi's own rate limit
-          ("Too many requests for this transId"), which is what caused the webhook's
-          own verification call to fail right when it mattered. Keeping this as a
-          normal same-tab link means only one poller is ever alive per transaction. */}
-      <a
-        href={paymentLink}
-        className="lj-btn-primary flex w-full items-center justify-center gap-2"
-      >
-        Open Fapshi Payment Page <ExternalLink size={14} />
-      </a>
+    if (!user) {
+      return NextResponse.json(
+        { success: false, message: "Unauthorized" },
+        { status: 401 },
+      );
+    }
 
-      <p className="text-center text-xs text-[var(--lj-muted)]">
-        We&apos;ll detect your payment automatically once it&apos;s confirmed.
-      </p>
-    </div>
-  );
+    const body = await request.json();
+    const reference =
+      typeof body.reference === "string" ? body.reference : null;
+
+    if (!reference) {
+      return NextResponse.json(
+        { success: false, message: "reference is required" },
+        { status: 400 },
+      );
+    }
+
+    const admin = createAdminClient();
+    const { data: deposit } = await admin
+      .from("deposits")
+      .select("*")
+      .eq("payment_reference", reference)
+      .maybeSingle();
+
+    if (!deposit || deposit.user_id !== user.id) {
+      return NextResponse.json(
+        { success: false, message: "Deposit not found" },
+        { status: 404 },
+      );
+    }
+
+    if (deposit.status === "completed") {
+      return NextResponse.json({
+        success: true,
+        status: "SUCCESSFUL",
+        amount: deposit.amount,
+      });
+    }
+
+    if (!deposit.provider_transaction_id) {
+      return NextResponse.json({
+        success: true,
+        status: "PENDING",
+        amount: deposit.amount,
+      });
+    }
+
+    const verified = await getFapshiPaymentStatus(
+      deposit.provider_transaction_id,
+    );
+
+    if (verified.status === "SUCCESSFUL") {
+      await PaymentProcessor.completeDeposit(reference, verified.amount);
+    }
+
+    return NextResponse.json({
+      success: true,
+      status: verified.status,
+      amount: verified.amount,
+    });
+  } catch (error) {
+    const message =
+      error instanceof Error ? error.message : "Verification failed";
+    // Previously this returned 400 with no server-side trace at all, which is
+    // why we had to guess at the cause from client console output. Log it so
+    // the real error (rate limit, bad credentials, etc.) shows up in Vercel logs.
+    console.error("Deposit verification failed", { message, error });
+    return NextResponse.json({ success: false, message }, { status: 400 });
+  }
 }
