@@ -23,13 +23,28 @@ export class PaymentProcessor {
     // apply_wallet_transaction atomically: credits wallet + writes ledger row.
     // Runs via the service-role client inside WalletService (see
     // migration 012 - this RPC is no longer callable by anon/authenticated).
-    await WalletService.applyTransaction({
-      userId: deposit.user_id,
-      type: "deposit",
-      amount: creditAmount,
-      reference,
-      description: "Fapshi deposit confirmed",
-    });
+    try {
+      await WalletService.applyTransaction({
+        userId: deposit.user_id,
+        type: "deposit",
+        amount: creditAmount,
+        reference,
+        description: "Fapshi deposit confirmed",
+      });
+    } catch (error) {
+      // Every caller of completeDeposit (webhook, poll, redirect
+      // callback, reconciler) catches this and turns it into a quiet
+      // 400/500 response - which is correct for the HTTP layer, but
+      // without a log line here a stuck-pending deposit is invisible
+      // until a user complains. This is the one place all of those
+      // paths funnel through, so it's the one place that needs to
+      // shout.
+      console.error(
+        `completeDeposit failed for ${reference} (user ${deposit.user_id}, amount ${creditAmount}):`,
+        error,
+      );
+      throw error;
+    }
 
     const supabase = createAdminClient();
     await supabase

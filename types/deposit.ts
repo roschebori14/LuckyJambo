@@ -3,6 +3,7 @@ export type DepositStatus =
   | "processing"
   | "completed"
   | "failed"
+  | "expired"
   | "cancelled";
 
 export interface Deposit {
@@ -15,6 +16,8 @@ export interface Deposit {
   status: DepositStatus;
 
   payment_reference: string;
+
+  provider_transaction_id?: string;
 
   payment_link?: string;
 
