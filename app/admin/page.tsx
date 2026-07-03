@@ -18,7 +18,7 @@ export default async function AdminPage() {
   ] = await Promise.all([
     supabase.from("profiles").select("*", { count: "exact", head: true }),
     supabase.from("matches").select("*", { count: "exact", head: true }),
-    supabase.from("withdrawals").select("*", { count: "exact", head: true }).eq("status", "pending"),
+    supabase.from("withdrawals").select("*", { count: "exact", head: true }).in("status", ["pending", "processing"]),
     supabase.from("deposits").select("amount, status, created_at").eq("status", "completed").order("created_at", { ascending: false }).limit(5),
     supabase.from("matches").select("winner_id, profiles!matches_winner_id_fkey(username)").eq("status","completed").not("winner_id","is",null).limit(5),
   ]);
@@ -44,7 +44,7 @@ export default async function AdminPage() {
           className="flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-semibold text-yellow-300 transition-all hover:brightness-110"
           style={{ background: "rgba(245,158,11,0.15)", border: "1px solid rgba(245,158,11,0.3)" }}>
           <AlertTriangle size={18} />
-          {pendingWithdrawals} withdrawal{(pendingWithdrawals ?? 0) > 1 ? "s" : ""} pending your approval
+          {pendingWithdrawals} withdrawal{(pendingWithdrawals ?? 0) > 1 ? "s" : ""} awaiting Fapshi confirmation
         </Link>
       )}
 
@@ -89,7 +89,7 @@ export default async function AdminPage() {
           <h3 className="mb-3 font-bold text-white">Admin Actions</h3>
           <div className="space-y-2">
             {[
-              { href: "/admin/withdrawals", label: "Review Withdrawals", icon: Wallet, urgent: (pendingWithdrawals ?? 0) > 0 },
+              { href: "/admin/withdrawals", label: "View Withdrawals", icon: Wallet, urgent: (pendingWithdrawals ?? 0) > 0 },
               { href: "/admin/users", label: "Manage Users", icon: Users, urgent: false },
               { href: "/admin/matches", label: "View All Matches", icon: Swords, urgent: false },
             ].map(({ href, label, icon: Icon, urgent }) => (

@@ -13,7 +13,7 @@
 export function validateWebhook(
   payload: unknown,
   providedSecret?: string | null,
-): payload is { transId: string; status: string; amount: number; externalId?: string } {
+): payload is { transId: string; status: string; amount: number; externalId?: string; transType?: string } {
   if (!payload || typeof payload !== "object") {
     return false;
   }

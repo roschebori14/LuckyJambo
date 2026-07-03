@@ -38,26 +38,29 @@ export async function POST(request: Request) {
         message: "Lucky Jambo Automatic Wallet Withdrawal",
       });
 
-      // 3. Payout succeeded: consume locked balance and mark withdrawal as completed
+      // 3. Fapshi accepted the request - this is NOT confirmation the
+      // payout succeeded. The /payout response has no status field;
+      // it only means the request was received. Funds stay locked
+      // and the withdrawal stays out of a final state until the
+      // Fapshi webhook confirms SUCCESSFUL/FAILED/EXPIRED (see
+      // app/api/fapshi/webhook and WithdrawalSettlementService).
       const admin = createAdminClient();
-      
-      const { error: lossErr } = await admin.rpc("apply_wallet_transaction", {
-        p_user_id: user.id,
-        p_type: "match_loss", // consumes locked balance
-        p_amount: validated.amount,
-        p_reference: withdrawal.id,
-        p_description: `Automatic withdrawal paid via Fapshi (Trans ID: ${payoutResult.transId})`,
-      });
-      if (lossErr) throw lossErr;
 
       await admin.from("withdrawals").update({
-        status: "completed",
-        transaction_reference: payoutResult.transId
+        status: "processing",
+        transaction_reference: payoutResult.transId,
+        financial_trans_id: payoutResult.transId,
       }).eq("id", withdrawal.id);
 
-      return NextResponse.json({ success: true, withdrawal: { ...withdrawal, status: "completed" } });
+      return NextResponse.json({
+        success: true,
+        withdrawal: { ...withdrawal, status: "processing" },
+      });
     } catch (payoutErr) {
-      // 4. Payout failed: release locked balance back to available and mark withdrawal as failed
+      // 4. Fapshi never accepted the request (network error, 4xx,
+      // etc.) - this is the one case we know synchronously that
+      // nothing is in flight, so it's safe to release the lock here
+      // rather than waiting on a webhook that will never come.
       const admin = createAdminClient();
       
       await admin.rpc("apply_wallet_transaction", {
@@ -69,7 +72,9 @@ export async function POST(request: Request) {
       });
 
       await admin.from("withdrawals").update({
-        status: "failed"
+        status: "failed",
+        failure_reason: (payoutErr as Error).message,
+        processed_at: new Date().toISOString(),
       }).eq("id", withdrawal.id);
 
       throw payoutErr;

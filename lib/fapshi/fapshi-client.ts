@@ -95,6 +95,8 @@ export interface FapshiStatusResponse {
   amount: number;
   externalId?: string;
   medium?: string;
+  transType?: "Collection" | "Payout" | string;
+  financialTransId?: string;
   dateInitiated?: string;
   dateConfirmed?: string;
 }
@@ -173,5 +175,14 @@ export async function initiateFapshiPayout(input: PayoutInput) {
     },
     config,
   );
+}
+
+// A payout transId belongs to the payout service, not the collection
+// service - re-verifying it with collection credentials (as
+// getFapshiPaymentStatus does) would fail. The webhook handler picks
+// between the two based on the incoming payload's transType.
+export async function getFapshiPayoutStatus(transId: string) {
+  const config = getPayoutConfig();
+  return getFapshi<FapshiStatusResponse>(`/payment-status/${transId}`, config);
 }
 
