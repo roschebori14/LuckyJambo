@@ -1,7 +1,6 @@
 import { WalletService } from "@/lib/wallet/wallet-service";
 import { PaymentVerifier } from "./payment-verifier";
 import { DuplicateChecker } from "./duplicate-checker";
-import { createAdminClient } from "@/lib/supabase/admin";
 
 export class PaymentProcessor {
   static async completeDeposit(reference: string, amount: number) {
@@ -20,13 +19,16 @@ export class PaymentProcessor {
     // crediting more than the user actually paid.
     const creditAmount = amount > 0 ? amount : deposit.amount;
 
-    // apply_wallet_transaction atomically: credits wallet + writes ledger row.
-    // Runs via the service-role client inside WalletService (see
-    // migration 012 - this RPC is no longer callable by anon/authenticated).
+    // complete_deposit atomically: credits wallet + writes ledger row +
+    // marks the deposit 'completed', all inside one DB transaction (see
+    // migration 025). Doing the credit and the status update as two
+    // separate calls from here would let a crash/timeout between them
+    // leave the user credited with the deposit stuck at 'pending'
+    // forever - this way they can only ever commit or fail together.
     try {
-      await WalletService.applyTransaction({
+      await WalletService.completeDeposit({
+        depositId: deposit.id,
         userId: deposit.user_id,
-        type: "deposit",
         amount: creditAmount,
         reference,
         description: "Fapshi deposit confirmed",
@@ -45,12 +47,6 @@ export class PaymentProcessor {
       );
       throw error;
     }
-
-    const supabase = createAdminClient();
-    await supabase
-      .from("deposits")
-      .update({ status: "completed" })
-      .eq("id", deposit.id);
 
     return { success: true };
   }

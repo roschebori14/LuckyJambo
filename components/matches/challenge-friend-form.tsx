@@ -33,10 +33,11 @@ export default function ChallengeFriendForm({
   const selectedGame = games.find((g) => g.slug === gameSlug);
   const selectedFriend = friends.find((f) => f.id === friendId);
 
-  // There's no "invite a specific friend" concept in the schema (matches
-  // are open-join, not targeted) - so a challenge is just a normal open
-  // match plus a direct link you send your friend so they don't have to
-  // hunt for it in the open matches list.
+  // create_match accepts an optional invited friend (see migration
+  // 013 / 026): passing it makes this a private challenge that only
+  // that friend can join, instead of an open match anyone could grab
+  // via the share link or the open matches list before your friend
+  // gets to it.
   async function challengeFriend(e: React.FormEvent) {
     e.preventDefault();
     setError("");
@@ -46,13 +47,17 @@ export default function ChallengeFriendForm({
       setError(`Stake must be between ${selectedGame.min_stake.toLocaleString()} and ${selectedGame.max_stake.toLocaleString()} XAF`);
       return;
     }
+    if (!friendId) {
+      setError("Choose a friend to challenge");
+      return;
+    }
 
     setLoading(true);
     try {
       const res = await fetch("/api/matches/create", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ game_slug: gameSlug, stake_amount: stake }),
+        body: JSON.stringify({ game_slug: gameSlug, stake_amount: stake, invited_user_id: friendId }),
       });
       const json = await res.json();
       if (!json.success) {

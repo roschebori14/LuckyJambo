@@ -114,4 +114,36 @@ export class WalletService {
 
     return data;
   }
+
+  /**
+   * Credits a deposit's wallet transaction AND marks the deposit
+   * 'completed', in one DB transaction (see migration 025). Use this
+   * instead of applyTransaction() + a separate deposits update - two
+   * round trips from application code can't be made atomic, and a
+   * failure between them leaves the wallet credited but the deposit
+   * stuck at 'pending' forever.
+   */
+  static async completeDeposit(input: {
+    depositId: string;
+    userId: string;
+    amount: number;
+    reference: string;
+    description?: string;
+  }): Promise<LedgerEntry> {
+    const supabase = createAdminClient();
+
+    const { data, error } = await supabase.rpc("complete_deposit", {
+      p_deposit_id: input.depositId,
+      p_user_id: input.userId,
+      p_amount: input.amount,
+      p_reference: input.reference,
+      p_description: input.description ?? null,
+    });
+
+    if (error) {
+      throw error;
+    }
+
+    return data;
+  }
 }

@@ -5,6 +5,7 @@ import { z } from "zod";
 const createMatchSchema = z.object({
   game_slug: z.string(),
   stake_amount: z.number().positive(),
+  invited_user_id: z.string().uuid().optional(),
 });
 
 export async function POST(request: Request) {
@@ -24,6 +25,7 @@ export async function POST(request: Request) {
     const { data, error } = await supabase.rpc("create_match", {
       p_game_slug: validated.game_slug,
       p_stake_amount: validated.stake_amount,
+      p_invited_user_id: validated.invited_user_id ?? null,
     });
 
     if (error) throw error;

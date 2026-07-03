@@ -25,8 +25,16 @@ export default async function MatchesPage() {
       .order("name"),
     supabase
       .from("matches")
-      .select("id, stake_amount, status, created_at, creator_id, games(name, slug)")
+      .select("id, stake_amount, status, created_at, creator_id, invited_user_id, games(name, slug)")
       .eq("status", "waiting")
+      // matches RLS ("view matches") allows reading every row, so
+      // without this filter a private friend challenge (invited_user_id
+      // set) would still show up in everyone's open matches list even
+      // though join_match blocks anyone but the invited friend from
+      // actually joining it - confusing and defeats the point of a
+      // private challenge. Only show truly open matches, plus any
+      // private challenge addressed to the current user.
+      .or(`invited_user_id.is.null,invited_user_id.eq.${user.id}`)
       .order("created_at", { ascending: false })
       .limit(30),
     FriendService.getFriends(user.id),

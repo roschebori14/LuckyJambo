@@ -1,9 +1,11 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { MINIMUM_WITHDRAWAL, MAXIMUM_WITHDRAWAL } from "@/lib/wallet/wallet-constants";
 
 export default function WithdrawalForm({ availableBalance }: { availableBalance: number }) {
+  const router = useRouter();
   const [amount, setAmount] = useState("");
   const [accountNumber, setAccountNumber] = useState("");
   const [provider, setProvider] = useState<"mtn" | "orange">("mtn");
@@ -38,6 +40,7 @@ export default function WithdrawalForm({ availableBalance }: { availableBalance:
 
       setSuccess("✅ Withdrawal request submitted. Funds locked pending admin approval.");
       setAmount(""); setAccountNumber("");
+      router.refresh();
     } finally {
       setLoading(false);
     }
