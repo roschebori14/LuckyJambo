@@ -5,11 +5,17 @@ interface PaymentLinkCardProps {
   amount: number;
 }
 
-export default function PaymentLinkCard({ paymentLink, amount }: PaymentLinkCardProps) {
+export default function PaymentLinkCard({
+  paymentLink,
+  amount,
+}: PaymentLinkCardProps) {
   return (
     <div
       className="rounded-2xl p-5 space-y-3"
-      style={{ border: "1px solid var(--lj-border)", background: "rgba(26, 86, 255, 0.08)" }}
+      style={{
+        border: "1px solid var(--lj-border)",
+        background: "rgba(26, 86, 255, 0.08)",
+      }}
     >
       <div className="flex items-center gap-2">
         <span
@@ -20,11 +26,13 @@ export default function PaymentLinkCard({ paymentLink, amount }: PaymentLinkCard
         </span>
         <div>
           <p className="text-sm font-bold text-white">Payment link ready</p>
-          <p className="text-xs text-[var(--lj-muted)]">Pay {amount.toLocaleString()} XAF to complete your deposit</p>
+          <p className="text-xs text-[var(--lj-muted)]">
+            Pay {amount.toLocaleString()} XAF to complete your deposit
+          </p>
         </div>
       </div>
 
-      
+      <a
         href={paymentLink}
         target="_blank"
         rel="noreferrer"
