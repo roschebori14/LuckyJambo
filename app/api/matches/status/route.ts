@@ -12,7 +12,7 @@ export async function GET(request: Request) {
     if (!id) return NextResponse.json({ success: false, message: "id required" }, { status: 400 });
 
     const { data, error } = await supabase
-      .from("matches").select("id, status, game_state, stake_amount, winner_id, creator_id").eq("id", id).single();
+      .from("matches").select("id, status, game_state, stake_amount, winner_id, creator_id, end_reason").eq("id", id).single();
 
     if (error || !data) return NextResponse.json({ success: false, message: "Not found" }, { status: 404 });
 
