@@ -1,6 +1,7 @@
 import "./globals.css";
 import { ReactNode } from "react";
 import type { Metadata } from "next";
+import { Toaster } from "sonner";
 import TawkWidget from "@/components/tawk-widget";
 
 const SITE_URL = "https://lucky-jambo.vercel.app";
@@ -93,6 +94,17 @@ export default function RootLayout({ children }: RootLayoutProps) {
       <body className="bg-gray-50 text-gray-900">
         {children}
         <TawkWidget />
+        <Toaster
+          position="top-center"
+          richColors
+          toastOptions={{
+            style: {
+              background: "#0a1428",
+              border: "1px solid rgba(255,255,255,0.1)",
+              color: "white",
+            },
+          }}
+        />
       </body>
     </html>
   );
