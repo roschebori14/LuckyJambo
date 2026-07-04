@@ -73,11 +73,22 @@ export default function RegisterForm() {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError("");
-    if (username.length < 3) {
+
+    // The <input> below accepts spaces as typed (mobile keyboards/
+    // autocomplete often add a stray leading/trailing space, and some
+    // people try a "first last" style name) - but the regex below has
+    // always rejected any username containing a space outright, which
+    // is why users hit "Username: letters, numbers, underscores only"
+    // for what looks like a perfectly normal name. Rather than reject
+    // spaces, strip them before validating/saving so the character-set
+    // check only ever sees what will actually be stored.
+    const cleanUsername = username.replace(/\s+/g, "");
+
+    if (cleanUsername.length < 3) {
       setError("Username must be at least 3 characters");
       return;
     }
-    if (!/^[a-zA-Z0-9_]+$/.test(username)) {
+    if (!/^[a-zA-Z0-9_]+$/.test(cleanUsername)) {
       setError("Username: letters, numbers, underscores only");
       return;
     }
@@ -97,7 +108,7 @@ export default function RegisterForm() {
     try {
       const { data: available, error: checkErr } = await supabase.rpc(
         "is_username_available",
-        { p_username: username },
+        { p_username: cleanUsername },
       );
       if (!checkErr && available === false) {
         setError("That username is taken. Please choose another.");
@@ -115,7 +126,7 @@ export default function RegisterForm() {
       const modRes = await fetch("/api/ai/moderate-username", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ username }),
+        body: JSON.stringify({ username: cleanUsername }),
       });
       const mod = await modRes.json();
       if (mod.allowed === false) {
@@ -133,7 +144,7 @@ export default function RegisterForm() {
       const { error } = await supabase.auth.signUp({
         email,
         password,
-        options: { data: { username } },
+        options: { data: { username: cleanUsername } },
       });
       if (error) {
         setError(friendlyAuthError(error.message));

@@ -33,6 +33,8 @@ export default function GameClient({ matchId, gameSlug, userId, stakeAmount, ini
   const [joined, setJoined] = useState(isParticipant);
   const [joining, setJoining] = useState(false);
   const [joinError, setJoinError] = useState("");
+  const [cancelling, setCancelling] = useState(false);
+  const [cancelError, setCancelError] = useState("");
 
   const pollStatus = useCallback(async () => {
     if (status !== "waiting") return;
@@ -116,6 +118,28 @@ export default function GameClient({ matchId, gameSlug, userId, stakeAmount, ini
     );
   }
 
+  async function cancelMatch() {
+    setCancelling(true);
+    setCancelError("");
+    try {
+      const res = await fetch("/api/matches/cancel", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ match_id: matchId }),
+      });
+      const json = await res.json();
+      if (!json.success) {
+        setCancelError(json.message ?? "Could not cancel match");
+        return;
+      }
+      setStatus("cancelled");
+    } catch {
+      setCancelError("Network error — please try again.");
+    } finally {
+      setCancelling(false);
+    }
+  }
+
   if (status === "waiting") {
     return (
       <div className="flex flex-col items-center justify-center rounded-2xl border border-[var(--lj-border)] bg-[var(--lj-card-2)] p-8 shadow-sm text-center">
@@ -138,6 +162,27 @@ export default function GameClient({ matchId, gameSlug, userId, stakeAmount, ini
             {copied ? "Copied!" : "Copy"}
           </button>
         </div>
+        {cancelError && (
+          <div className="mt-4 rounded-xl bg-red-500/10 px-4 py-3 text-sm text-red-300">{cancelError}</div>
+        )}
+        <button
+          onClick={cancelMatch}
+          disabled={cancelling}
+          className="mt-6 rounded-xl border border-red-400/30 px-5 py-2 text-sm font-semibold text-red-400 hover:bg-red-500/10 disabled:opacity-50"
+        >
+          {cancelling ? "Cancelling…" : "Cancel Match"}
+        </button>
+      </div>
+    );
+  }
+
+  if (status === "cancelled") {
+    return (
+      <div className="flex flex-col items-center justify-center rounded-2xl border border-[var(--lj-border)] bg-[var(--lj-card-2)] p-8 shadow-sm text-center">
+        <h3 className="mb-2 text-xl font-bold text-white">Match cancelled</h3>
+        <p className="text-sm text-[var(--lj-muted)]">
+          Your stake was refunded to your wallet.
+        </p>
       </div>
     );
   }
@@ -180,7 +225,7 @@ export default function GameClient({ matchId, gameSlug, userId, stakeAmount, ini
 
       {/* Forfeit / report / resign controls */}
       <div className="rounded-2xl border border-[var(--lj-border)] bg-[var(--lj-card-2)] p-4 shadow-sm">
-        <MatchActions matchId={matchId} onMatchEnded={() => setStatus("completed")} hideResign={gameSlug === "chess"} />
+        <MatchActions matchId={matchId} onMatchEnded={() => setStatus("completed")} hideResign={gameSlug === "chess"} stakeAmount={stakeAmount} />
       </div>
     </>
   );

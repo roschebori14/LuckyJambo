@@ -3,15 +3,16 @@
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutDashboard, Gamepad2, Swords, Wallet, Users, User, Shield } from "lucide-react";
+import { LayoutDashboard, Gamepad2, Swords, Wallet, Users, User, Shield, Trophy } from "lucide-react";
 
 const NAV = [
-  { href: "/dashboard", icon: LayoutDashboard, label: "Dashboard" },
-  { href: "/games",     icon: Gamepad2,        label: "Games" },
-  { href: "/matches",   icon: Swords,          label: "Matches" },
-  { href: "/wallet",    icon: Wallet,          label: "Wallet" },
-  { href: "/friends",   icon: Users,           label: "Friends" },
-  { href: "/profile",   icon: User,            label: "Profile" },
+  { href: "/dashboard",   icon: LayoutDashboard, label: "Dashboard" },
+  { href: "/games",       icon: Gamepad2,        label: "Games" },
+  { href: "/matches",     icon: Swords,          label: "Matches" },
+  { href: "/leaderboard", icon: Trophy,          label: "Leaderboard" },
+  { href: "/wallet",      icon: Wallet,          label: "Wallet" },
+  { href: "/friends",     icon: Users,           label: "Friends" },
+  { href: "/profile",     icon: User,            label: "Profile" },
 ];
 
 export default function Sidebar({ isAdmin }: { isAdmin?: boolean }) {
@@ -35,7 +36,7 @@ export default function Sidebar({ isAdmin }: { isAdmin?: boolean }) {
 
       {/* ── Mobile bottom tab bar ── */}
       <nav
-        className="fixed inset-x-0 bottom-0 z-40 grid grid-cols-6 md:hidden"
+        className="fixed inset-x-0 bottom-0 z-40 grid grid-cols-7 md:hidden"
         style={{
           background: "var(--lj-navy-2)",
           borderTop: "1px solid var(--lj-border)",

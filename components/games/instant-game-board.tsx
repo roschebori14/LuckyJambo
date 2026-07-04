@@ -27,6 +27,7 @@ export default function InstantGameBoard({ matchId, gameType }: Props) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [matchReady, setMatchReady] = useState(false);
+  const [restoring, setRestoring] = useState(true);
 
   const pollMatch = useCallback(async () => {
     const res = await fetch(`/api/matches/status?id=${matchId}`);
@@ -39,6 +40,35 @@ export default function InstantGameBoard({ matchId, gameType }: Props) {
     const t = setInterval(pollMatch, 2000);
     return () => clearInterval(t);
   }, [pollMatch]);
+
+  // On mount (including a mid-game reload/reconnect), re-derive whether
+  // this player already submitted a move and whether the match has
+  // already resolved from the server, instead of trusting local state
+  // that resets to "not submitted yet" on every page load. Without
+  // this, a player who submits then reloads before their opponent
+  // moves lands back on the move-selection screen and can get stuck
+  // there forever even after the match finishes server-side.
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch(`/api/games/state?match_id=${matchId}`);
+        const json = await res.json();
+        if (cancelled || !json.success) return;
+        const r = json.result;
+        if (r?.status === "resolved" || r?.status === "draw") {
+          setResult(r);
+          setSubmitted(true);
+        } else if (r?.status === "submitted") {
+          setSubmitted(true);
+          setMove(r.move ?? "");
+        }
+      } finally {
+        if (!cancelled) setRestoring(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [matchId]);
 
   async function submitMove(selectedMove: string) {
     setLoading(true);
@@ -53,7 +83,7 @@ export default function InstantGameBoard({ matchId, gameType }: Props) {
       if (!json.success) { setError(json.message); return; }
       setMove(selectedMove);
       setSubmitted(true);
-      if (json.result?.status === "resolved") {
+      if (json.result?.status === "resolved" || json.result?.status === "draw") {
         setResult(json.result);
       }
     } finally {
@@ -71,7 +101,7 @@ export default function InstantGameBoard({ matchId, gameType }: Props) {
         body: JSON.stringify({ match_id: matchId, move }),
       });
       const json = await res.json();
-      if (json.result?.status === "resolved") {
+      if (json.result?.status === "resolved" || json.result?.status === "draw") {
         setResult(json.result);
         clearInterval(t);
       }
@@ -79,7 +109,7 @@ export default function InstantGameBoard({ matchId, gameType }: Props) {
     return () => clearInterval(t);
   }, [submitted, result, matchId, move]);
 
-  if (!matchReady) {
+  if (!matchReady || restoring) {
     return (
       <div className="flex flex-col items-center gap-3 py-10 text-center">
         <div className="h-8 w-8 animate-spin rounded-full border-4 border-green-500 border-t-transparent" />
@@ -89,6 +119,18 @@ export default function InstantGameBoard({ matchId, gameType }: Props) {
   }
 
   if (result) {
+    if (result.status === "draw") {
+      return (
+        <div className="rounded-2xl p-6 text-center bg-yellow-500/10">
+          <div className="text-5xl mb-3">🤝</div>
+          <h2 className="text-xl font-extrabold text-white">It&apos;s a draw!</h2>
+          <p className="mt-1 text-sm text-[var(--lj-muted)]">Your stake was refunded to your wallet.</p>
+          <a href="/games" className="mt-4 inline-block rounded-xl bg-green-600 px-6 py-2.5 text-sm font-bold text-white">
+            Play Again
+          </a>
+        </div>
+      );
+    }
     return (
       <div className={`rounded-2xl p-6 text-center ${result.you_won ? "bg-green-500/10" : "bg-red-500/10"}`}>
         <div className="text-5xl mb-3">{result.you_won ? "🏆" : "😔"}</div>
