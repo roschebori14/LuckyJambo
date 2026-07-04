@@ -315,7 +315,7 @@ export class FriendService {
       throw error;
     }
 
-    return data;
+    return data as PublicProfile | null;
   }
 
   /** Invite links skip the request/accept handshake entirely - opening
