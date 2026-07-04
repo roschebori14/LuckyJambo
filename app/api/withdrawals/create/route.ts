@@ -5,6 +5,19 @@ import { WithdrawalService } from "@/lib/withdrawals/withdrawal-service";
 import { withdrawalSchema } from "@/lib/withdrawals/withdrawal-validator";
 import { initiateFapshiPayout } from "@/lib/fapshi/fapshi-client";
 
+function getErrorMessage(error: unknown, fallback: string): string {
+  if (error instanceof Error) return error.message;
+  if (
+    error &&
+    typeof error === "object" &&
+    "message" in error &&
+    typeof (error as { message: unknown }).message === "string"
+  ) {
+    return (error as { message: string }).message;
+  }
+  return fallback;
+}
+
 export async function POST(request: Request) {
   try {
     const supabase = await createClient();
@@ -62,26 +75,26 @@ export async function POST(request: Request) {
       // nothing is in flight, so it's safe to release the lock here
       // rather than waiting on a webhook that will never come.
       const admin = createAdminClient();
-      
+      const payoutErrMessage = getErrorMessage(payoutErr, "Fapshi payout request failed");
+
       await admin.rpc("apply_wallet_transaction", {
         p_user_id: user.id,
         p_type: "refund", // releases locked balance back to available
         p_amount: validated.amount,
         p_reference: withdrawal.id,
-        p_description: `Automatic withdrawal failed: ${(payoutErr as Error).message}`,
+        p_description: `Automatic withdrawal failed: ${payoutErrMessage}`,
       });
 
       await admin.from("withdrawals").update({
         status: "failed",
-        failure_reason: (payoutErr as Error).message,
+        failure_reason: payoutErrMessage,
         processed_at: new Date().toISOString(),
       }).eq("id", withdrawal.id);
 
       throw payoutErr;
     }
   } catch (error) {
-    const message =
-      error instanceof Error ? error.message : "Failed to create withdrawal";
+    const message = getErrorMessage(error, "Failed to create withdrawal");
     return NextResponse.json(
       { success: false, message },
       { status: 400 },

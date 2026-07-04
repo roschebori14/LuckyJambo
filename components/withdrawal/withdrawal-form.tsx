@@ -38,7 +38,7 @@ export default function WithdrawalForm({ availableBalance }: { availableBalance:
       const json = await res.json();
       if (!json.success) { setError(json.message); return; }
 
-      setSuccess("✅ Withdrawal request submitted. Funds locked pending admin approval.");
+      setSuccess("✅ Withdrawal submitted. We're processing it with Fapshi now — you'll see it update automatically.");
       setAmount(""); setAccountNumber("");
       router.refresh();
     } finally {
@@ -117,8 +117,8 @@ export default function WithdrawalForm({ availableBalance }: { availableBalance:
         />
       </div>
 
-      <div className="rounded-xl bg-amber-50 px-4 py-3 text-xs text-amber-700">
-        ⚠️ Withdrawals are reviewed by an admin before payout. Funds are locked while pending.
+      <div className="rounded-xl bg-yellow-500/10 px-4 py-3 text-xs text-yellow-300">
+        ⚠️ Funds are locked immediately and sent via Fapshi automatically. This usually completes within a few minutes.
       </div>
 
       <button
