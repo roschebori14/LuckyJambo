@@ -7,6 +7,7 @@ const ChessBoard = dynamic(() => import("@/components/games/chess-board"), { ssr
 const TicTacToeBoard = dynamic(() => import("@/components/games/tic-tac-toe-board"), { ssr: false });
 const InstantGameBoard = dynamic(() => import("@/components/games/instant-game-board"), { ssr: false });
 const DraughtsBoard = dynamic(() => import("@/components/games/draughts-board"), { ssr: false });
+const BattleshipBoard = dynamic(() => import("@/components/games/battleship-board"), { ssr: false });
 const MatchActions = dynamic(() => import("@/components/games/match-actions"), { ssr: false });
 
 const INSTANT_SLUGS = ["rock_paper_scissors", "coin_flip", "dice"] as const;
@@ -221,6 +222,7 @@ export default function GameClient({ matchId, gameSlug, userId, stakeAmount, ini
           />
         )}
         {gameSlug === "draughts" && <DraughtsBoard matchId={matchId} userId={userId} />}
+        {gameSlug === "battleship" && <BattleshipBoard matchId={matchId} userId={userId} />}
       </div>
 
       {/* Forfeit / report / resign controls */}

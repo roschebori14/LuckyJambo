@@ -3,7 +3,8 @@ export type GameType =
   | "coin_flip"
   | "dice_duel"
   | "chess"
-  | "draughts";
+  | "draughts"
+  | "battleship";
 export interface Game {
   id: string;
 

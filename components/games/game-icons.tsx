@@ -79,6 +79,23 @@ export function CoinFlipIcon({ className }: IconProps) {
   );
 }
 
+export function BattleshipIcon({ className }: IconProps) {
+  return (
+    <svg viewBox="0 0 48 48" fill="none" className={className} aria-hidden="true">
+      {/* Waterline */}
+      <path d="M4 32c3 2 6 2 9 0s6-2 9 0 6 2 9 0 6-2 9 0 6 2 4 0" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" opacity="0.55" />
+      {/* Hull */}
+      <path d="M9 30l2-8h26l2 8-4 5H13l-4-5Z" fill="currentColor" />
+      {/* Superstructure */}
+      <rect x="19" y="14" width="10" height="8" rx="1.2" fill="currentColor" />
+      <rect x="22" y="7" width="4" height="8" rx="1" fill="currentColor" opacity="0.85" />
+      {/* Targeting reticle */}
+      <circle cx="37" cy="12" r="6.5" stroke="currentColor" strokeWidth="2" opacity="0.8" />
+      <path d="M37 6.5v3M37 14.5v3M31.5 12h3M39.5 12h3" stroke="currentColor" strokeWidth="2" strokeLinecap="round" opacity="0.8" />
+    </svg>
+  );
+}
+
 export const GAME_ICON: Record<string, (props: IconProps) => React.JSX.Element> = {
   chess: ChessIcon,
   draughts: DraughtsIcon,
@@ -86,6 +103,7 @@ export const GAME_ICON: Record<string, (props: IconProps) => React.JSX.Element> 
   dice: DiceIcon,
   rock_paper_scissors: RockPaperScissorsIcon,
   coin_flip: CoinFlipIcon,
+  battleship: BattleshipIcon,
 };
 
 export function GameIcon({ slug, className }: { slug: string; className?: string }) {
