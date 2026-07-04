@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from "react";
 import dynamic from "next/dynamic";
+import { useMatchRealtime } from "@/hooks/use-match-realtime";
 
 const ChessBoard = dynamic(() => import("@/components/games/chess-board"), { ssr: false });
 const TicTacToeBoard = dynamic(() => import("@/components/games/tic-tac-toe-board"), { ssr: false });
@@ -60,6 +61,16 @@ export default function GameClient({ matchId, gameSlug, userId, stakeAmount, ini
       return () => clearInterval(interval);
     }
   }, [status, joined, pollStatus]);
+
+  // Live update: the instant the opponent joins, cancels, or the match
+  // otherwise changes status, react immediately instead of waiting for
+  // the next 3s poll. The poll above stays as a fallback.
+  useMatchRealtime(matchId, (row) => {
+    const nextStatus = row.status as string | undefined;
+    if (nextStatus) {
+      setStatus((prev) => (nextStatus !== prev ? nextStatus : prev));
+    }
+  });
 
   const shareUrl = typeof window !== "undefined" ? window.location.href : "";
 

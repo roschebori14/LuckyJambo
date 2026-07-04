@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import { useMatchRealtime } from "@/hooks/use-match-realtime";
 
 type GameType = "rock_paper_scissors" | "dice_duel" | "coin_flip";
 
@@ -41,6 +42,33 @@ export default function InstantGameBoard({ matchId, gameType }: Props) {
     return () => clearInterval(t);
   }, [pollMatch]);
 
+  // Shared with the mount-time restore below: re-derive whether this
+  // player already submitted a move and whether the match has resolved,
+  // straight from the server (source of truth lives in match_moves /
+  // matches, not in local state).
+  const checkResult = useCallback(async () => {
+    const res = await fetch(`/api/games/state?match_id=${matchId}`);
+    const json = await res.json();
+    if (!json.success) return;
+    const r = json.result;
+    if (r?.status === "resolved" || r?.status === "draw") {
+      setResult(r);
+      setSubmitted(true);
+    } else if (r?.status === "submitted") {
+      setSubmitted(true);
+      setMove(r.move ?? "");
+    }
+  }, [matchId]);
+
+  // Live update: the opponent joining, or the match resolving the
+  // instant both moves are in, lands immediately instead of waiting up
+  // to 2s for the next poll.
+  useMatchRealtime(matchId, (row) => {
+    const nextStatus = row.status as string | undefined;
+    if (nextStatus === "active") setMatchReady(true);
+    if (nextStatus === "completed") checkResult();
+  });
+
   // On mount (including a mid-game reload/reconnect), re-derive whether
   // this player already submitted a move and whether the match has
   // already resolved from the server, instead of trusting local state
@@ -52,23 +80,13 @@ export default function InstantGameBoard({ matchId, gameType }: Props) {
     let cancelled = false;
     (async () => {
       try {
-        const res = await fetch(`/api/games/state?match_id=${matchId}`);
-        const json = await res.json();
-        if (cancelled || !json.success) return;
-        const r = json.result;
-        if (r?.status === "resolved" || r?.status === "draw") {
-          setResult(r);
-          setSubmitted(true);
-        } else if (r?.status === "submitted") {
-          setSubmitted(true);
-          setMove(r.move ?? "");
-        }
+        await checkResult();
       } finally {
         if (!cancelled) setRestoring(false);
       }
     })();
     return () => { cancelled = true; };
-  }, [matchId]);
+  }, [checkResult]);
 
   async function submitMove(selectedMove: string) {
     setLoading(true);

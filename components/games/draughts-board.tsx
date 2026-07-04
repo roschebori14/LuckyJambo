@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { DraughtsEngine, DraughtsState, DraughtsMove } from "@/lib/games/draughts-engine";
+import { useMatchRealtime } from "@/hooks/use-match-realtime";
 
 interface Props {
   matchId: string;
@@ -43,6 +44,12 @@ export default function DraughtsBoard({ matchId, userId }: Props) {
     const t = setInterval(fetchState, 3000);
     return () => clearInterval(t);
   }, [fetchState]);
+
+  // Live update: opponent's move lands instantly instead of waiting up
+  // to 3s for the next poll.
+  useMatchRealtime(matchId, (row) => {
+    if (row.game_state) setState(row.game_state as DraughtsState);
+  });
 
   const myColor: "r" | "b" | null = useMemo(() => {
     if (!state) return null;

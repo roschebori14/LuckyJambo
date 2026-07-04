@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { Crosshair, Ship, Flame, Waves } from "lucide-react";
 import { GRID_SIZE, CELL_COUNT, shipLabel, type BattleshipState, type OwnShip } from "@/types/battleship";
+import { useMatchRealtime } from "@/hooks/use-match-realtime";
 
 interface Props {
   matchId: string;
@@ -38,6 +39,15 @@ export default function BattleshipBoard({ matchId, userId }: Props) {
     const interval = setInterval(fetchState, 2500);
     return () => clearInterval(interval);
   }, [fetchState, fetchShips]);
+
+  // Live update: the opponent's shot (hit/miss, sunk ships, whose turn
+  // it is) lands instantly instead of waiting up to 2.5s for the next
+  // poll. Also re-fetch our own ship list so a newly-sunk ship's `sunk`
+  // flag updates immediately instead of only on the next full reload.
+  useMatchRealtime(matchId, (row) => {
+    if (row.game_state) setState(row.game_state as BattleshipState);
+    fetchShips();
+  });
 
   const isPlayerA = state?.player_a_id === userId;
   const myAliveKey = isPlayerA ? "ships_alive_a" : "ships_alive_b";

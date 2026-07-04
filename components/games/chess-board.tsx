@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { Chessboard } from "react-chessboard";
+import { useMatchRealtime } from "@/hooks/use-match-realtime";
 
 interface ChessBoardProps {
   matchId: string;
@@ -34,6 +35,12 @@ export default function ChessBoard({ matchId, userId }: ChessBoardProps) {
     const t = setInterval(fetchState, 3000);
     return () => clearInterval(t);
   }, [fetchState]);
+
+  // Live update: opponent's move lands instantly instead of waiting up
+  // to 3s for the next poll.
+  useMatchRealtime(matchId, (row) => {
+    if (row.game_state) setState(row.game_state as ChessGameState);
+  });
 
   // onPieceDrop must be synchronous per react-chessboard contract.
   // We fire-and-forget the fetch and update state when it resolves.

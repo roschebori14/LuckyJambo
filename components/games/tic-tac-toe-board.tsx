@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import { useMatchRealtime } from "@/hooks/use-match-realtime";
 
 interface TicState {
   board: Array<"X" | "O" | null>;
@@ -35,6 +36,13 @@ export default function TicTacToeBoard({ matchId, userId }: Props) {
     const interval = setInterval(fetchState, 3000);
     return () => clearInterval(interval);
   }, [fetchState]);
+
+  // Live update: opponent's move lands instantly instead of waiting up
+  // to 3s for the next poll. game_state on the row is exactly the shape
+  // this board renders, so we can apply it directly with no extra fetch.
+  useMatchRealtime(matchId, (row) => {
+    if (row.game_state) setState(row.game_state as TicState);
+  });
 
   async function makeMove(cellIndex: number) {
     if (!state || state.game_over || moving) return;
