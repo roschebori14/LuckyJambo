@@ -6,6 +6,8 @@ import dynamic from "next/dynamic";
 const ChessBoard = dynamic(() => import("@/components/games/chess-board"), { ssr: false });
 const TicTacToeBoard = dynamic(() => import("@/components/games/tic-tac-toe-board"), { ssr: false });
 const InstantGameBoard = dynamic(() => import("@/components/games/instant-game-board"), { ssr: false });
+const DraughtsBoard = dynamic(() => import("@/components/games/draughts-board"), { ssr: false });
+const MatchActions = dynamic(() => import("@/components/games/match-actions"), { ssr: false });
 
 const INSTANT_SLUGS = ["rock_paper_scissors", "coin_flip", "dice"] as const;
 type InstantSlug = typeof INSTANT_SLUGS[number];
@@ -140,6 +142,17 @@ export default function GameClient({ matchId, gameSlug, userId, stakeAmount, ini
     );
   }
 
+  if (status === "completed") {
+    return (
+      <div className="flex flex-col items-center justify-center rounded-2xl border border-[var(--lj-border)] bg-[var(--lj-card-2)] p-8 shadow-sm text-center">
+        <h3 className="mb-2 text-xl font-bold text-white">Match ended</h3>
+        <p className="text-sm text-[var(--lj-muted)]">
+          This match has been settled. Check your wallet or match history for the result.
+        </p>
+      </div>
+    );
+  }
+
   return (
     <>
       {/* Stake info */}
@@ -162,13 +175,12 @@ export default function GameClient({ matchId, gameSlug, userId, stakeAmount, ini
             gameType={INSTANT_TYPE_MAP[gameSlug as InstantSlug]}
           />
         )}
-        {gameSlug === "draughts" && (
-          <div className="py-10 text-center text-[var(--lj-muted)]">
-            <p className="text-4xl mb-3">🔴</p>
-            <p className="font-semibold">Draughts board UI — Phase 9</p>
-            <p className="text-sm text-[var(--lj-muted)] mt-1">Engine is complete, board UI coming next.</p>
-          </div>
-        )}
+        {gameSlug === "draughts" && <DraughtsBoard matchId={matchId} userId={userId} />}
+      </div>
+
+      {/* Forfeit / report / resign controls */}
+      <div className="rounded-2xl border border-[var(--lj-border)] bg-[var(--lj-card-2)] p-4 shadow-sm">
+        <MatchActions matchId={matchId} onMatchEnded={() => setStatus("completed")} hideResign={gameSlug === "chess"} />
       </div>
     </>
   );
