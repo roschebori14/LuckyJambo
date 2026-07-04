@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
+import { toast } from "sonner";
 import {
   User,
   Mail,
@@ -141,7 +142,7 @@ export default function RegisterForm() {
     }
 
     try {
-      const { error } = await supabase.auth.signUp({
+      const { data, error } = await supabase.auth.signUp({
         email,
         password,
         options: { data: { username: cleanUsername } },
@@ -151,8 +152,30 @@ export default function RegisterForm() {
         setLoading(false);
         return;
       }
+
+      // Email confirmation is off, so signUp() returns an active session
+      // right away - drop the user straight into the app instead of
+      // making them wait on an email that will never need to arrive.
+      if (data.session) {
+        toast.success(`Welcome to Lucky Jambo, ${cleanUsername}!`, {
+          description: "Your account is ready. Let's get you started.",
+        });
+        router.push("/dashboard");
+        router.refresh();
+        return;
+      }
+
+      // Fallback: if email confirmation ever gets re-enabled on the
+      // Supabase project, there'll be no session yet - keep the old
+      // "check your email" screen working for that case.
+      toast.success("Account created!", {
+        description: "Check your email to confirm and finish signing in.",
+      });
       setDone(true);
     } catch {
+      toast.error("Couldn't reach the server", {
+        description: "Please check your connection and try again.",
+      });
       setError(
         "Couldn't reach the server. Please check your connection and try again.",
       );
