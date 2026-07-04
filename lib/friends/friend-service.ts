@@ -1,7 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-
-const PUBLIC_PROFILE_FIELDS = "id, username, avatar_url, is_verified";
+import type { FriendshipStatus, PublicProfile } from "@/types/profile";
 
 export class FriendService {
   /** Sends a friend request after checking for self-adds, existing
@@ -62,13 +61,20 @@ export class FriendService {
   }
 
   /** Pending requests sent TO this user, with the sender's public
-   *  profile joined in so the UI has a username to show. */
+   *  profile attached. `profiles` RLS only allows a user to see their
+   *  own row, so the old `profiles!friend_requests_sender_id_fkey(...)`
+   *  embed silently returned null for the sender on every row - it
+   *  never errored, so the "Pending Requests" panel just quietly
+   *  looked like every sender was "Unknown". Fetching the request
+   *  rows and the sender profiles as two RLS-safe steps (the second
+   *  via a SECURITY DEFINER batch lookup - see migration 034) fixes
+   *  it for real. */
   static async getRequests(userId: string) {
     const supabase = await createClient();
 
-    const { data, error } = await supabase
+    const { data: rows, error } = await supabase
       .from("friend_requests")
-      .select(`id, created_at, sender:profiles!friend_requests_sender_id_fkey(${PUBLIC_PROFILE_FIELDS})`)
+      .select("id, created_at, sender_id")
       .eq("receiver_id", userId)
       .eq("status", "pending")
       .order("created_at", { ascending: false });
@@ -77,18 +83,31 @@ export class FriendService {
       throw error;
     }
 
-    return data;
+    if (!rows || rows.length === 0) {
+      return [];
+    }
+
+    const senderIds = Array.from(new Set(rows.map((r) => r.sender_id)));
+    const profilesById = await this.getProfilesById(senderIds);
+
+    return rows.map((row) => ({
+      id: row.id,
+      created_at: row.created_at,
+      sender: profilesById.get(row.sender_id) ?? null,
+    }));
   }
 
   /** This user's accepted friends, with each friend's public profile
-   *  joined in. `friends` stores one row per direction (both are
-   *  written on accept), so a plain select on user_id is enough. */
+   *  attached. `friends` stores one row per direction (both are
+   *  written on accept), so a plain select on user_id is enough for
+   *  the friendship rows themselves - it's the joined profile that
+   *  needed the RLS-safe batch lookup (same issue as getRequests). */
   static async getFriends(userId: string) {
     const supabase = await createClient();
 
-    const { data, error } = await supabase
+    const { data: rows, error } = await supabase
       .from("friends")
-      .select(`id, created_at, friend:profiles!friends_friend_id_fkey(${PUBLIC_PROFILE_FIELDS})`)
+      .select("id, created_at, friend_id")
       .eq("user_id", userId)
       .order("created_at", { ascending: false });
 
@@ -96,7 +115,84 @@ export class FriendService {
       throw error;
     }
 
-    return data;
+    if (!rows || rows.length === 0) {
+      return [];
+    }
+
+    const friendIds = Array.from(new Set(rows.map((r) => r.friend_id)));
+    const profilesById = await this.getProfilesById(friendIds);
+
+    return rows.map((row) => ({
+      id: row.id,
+      created_at: row.created_at,
+      friend: profilesById.get(row.friend_id) ?? null,
+    }));
+  }
+
+  /** Batch-resolves public profile fields for a set of user ids via
+   *  the get_public_profiles_by_ids RPC (migration 034), which runs
+   *  SECURITY DEFINER and returns only safe columns - never email,
+   *  phone, is_banned, or invite_code - regardless of whose ids are
+   *  passed in. */
+  static async getProfilesById(ids: string[]): Promise<Map<string, PublicProfile>> {
+    if (ids.length === 0) {
+      return new Map();
+    }
+
+    const supabase = await createClient();
+
+    const { data, error } = await supabase.rpc("get_public_profiles_by_ids", {
+      p_ids: ids,
+    });
+
+    if (error) {
+      throw error;
+    }
+
+    return new Map((data ?? []).map((p: PublicProfile) => [p.id, p]));
+  }
+
+  /** How `viewerId` relates to `targetId` right now - used by the
+   *  public profile page to decide whether to show "Add Friend",
+   *  "Request Sent", "Friends", or nothing. Reads only the viewer's
+   *  own friend/friend_request rows, so the existing RLS policies
+   *  ("view own friends", "view own friend requests") already allow
+   *  it without needing a definer function. */
+  static async getFriendshipStatus(
+    viewerId: string,
+    targetId: string,
+  ): Promise<FriendshipStatus> {
+    if (viewerId === targetId) {
+      return "self";
+    }
+
+    const supabase = await createClient();
+
+    const { data: friendRow } = await supabase
+      .from("friends")
+      .select("id")
+      .eq("user_id", viewerId)
+      .eq("friend_id", targetId)
+      .maybeSingle();
+
+    if (friendRow) {
+      return "friends";
+    }
+
+    const { data: requestRow } = await supabase
+      .from("friend_requests")
+      .select("id, sender_id")
+      .or(
+        `and(sender_id.eq.${viewerId},receiver_id.eq.${targetId}),and(sender_id.eq.${targetId},receiver_id.eq.${viewerId})`,
+      )
+      .eq("status", "pending")
+      .maybeSingle();
+
+    if (requestRow) {
+      return requestRow.sender_id === viewerId ? "request_sent" : "request_received";
+    }
+
+    return "none";
   }
 
   /** Accept or reject a request. Verifies the caller is actually the
@@ -159,22 +255,25 @@ export class FriendService {
   }
 
   /** Finds up to 8 users by username (partial match), excluding the
-   *  searcher themselves. Used by the "add friend" search box. */
-  static async searchByUsername(query: string, excludeUserId: string) {
+   *  searcher themselves. Used by the "add friend" search box. This
+   *  used to query `profiles` directly with the session client, which
+   *  `profiles` RLS silently reduced to "only rows matching your own
+   *  id" - i.e. it could never actually find anyone else. Now goes
+   *  through the search_public_profiles RPC (migration 034) instead. */
+  static async searchByUsername(query: string, excludeUserId: string): Promise<PublicProfile[]> {
     const supabase = await createClient();
 
-    const { data, error } = await supabase
-      .from("profiles")
-      .select(PUBLIC_PROFILE_FIELDS)
-      .ilike("username", `%${query}%`)
-      .neq("id", excludeUserId)
-      .limit(8);
+    const { data, error } = await supabase.rpc("search_public_profiles", {
+      p_query: query,
+      p_exclude_id: excludeUserId,
+      p_limit: 8,
+    });
 
     if (error) {
       throw error;
     }
 
-    return data;
+    return data ?? [];
   }
 
   /** Every user gets a permanent invite_code from signup (see
@@ -201,15 +300,20 @@ export class FriendService {
   }
 
   /** Resolves an invite code to its owner's public profile, or null if
-   *  the code doesn't exist. */
-  static async resolveInviteCode(code: string) {
+   *  the code doesn't exist. Same RLS problem as searchByUsername - a
+   *  direct `profiles` query here could only ever "resolve" your own
+   *  code, so every invite link looked invalid to the person opening
+   *  it. Now goes through the resolve_invite_code RPC (migration 034). */
+  static async resolveInviteCode(code: string): Promise<PublicProfile | null> {
     const supabase = await createClient();
 
-    const { data } = await supabase
-      .from("profiles")
-      .select(PUBLIC_PROFILE_FIELDS)
-      .eq("invite_code", code)
+    const { data, error } = await supabase
+      .rpc("resolve_invite_code", { p_code: code })
       .maybeSingle();
+
+    if (error) {
+      throw error;
+    }
 
     return data;
   }

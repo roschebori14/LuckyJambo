@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { Trophy, Crown } from "lucide-react";
 
@@ -34,7 +35,9 @@ export default async function LeaderboardPage() {
               style={{ background: "linear-gradient(135deg,var(--lj-blue),var(--lj-cyan))" }}>
               {row.username?.[0]?.toUpperCase() ?? "?"}
             </div>
-            <span className="flex-1 font-medium text-white">{row.username}</span>
+            <Link href={`/profile/${row.username}`} className="flex-1 font-medium text-white hover:underline">
+              {row.username}
+            </Link>
             <span className="font-bold" style={{ color: "var(--lj-success)" }}>
               {(row as any)[valueKey].toLocaleString()} {valueSuffix}
             </span>

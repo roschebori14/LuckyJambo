@@ -68,7 +68,11 @@ export default function InviteAcceptCard({
 
       <div>
         <p className="text-sm text-[var(--lj-muted)]">You&apos;ve been invited by</p>
-        <h1 className="text-lg font-bold text-white">{owner.username}</h1>
+        <h1 className="text-lg font-bold text-white">
+          <Link href={`/profile/${owner.username}`} className="hover:underline">
+            {owner.username}
+          </Link>
+        </h1>
       </div>
 
       {error && (

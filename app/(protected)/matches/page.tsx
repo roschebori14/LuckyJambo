@@ -45,22 +45,21 @@ export default async function MatchesPage() {
   // matches has two FKs into profiles (creator_id and winner_id), which
   // PostgREST can't disambiguate without knowing the exact constraint
   // name - simpler and more robust to just fetch profiles separately.
-  // getFriends() already embeds each friend's profile, so no separate
-  // lookup is needed for those.
+  // A direct `profiles` query here would also hit the same RLS wall
+  // as everywhere else (it only allows a user to see their own row),
+  // so this goes through the get_public_profiles_by_ids RPC (migration
+  // 034) instead. getFriends() already resolves each friend's profile
+  // the same way, so no separate lookup is needed for those.
   const creatorIds = (matches ?? []).map((m) => m.creator_id).filter(Boolean);
   const profileIds = Array.from(new Set(creatorIds));
 
-  const { data: profiles } = profileIds.length
-    ? await supabase.from("profiles").select("id, username").in("id", profileIds)
-    : { data: [] as { id: string; username: string }[] };
-
-  const usernameById = new Map((profiles ?? []).map((p) => [p.id, p.username]));
+  const usernameById = await FriendService.getProfilesById(profileIds);
 
   const openMatches = (matches ?? []).map((m) => ({
     id: m.id,
     gameName: (m.games as unknown as { name: string } | null)?.name ?? "Game",
     gameSlug: (m.games as unknown as { slug: string } | null)?.slug ?? "",
-    creatorName: usernameById.get(m.creator_id) ?? "Player",
+    creatorName: usernameById.get(m.creator_id)?.username ?? "Player",
     stakeAmount: m.stake_amount,
     status: m.status,
     isOwn: m.creator_id === user.id,

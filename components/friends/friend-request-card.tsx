@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { Check, X } from "lucide-react";
 
 interface FriendRequestCardProps {
@@ -19,15 +20,15 @@ export default function FriendRequestCard({
 }: FriendRequestCardProps) {
   return (
     <div className="lj-card flex items-center justify-between p-4">
-      <div className="flex items-center gap-2">
+      <Link href={`/profile/${username}`} className="flex items-center gap-2">
         <div
           className="flex h-9 w-9 items-center justify-center rounded-full text-xs font-bold text-white"
           style={{ background: "var(--lj-blue)" }}
         >
           {username.slice(0, 2).toUpperCase()}
         </div>
-        <span className="text-sm font-medium text-white">{username}</span>
-      </div>
+        <span className="text-sm font-medium text-white hover:underline">{username}</span>
+      </Link>
 
       <div className="flex gap-2">
         <button

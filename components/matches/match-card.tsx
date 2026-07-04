@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 
 interface MatchCardProps {
   id: string;
@@ -58,7 +59,16 @@ export default function MatchCard({
         </span>
       </div>
 
-      <p className="mt-2 text-sm text-[var(--lj-muted)]">Created by {isOwn ? "you" : creatorName}</p>
+      <p className="mt-2 text-sm text-[var(--lj-muted)]">
+        Created by{" "}
+        {isOwn ? (
+          "you"
+        ) : (
+          <Link href={`/profile/${creatorName}`} className="hover:underline">
+            {creatorName}
+          </Link>
+        )}
+      </p>
 
       <p className="mt-3 font-medium text-white">Stake: {stakeAmount.toLocaleString()} XAF</p>
 

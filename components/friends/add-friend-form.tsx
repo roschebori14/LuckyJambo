@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { Search, UserPlus, Check, AlertCircle } from "lucide-react";
 
 interface SearchResult {
@@ -102,15 +103,15 @@ export default function AddFriendForm() {
                 className="flex items-center justify-between rounded-xl px-3 py-2.5"
                 style={{ background: "rgba(255,255,255,0.03)" }}
               >
-                <div className="flex items-center gap-2">
+                <Link href={`/profile/${r.username}`} className="flex items-center gap-2">
                   <div
                     className="flex h-8 w-8 items-center justify-center rounded-full text-xs font-bold text-white"
                     style={{ background: "var(--lj-blue)" }}
                   >
                     {r.username.slice(0, 2).toUpperCase()}
                   </div>
-                  <span className="text-sm font-medium text-white">{r.username}</span>
-                </div>
+                  <span className="text-sm font-medium text-white hover:underline">{r.username}</span>
+                </Link>
                 <button
                   onClick={() => sendRequest(r.id)}
                   disabled={sent}
