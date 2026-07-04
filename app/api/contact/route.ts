@@ -1,25 +1,43 @@
 import { NextResponse } from "next/server";
 import { contactSchema } from "@/lib/validations/contact";
+import { createAdminClient } from "@/lib/supabase/admin";
 
-// Simple in-memory rate limit: max 5 submissions per IP per hour.
-// Resets on server restart/redeploy, which is an acceptable tradeoff for a
-// low-volume contact form (vs. pulling in a persistent store).
-const submissions = new Map<string, number[]>();
+// Rate limit: max 5 submissions per IP per hour, backed by the
+// contact_submissions table (see migration 037) instead of an
+// in-memory Map. A process-local Map resets on every deploy/cold
+// start and is tracked independently by each concurrent serverless
+// instance, so the effective limit was "5 per hour per instance", not
+// per IP. A shared table enforces the real limit regardless of which
+// instance handles a given request.
 const RATE_LIMIT = 5;
 const WINDOW_MS = 60 * 60 * 1000;
 
-function isRateLimited(ip: string): boolean {
-  const now = Date.now();
-  const timestamps = (submissions.get(ip) ?? []).filter((t) => now - t < WINDOW_MS);
-  timestamps.push(now);
-  submissions.set(ip, timestamps);
-  return timestamps.length > RATE_LIMIT;
+async function isRateLimited(ip: string): Promise<boolean> {
+  const admin = createAdminClient();
+  const windowStart = new Date(Date.now() - WINDOW_MS).toISOString();
+
+  const { count, error } = await admin
+    .from("contact_submissions")
+    .select("*", { count: "exact", head: true })
+    .eq("ip", ip)
+    .gte("created_at", windowStart);
+
+  if (error) {
+    // Fail open on infra errors rather than blocking every legitimate
+    // submission if the rate-limit check itself is unavailable - the
+    // Resend call below still requires valid env vars, so this isn't
+    // an open door to abuse the API key.
+    console.error("Contact rate-limit check failed:", error);
+    return false;
+  }
+
+  return (count ?? 0) >= RATE_LIMIT;
 }
 
 export async function POST(request: Request) {
   try {
     const ip = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "unknown";
-    if (isRateLimited(ip)) {
+    if (await isRateLimited(ip)) {
       return NextResponse.json(
         { success: false, message: "Too many messages sent. Please try again later." },
         { status: 429 },
@@ -27,6 +45,18 @@ export async function POST(request: Request) {
     }
 
     const body = contactSchema.parse(await request.json());
+
+    // Record this attempt against the IP's budget before sending, same
+    // as the old Map-based version incrementing on every check - a
+    // failed/duplicate send still consumes one of the 5 slots so a
+    // client can't bypass the limit by retrying a failing request.
+    const admin = createAdminClient();
+    const { error: logError } = await admin
+      .from("contact_submissions")
+      .insert({ ip, email: body.email });
+    if (logError) {
+      console.error("Contact rate-limit logging failed:", logError);
+    }
 
     const apiKey = process.env.RESEND_API_KEY;
     const from = process.env.EMAIL_FROM;
