@@ -22,6 +22,7 @@ const GAME_META: Record<string, { type: string; bg: string }> = {
   rock_paper_scissors: { type: "Instant",    bg: "bg-orange-950" },
   coin_flip:           { type: "Instant",    bg: "bg-yellow-950" },
   battleship:          { type: "Turn-based", bg: "bg-slate-950" },
+  "snakes-ladders":    { type: "Turn-based", bg: "bg-emerald-950" },
 };
 
 export default function GameCard({ game }: { game: Game }) {

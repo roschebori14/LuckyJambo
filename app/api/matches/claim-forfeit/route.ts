@@ -9,7 +9,7 @@ const schema = z.object({ match_id: z.string().uuid() });
 // so a short timeout catches an abandoned game fast. Turn-based games
 // (chess/draughts/tic-tac-toe) can legitimately take hours between
 // moves for casual play, so they get a longer window.
-const TURN_BASED_SLUGS = ["chess", "draughts", "tic-tac-toe"];
+const TURN_BASED_SLUGS = ["chess", "draughts", "tic-tac-toe", "snakes-ladders"];
 const INSTANT_TIMEOUT_MINUTES = 15;
 const TURN_BASED_TIMEOUT_MINUTES = 120;
 

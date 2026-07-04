@@ -110,5 +110,6 @@ insert into games (name, slug, min_stake, max_stake, is_active)
 values
   ('Rock Paper Scissors', 'rock_paper_scissors', 50, 50000, true),
   ('Coin Flip',           'coin_flip',           50, 50000, true),
-  ('Battleship',          'battleship',          50, 100000, true)
+  ('Battleship',          'battleship',          50, 100000, true),
+  ('Snakes & Ladders',    'snakes-ladders',      50, 100000, true)
 on conflict (slug) do nothing;

@@ -96,6 +96,25 @@ export function BattleshipIcon({ className }: IconProps) {
   );
 }
 
+export function SnakesLaddersIcon({ className }: IconProps) {
+  return (
+    <svg viewBox="0 0 48 48" fill="none" className={className} aria-hidden="true">
+      {/* Ladder */}
+      <path d="M14 6v36M22 6v36" stroke="currentColor" strokeWidth="3" strokeLinecap="round" />
+      <path d="M14 12h8M14 20h8M14 28h8M14 36h8" stroke="currentColor" strokeWidth="3" strokeLinecap="round" opacity="0.85" />
+      {/* Snake, winding across and behind the ladder */}
+      <path
+        d="M28 40c6 0 6-6 0-6s-6-6 0-6 8-4 8-9-4-8-9-8"
+        stroke="currentColor"
+        strokeWidth="3.4"
+        strokeLinecap="round"
+        opacity="0.75"
+      />
+      <circle cx="27" cy="11" r="2.6" fill="currentColor" opacity="0.75" />
+    </svg>
+  );
+}
+
 export const GAME_ICON: Record<string, (props: IconProps) => React.JSX.Element> = {
   chess: ChessIcon,
   draughts: DraughtsIcon,
@@ -104,6 +123,7 @@ export const GAME_ICON: Record<string, (props: IconProps) => React.JSX.Element> 
   rock_paper_scissors: RockPaperScissorsIcon,
   coin_flip: CoinFlipIcon,
   battleship: BattleshipIcon,
+  "snakes-ladders": SnakesLaddersIcon,
 };
 
 export function GameIcon({ slug, className }: { slug: string; className?: string }) {

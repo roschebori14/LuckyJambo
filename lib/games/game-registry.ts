@@ -1,6 +1,6 @@
 // The GAME_REGISTRY has been replaced by the `games` DB table.
 // Use /api/games/list to fetch games (reads from Supabase `games` table).
-// Slugs: chess | draughts | tic-tac-toe | dice | rock_paper_scissors | coin_flip | battleship
+// Slugs: chess | draughts | tic-tac-toe | dice | rock_paper_scissors | coin_flip | battleship | snakes-ladders
 export const GAME_SLUGS = [
   "chess",
   "draughts",
@@ -9,5 +9,6 @@ export const GAME_SLUGS = [
   "rock_paper_scissors",
   "coin_flip",
   "battleship",
+  "snakes-ladders",
 ] as const;
 export type GameSlug = typeof GAME_SLUGS[number];
