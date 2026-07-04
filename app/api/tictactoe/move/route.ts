@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import { TicTacToeEngine } from "@/lib/games/tic-tac-toe-engine";
 import { z } from "zod";
 
 const schema = z.object({
@@ -48,38 +47,26 @@ export async function POST(request: Request) {
       return NextResponse.json({ success: false, message: "Not your turn" }, { status: 400 });
     }
 
-    const newState = TicTacToeEngine.makeMove(state as unknown as Parameters<typeof TicTacToeEngine.makeMove>[0], validated.cell_index);
-    const fullState = { ...newState, x_player_id: state.x_player_id, o_player_id: state.o_player_id };
+    // The move + win/draw check is computed authoritatively inside
+    // this RPC (server-side, from the real DB row) and persisted in
+    // the same transaction. The old code computed the result in TS
+    // with TicTacToeEngine and then wrote it back with
+    // `supabase.from("matches").update(...)` from the player's own
+    // session - which silently affected 0 rows (no RLS UPDATE policy
+    // on matches), so the move never actually saved. It also called
+    // apply_wallet_transaction directly for draw refunds, which
+    // migration 017 locked down to service_role only, so draws were
+    // silently failing too.
+    const { data: rpcData, error: rpcError } = await supabase.rpc("submit_tictactoe_move", {
+      p_match_id: validated.match_id,
+      p_cell_index: validated.cell_index,
+    });
 
-    const updatePayload: Record<string, unknown> = { game_state: fullState };
-
-    if (newState.game_over) {
-      updatePayload.status = "completed";
-      if (newState.winner) {
-        const winnerId = newState.winner === "X" ? state.x_player_id : state.o_player_id;
-        updatePayload.winner_id = winnerId;
-        await supabase.rpc("settle_match", {
-          p_match_id: validated.match_id,
-          p_winner_id: winnerId,
-        });
-      } else {
-        // Draw – refund both
-        await supabase.rpc("apply_wallet_transaction", {
-          p_user_id: state.x_player_id, p_type: "refund",
-          p_amount: match.stake_amount, p_reference: match.id,
-          p_description: "Tic Tac Toe draw - stake refunded",
-        });
-        await supabase.rpc("apply_wallet_transaction", {
-          p_user_id: state.o_player_id, p_type: "refund",
-          p_amount: match.stake_amount, p_reference: match.id,
-          p_description: "Tic Tac Toe draw - stake refunded",
-        });
-      }
+    if (rpcError) {
+      return NextResponse.json({ success: false, message: rpcError.message }, { status: 400 });
     }
 
-    await supabase.from("matches").update(updatePayload).eq("id", validated.match_id);
-
-    return NextResponse.json({ success: true, state: fullState });
+    return NextResponse.json({ success: true, state: rpcData?.state });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Move failed";
     return NextResponse.json({ success: false, message }, { status: 400 });

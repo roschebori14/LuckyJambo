@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import { Chess } from "chess.js";
 import { createClient } from "@/lib/supabase/server";
-import { createAdminClient } from "@/lib/supabase/admin";
 import { z } from "zod";
 
 const moveSchema = z.object({
@@ -64,46 +63,27 @@ export async function POST(request: Request) {
       return NextResponse.json({ success: false, message: "Illegal move" }, { status: 400 });
     }
 
-    const newState: Record<string, unknown> = {
-      ...state,
-      fen: chess.fen(),
-      pgn: chess.pgn(),
-      current_turn: chess.turn(),
-    };
+    const isDraw = chess.isGameOver() && !chess.isCheckmate();
 
-    let updatePayload: Record<string, unknown> = { game_state: newState };
+    // Persistence + settlement happen atomically in the DB via a
+    // SECURITY DEFINER RPC. Direct `supabase.from("matches").update()`
+    // from the player's own session silently affects 0 rows (there is
+    // intentionally no RLS UPDATE policy on matches, to stop players
+    // rewriting stakes/winners directly) - this RPC is the real write
+    // path and re-validates turn order / match state server-side.
+    const { data: rpcData, error: rpcError } = await supabase.rpc("apply_chess_move_result", {
+      p_match_id: validated.match_id,
+      p_expected_fen: state.fen,
+      p_new_fen: chess.fen(),
+      p_new_pgn: chess.pgn(),
+      p_new_turn: chess.turn(),
+      p_is_checkmate: chess.isCheckmate(),
+      p_is_draw: isDraw,
+    });
 
-    if (chess.isGameOver()) {
-      updatePayload.status = "completed";
-      if (chess.isCheckmate()) {
-        // The side that just moved is the winner
-        const winnerId = chess.turn() === "w" ? state.black_player_id : state.white_player_id;
-        updatePayload.winner_id = winnerId;
-
-        await supabase.rpc("settle_match", {
-          p_match_id: validated.match_id,
-          p_winner_id: winnerId,
-        });
-      } else {
-        // Draw - refund both players
-        await supabase.rpc("apply_wallet_transaction", {
-          p_user_id: state.white_player_id,
-          p_type: "refund",
-          p_amount: match.stake_amount,
-          p_reference: match.id,
-          p_description: "Chess draw - stake refunded",
-        });
-        await supabase.rpc("apply_wallet_transaction", {
-          p_user_id: state.black_player_id,
-          p_type: "refund",
-          p_amount: match.stake_amount,
-          p_reference: match.id,
-          p_description: "Chess draw - stake refunded",
-        });
-      }
+    if (rpcError) {
+      return NextResponse.json({ success: false, message: rpcError.message }, { status: 400 });
     }
-
-    await supabase.from("matches").update(updatePayload).eq("id", validated.match_id);
 
     return NextResponse.json({
       success: true,
@@ -112,6 +92,7 @@ export async function POST(request: Request) {
       game_over: chess.isGameOver(),
       checkmate: chess.isCheckmate(),
       draw: chess.isDraw(),
+      game_state: rpcData?.game_state,
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Move failed";

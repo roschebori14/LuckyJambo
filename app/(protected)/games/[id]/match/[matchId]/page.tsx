@@ -31,6 +31,24 @@ export default async function MatchPlayPage({ params }: PageProps) {
   const gameName = (match.games as { name: string } | null)?.name ?? slug;
   const gameSlug = (match.games as { slug: string } | null)?.slug ?? slug;
 
+  // A friend opening a direct challenge link (or anyone opening an
+  // open-match link without going through the "Join Match" button on
+  // the lobby list) has never actually called /api/matches/join - so
+  // they have no match_participants row yet and the match itself is
+  // still stuck on status "waiting" forever. Without this check the
+  // page just showed the "waiting for opponent" spinner to that
+  // person too, and the creator's board never activated because
+  // nobody had actually joined. Detect that case here and let
+  // GameClient render a "Join Match" action instead.
+  const { data: participant } = await supabase
+    .from("match_participants")
+    .select("user_id")
+    .eq("match_id", matchId)
+    .eq("user_id", user.id)
+    .maybeSingle();
+
+  const isParticipant = !!participant;
+
   return (
     <div className="mx-auto max-w-lg space-y-4">
       <div className="flex items-center justify-between">
@@ -53,6 +71,7 @@ export default async function MatchPlayPage({ params }: PageProps) {
         userId={user.id}
         stakeAmount={match.stake_amount ?? 0}
         initialStatus={match.status}
+        isParticipant={isParticipant}
       />
     </div>
   );

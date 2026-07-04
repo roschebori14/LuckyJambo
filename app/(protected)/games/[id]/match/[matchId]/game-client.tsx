@@ -21,12 +21,16 @@ interface Props {
   userId: string;
   stakeAmount: number;
   initialStatus?: string;
+  isParticipant?: boolean;
 }
 
-export default function GameClient({ matchId, gameSlug, userId, stakeAmount, initialStatus = "waiting" }: Props) {
+export default function GameClient({ matchId, gameSlug, userId, stakeAmount, initialStatus = "waiting", isParticipant = true }: Props) {
   const isInstant = INSTANT_SLUGS.includes(gameSlug as InstantSlug);
   const [status, setStatus] = useState(initialStatus);
   const [copied, setCopied] = useState(false);
+  const [joined, setJoined] = useState(isParticipant);
+  const [joining, setJoining] = useState(false);
+  const [joinError, setJoinError] = useState("");
 
   const pollStatus = useCallback(async () => {
     if (status !== "waiting") return;
@@ -46,11 +50,11 @@ export default function GameClient({ matchId, gameSlug, userId, stakeAmount, ini
   }, [matchId, status]);
 
   useEffect(() => {
-    if (status === "waiting") {
+    if (status === "waiting" && joined) {
       const interval = setInterval(pollStatus, 3000);
       return () => clearInterval(interval);
     }
-  }, [status, pollStatus]);
+  }, [status, joined, pollStatus]);
 
   const shareUrl = typeof window !== "undefined" ? window.location.href : "";
 
@@ -61,6 +65,54 @@ export default function GameClient({ matchId, gameSlug, userId, stakeAmount, ini
       setTimeout(() => setCopied(false), 2000);
     }
   };
+
+  async function joinMatch() {
+    setJoining(true);
+    setJoinError("");
+    try {
+      const res = await fetch("/api/matches/join", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ match_id: matchId }),
+      });
+      const json = await res.json();
+      if (!json.success) {
+        setJoinError(json.message ?? "Could not join match");
+        return;
+      }
+      setJoined(true);
+      setStatus("active");
+    } catch {
+      setJoinError("Network error — please try again.");
+    } finally {
+      setJoining(false);
+    }
+  }
+
+  // Anyone opening this page who isn't a participant yet (e.g. a
+  // friend clicking a direct-challenge share link) needs to actually
+  // join before anything else happens - just watching the page never
+  // calls /api/matches/join on its own.
+  if (!joined) {
+    return (
+      <div className="flex flex-col items-center justify-center rounded-2xl border border-[var(--lj-border)] bg-[var(--lj-card-2)] p-8 shadow-sm text-center">
+        <h3 className="mb-2 text-xl font-bold text-white">You&apos;ve been challenged!</h3>
+        <p className="mb-6 text-sm text-[var(--lj-muted)]">
+          Stake {stakeAmount.toLocaleString()} XAF to accept and start the match.
+        </p>
+        {joinError && (
+          <div className="mb-4 rounded-xl bg-red-500/10 px-4 py-3 text-sm text-red-300">{joinError}</div>
+        )}
+        <button
+          onClick={joinMatch}
+          disabled={joining}
+          className="rounded-xl bg-green-600 px-6 py-3 text-sm font-bold text-white hover:bg-green-700 disabled:opacity-50"
+        >
+          {joining ? "Joining…" : "Accept Challenge"}
+        </button>
+      </div>
+    );
+  }
 
   if (status === "waiting") {
     return (
