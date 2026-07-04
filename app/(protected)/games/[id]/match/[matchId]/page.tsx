@@ -49,6 +49,28 @@ export default async function MatchPlayPage({ params }: PageProps) {
 
   const isParticipant = !!participant;
 
+  // Opponent info for the post-match "Rematch" action - a rematch
+  // challenges the same opponent again rather than opening a new
+  // match to anyone. Only needed once there IS an opponent (both
+  // participants present), so this is best-effort: an open "waiting"
+  // match with nobody else in it yet simply won't offer a rematch
+  // target (there's nothing to render there anyway since that state
+  // shows the "waiting for opponent" screen, not the completed one).
+  const { data: participantRows } = await supabase
+    .from("match_participants")
+    .select("user_id")
+    .eq("match_id", matchId);
+
+  const opponentId = participantRows?.map((p) => p.user_id).find((id) => id !== user.id) ?? null;
+
+  let opponentUsername: string | null = null;
+  if (opponentId) {
+    const { data: opponentProfiles } = await supabase.rpc("get_public_profiles_by_ids", {
+      p_ids: [opponentId],
+    });
+    opponentUsername = opponentProfiles?.[0]?.username ?? null;
+  }
+
   return (
     <div className="mx-auto max-w-lg space-y-4">
       <div className="flex items-center justify-between">
@@ -72,6 +94,9 @@ export default async function MatchPlayPage({ params }: PageProps) {
         stakeAmount={match.stake_amount ?? 0}
         initialStatus={match.status}
         isParticipant={isParticipant}
+        initialWinnerId={match.winner_id ?? null}
+        opponentId={opponentId}
+        opponentUsername={opponentUsername}
       />
     </div>
   );
