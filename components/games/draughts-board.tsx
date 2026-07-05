@@ -80,6 +80,7 @@ export default function DraughtsBoard({ matchId, userId }: Props) {
   const [moving, setMoving] = useState(false);
   const [error, setError] = useState("");
   const [selected, setSelected] = useState<number | null>(null);
+  const [invalidFlash, setInvalidFlash] = useState<number | null>(null);
   const [tokens, setTokens] = useState<Token[]>([]);
   const [lastMove, setLastMove] = useState<DiffedMove | null>(null);
   const [promoFlash, setPromoFlash] = useState<number | null>(null);
@@ -272,9 +273,12 @@ export default function DraughtsBoard({ matchId, userId }: Props) {
           ? "You have a capture available elsewhere on the board - captures are mandatory."
           : "That piece has no legal moves right now.",
       );
-      setSelected(pos); // flash which square actually registered, so a
-      // mis-tap is immediately obvious instead of looking like nothing happened
-      queue(() => setSelected(null), 400);
+      setSelected(null);
+      // Flash which square actually registered the tap (in a
+      // distinct color from a real selection) so a mis-tap on mobile
+      // is immediately obvious instead of looking like nothing happened.
+      setInvalidFlash(pos);
+      queue(() => setInvalidFlash(null), 400);
     } else {
       setSelected(null);
     }
@@ -374,6 +378,7 @@ export default function DraughtsBoard({ matchId, userId }: Props) {
             }
 
             const isSelected = selected === pos;
+            const isInvalidFlash = invalidFlash === pos;
             const isDestination =
               selected !== null && movesFromSelected.some((m) => m.to === pos);
             const isSelectable =
@@ -387,13 +392,15 @@ export default function DraughtsBoard({ matchId, userId }: Props) {
                 onClick={() => pos > 0 && handleSquareClick(pos)}
                 disabled={!isMyTurn || moving}
                 className={`relative flex select-none items-center justify-center transition-colors ${
-                  isSelected
-                    ? "bg-blue-500/40"
-                    : isDestination
-                      ? "bg-green-500/30"
-                      : isLastMoveSquare
-                        ? "bg-yellow-400/10"
-                        : "bg-[var(--lj-card-2)]"
+                  isInvalidFlash
+                    ? "bg-red-500/40"
+                    : isSelected
+                      ? "bg-blue-500/40"
+                      : isDestination
+                        ? "bg-green-500/30"
+                        : isLastMoveSquare
+                          ? "bg-yellow-400/10"
+                          : "bg-[var(--lj-card-2)]"
                 } ${isSelectable ? "cursor-pointer hover:bg-blue-500/20" : "cursor-default"}`}
                 style={{ touchAction: "manipulation" }}
               >
