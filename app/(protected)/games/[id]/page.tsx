@@ -9,6 +9,7 @@ interface Match {
   stake_amount: number;
   status: string;
   created_at: string;
+  creator?: { username: string; avatar_url: string | null } | null;
 }
 
 interface GameInfo {
@@ -21,11 +22,19 @@ interface GameInfo {
 }
 
 const GAME_EMOJI: Record<string, string> = {
-  chess: "♟️", draughts: "🔴", "tic-tac-toe": "✖️",
-  dice: "🎲", rock_paper_scissors: "✊", coin_flip: "🪙",
+  chess: "♟️",
+  draughts: "🔴",
+  "tic-tac-toe": "✖️",
+  dice: "🎲",
+  rock_paper_scissors: "✊",
+  coin_flip: "🪙",
 };
 
-export default function GameLobbyPage({ params }: { params: Promise<{ id: string }> }) {
+export default function GameLobbyPage({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}) {
   const { id: slug } = use(params);
   const [game, setGame] = useState<GameInfo | null>(null);
   const [openMatches, setOpenMatches] = useState<Match[]>([]);
@@ -103,21 +112,27 @@ export default function GameLobbyPage({ params }: { params: Promise<{ id: string
   return (
     <div className="mx-auto max-w-2xl space-y-6">
       {/* Back */}
-      <Link href="/games" className="flex items-center gap-1 text-sm text-[var(--lj-muted)] hover:text-white">
+      <Link
+        href="/games"
+        className="flex items-center gap-1 text-sm text-[var(--lj-muted)] hover:text-white"
+      >
         ← All Games
       </Link>
 
       {/* Header */}
       <div className="relative flex items-center justify-between rounded-2xl bg-[var(--lj-card-2)] overflow-hidden shadow-sm border border-[var(--lj-border)]">
         <div className="p-6 relative z-10">
-          <h1 className="text-3xl font-extrabold text-white drop-shadow-sm">{game.name}</h1>
+          <h1 className="text-3xl font-extrabold text-white drop-shadow-sm">
+            {game.name}
+          </h1>
           <p className="mt-1 text-sm font-medium text-[var(--lj-text)] bg-white/60 px-2 py-1 rounded inline-block backdrop-blur-sm">
-            Stake {game.min_stake.toLocaleString()}–{game.max_stake.toLocaleString()} XAF
+            Stake {game.min_stake.toLocaleString()}–
+            {game.max_stake.toLocaleString()} XAF
           </p>
         </div>
         <div className="absolute top-0 right-0 h-full w-1/2 md:w-1/3">
           <div className="absolute inset-0 bg-gradient-to-r from-white via-white/80 to-transparent z-10" />
-          <Image 
+          <Image
             src={`/images/${slug}.png`}
             alt={game.name}
             fill
@@ -128,7 +143,9 @@ export default function GameLobbyPage({ params }: { params: Promise<{ id: string
       </div>
 
       {message && (
-        <div className={`rounded-xl px-4 py-3 text-sm font-medium ${message.startsWith("✅") ? "bg-green-500/10 text-green-300" : "bg-red-500/10 text-red-300"}`}>
+        <div
+          className={`rounded-xl px-4 py-3 text-sm font-medium ${message.startsWith("✅") ? "bg-green-500/10 text-green-300" : "bg-red-500/10 text-red-300"}`}
+        >
           {message}
         </div>
       )}
@@ -151,16 +168,21 @@ export default function GameLobbyPage({ params }: { params: Promise<{ id: string
             className="lj-input"
           />
           <p className="mt-1 text-xs text-[var(--lj-muted)]">
-            Winner takes {(stake * 2 * 0.95).toLocaleString()} XAF (after 5% platform fee)
+            Winner takes {(stake * 2 * 0.95).toLocaleString()} XAF (after 5%
+            platform fee)
           </p>
         </div>
 
         <button
           onClick={createMatch}
-          disabled={creating || stake < game.min_stake || stake > game.max_stake}
+          disabled={
+            creating || stake < game.min_stake || stake > game.max_stake
+          }
           className="w-full rounded-xl bg-green-600 py-3 text-sm font-bold text-white transition-colors hover:bg-green-700 disabled:opacity-50"
         >
-          {creating ? "Creating…" : `Create Match — ${stake.toLocaleString()} XAF`}
+          {creating
+            ? "Creating…"
+            : `Create Match — ${stake.toLocaleString()} XAF`}
         </button>
       </div>
 
@@ -180,14 +202,33 @@ export default function GameLobbyPage({ params }: { params: Promise<{ id: string
         ) : (
           <div className="space-y-2">
             {openMatches.map((m) => (
-              <div key={m.id} className="flex items-center justify-between rounded-xl bg-white/5 px-4 py-3">
-                <div>
-                  <p className="text-sm font-semibold text-white">
-                    {m.stake_amount.toLocaleString()} XAF stake
-                  </p>
-                  <p className="text-xs text-[var(--lj-muted)]">
-                    Pot: {(m.stake_amount * 2 * 0.95).toLocaleString()} XAF net
-                  </p>
+              <div
+                key={m.id}
+                className="flex items-center justify-between rounded-xl bg-white/5 px-4 py-3"
+              >
+                <div className="flex items-center gap-3">
+                  {m.creator?.avatar_url ? (
+                    <Image
+                      src={m.creator.avatar_url}
+                      alt={m.creator.username}
+                      width={32}
+                      height={32}
+                      className="h-8 w-8 rounded-full object-cover"
+                    />
+                  ) : (
+                    <div className="flex h-8 w-8 items-center justify-center rounded-full bg-white/10 text-xs font-bold text-white">
+                      {m.creator?.username?.[0]?.toUpperCase() ?? "?"}
+                    </div>
+                  )}
+                  <div>
+                    <p className="text-sm font-semibold text-white">
+                      {m.creator?.username ?? "Unknown player"}
+                    </p>
+                    <p className="text-xs text-[var(--lj-muted)]">
+                      {m.stake_amount.toLocaleString()} XAF stake · Pot:{" "}
+                      {(m.stake_amount * 2 * 0.95).toLocaleString()} XAF net
+                    </p>
+                  </div>
                 </div>
                 <button
                   onClick={() => joinMatch(m.id)}
