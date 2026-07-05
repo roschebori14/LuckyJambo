@@ -1,8 +1,25 @@
 import "./globals.css";
 import { ReactNode } from "react";
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Toaster } from "sonner";
 import TawkWidget from "@/components/tawk-widget";
+
+// Without this, mobile browsers have no viewport meta tag to go on and
+// fall back to treating the page as a ~980px desktop layout, then
+// scale the whole thing down to fit the screen. Every tap target
+// shrinks as a result - most noticeably on small, precise-tap
+// surfaces like the draughts board's 32 squares, where a scaled-down
+// board makes it easy to miss the intended square (or for a tap to
+// register just outside any square's hit area) and see nothing
+// happen. This is almost certainly why draughts moves have been
+// reported as "not working" on mobile specifically - the click
+// handler was never broken, taps just weren't landing where users
+// expected them to. Setting the real viewport width fixes tap
+// accuracy across the entire site, not just this one board.
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+};
 
 const SITE_URL = "https://lucky-jambo.vercel.app";
 const SITE_NAME = "Lucky Jambo";
@@ -41,7 +58,9 @@ export const metadata: Metadata = {
       { url: "/icon-192.png", sizes: "192x192", type: "image/png" },
       { url: "/icon-512.png", sizes: "512x512", type: "image/png" },
     ],
-    apple: [{ url: "/apple-touch-icon.png", sizes: "180x180", type: "image/png" }],
+    apple: [
+      { url: "/apple-touch-icon.png", sizes: "180x180", type: "image/png" },
+    ],
   },
   manifest: "/site.webmanifest",
 

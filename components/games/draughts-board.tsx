@@ -1,7 +1,11 @@
 "use client";
 
 import { useState, useEffect, useCallback, useMemo } from "react";
-import { DraughtsEngine, DraughtsState, DraughtsMove } from "@/lib/games/draughts-engine";
+import {
+  DraughtsEngine,
+  DraughtsState,
+  DraughtsMove,
+} from "@/lib/games/draughts-engine";
 import { useMatchRealtime } from "@/hooks/use-match-realtime";
 
 interface Props {
@@ -58,7 +62,8 @@ export default function DraughtsBoard({ matchId, userId }: Props) {
     return null;
   }, [state, userId]);
 
-  const isMyTurn = !!state && !state.game_over && state.current_turn === myColor;
+  const isMyTurn =
+    !!state && !state.game_over && state.current_turn === myColor;
 
   // Legal moves are only used client-side to highlight destinations -
   // the server (apply_draughts_move_result + DraughtsEngine.makeMove
@@ -75,11 +80,11 @@ export default function DraughtsBoard({ matchId, userId }: Props) {
 
   const movesFromSelected = useMemo(
     () => legalMoves.filter((m) => m.from === selected),
-    [legalMoves, selected]
+    [legalMoves, selected],
   );
   const selectablePositions = useMemo(
     () => new Set(legalMoves.map((m) => m.from)),
-    [legalMoves]
+    [legalMoves],
   );
 
   async function submitMove(move: DraughtsMove) {
@@ -89,7 +94,12 @@ export default function DraughtsBoard({ matchId, userId }: Props) {
       const res = await fetch("/api/draughts/move", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ match_id: matchId, from: move.from, to: move.to, captures: move.captures }),
+        body: JSON.stringify({
+          match_id: matchId,
+          from: move.from,
+          to: move.to,
+          captures: move.captures,
+        }),
       });
       const json = await res.json();
       if (json.success) {
@@ -116,6 +126,20 @@ export default function DraughtsBoard({ matchId, userId }: Props) {
     const piece = state.board[pos];
     if (piece && selectablePositions.has(pos)) {
       setSelected(pos);
+      setError("");
+    } else if (piece) {
+      // Standard checkers rule: if ANY piece has a capture available,
+      // every non-capturing piece becomes unselectable. Without this
+      // message, tapping one of those pieces just silently does
+      // nothing - which reads exactly like a broken control, not a
+      // rules-mandated restriction the player isn't aware of.
+      const mandatoryCapture = legalMoves.some((m) => m.captures.length > 0);
+      setError(
+        mandatoryCapture
+          ? "You have a capture available elsewhere on the board - captures are mandatory."
+          : "That piece has no legal moves right now.",
+      );
+      setSelected(null);
     } else {
       setSelected(null);
     }
@@ -129,24 +153,35 @@ export default function DraughtsBoard({ matchId, userId }: Props) {
     );
   }
 
-  if (!state) return <p className="text-center text-[var(--lj-muted)]">Failed to load game state.</p>;
+  if (!state)
+    return (
+      <p className="text-center text-[var(--lj-muted)]">
+        Failed to load game state.
+      </p>
+    );
 
   const statusText = state.game_over
     ? state.winner === myColor
       ? "🏆 You won!"
       : "😔 You lost."
     : isMyTurn
-    ? "Your turn"
-    : "Waiting for opponent…";
+      ? "Your turn"
+      : "Waiting for opponent…";
 
   return (
     <div className="flex flex-col items-center gap-5">
       {/* Status */}
-      <div className={`w-full rounded-xl px-4 py-3 text-center text-sm font-semibold ${
-        state.game_over
-          ? state.winner === myColor ? "bg-green-500/10 text-green-300" : "bg-red-500/10 text-red-300"
-          : isMyTurn ? "bg-blue-500/10 text-blue-300" : "bg-white/5 text-[var(--lj-muted)]"
-      }`}>
+      <div
+        className={`w-full rounded-xl px-4 py-3 text-center text-sm font-semibold ${
+          state.game_over
+            ? state.winner === myColor
+              ? "bg-green-500/10 text-green-300"
+              : "bg-red-500/10 text-red-300"
+            : isMyTurn
+              ? "bg-blue-500/10 text-blue-300"
+              : "bg-white/5 text-[var(--lj-muted)]"
+        }`}
+      >
         {statusText}
         <span className="ml-2 text-xs opacity-70">
           You are {myColor === "r" ? "Red" : "Black"}
@@ -170,13 +205,18 @@ export default function DraughtsBoard({ matchId, userId }: Props) {
           let pos = -1;
           for (let p = 1; p <= 32; p++) {
             const [r, c] = toRC(p);
-            if (r === row && c === col) { pos = p; break; }
+            if (r === row && c === col) {
+              pos = p;
+              break;
+            }
           }
 
           const piece = pos > 0 ? state.board[pos] : undefined;
           const isSelected = selected === pos;
-          const isDestination = selected !== null && movesFromSelected.some((m) => m.to === pos);
-          const isSelectable = isMyTurn && !!piece && selectablePositions.has(pos);
+          const isDestination =
+            selected !== null && movesFromSelected.some((m) => m.to === pos);
+          const isSelectable =
+            isMyTurn && !!piece && selectablePositions.has(pos);
           const pieceIsRed = piece === "r" || piece === "R";
 
           return (
@@ -185,15 +225,19 @@ export default function DraughtsBoard({ matchId, userId }: Props) {
               onClick={() => pos > 0 && handleSquareClick(pos)}
               disabled={!isMyTurn || moving}
               className={`relative flex items-center justify-center transition-colors ${
-                isSelected ? "bg-blue-500/40" :
-                isDestination ? "bg-green-500/30" :
-                "bg-[var(--lj-card-2)]"
+                isSelected
+                  ? "bg-blue-500/40"
+                  : isDestination
+                    ? "bg-green-500/30"
+                    : "bg-[var(--lj-card-2)]"
               } ${isSelectable ? "cursor-pointer hover:bg-blue-500/20" : "cursor-default"}`}
             >
               {piece && (
                 <span
                   className={`flex h-[70%] w-[70%] items-center justify-center rounded-full text-lg font-bold shadow-sm ${
-                    pieceIsRed ? "bg-red-500 text-red-950" : "bg-neutral-800 text-neutral-200 border border-neutral-600"
+                    pieceIsRed
+                      ? "bg-red-500 text-red-950"
+                      : "bg-neutral-800 text-neutral-200 border border-neutral-600"
                   }`}
                 >
                   {PIECE_LABEL[piece]}
@@ -210,11 +254,15 @@ export default function DraughtsBoard({ matchId, userId }: Props) {
       {/* Turn indicator */}
       {!state.game_over && (
         <div className="flex items-center gap-4 text-xs text-[var(--lj-muted)]">
-          <span className={`flex items-center gap-1 font-semibold ${state.current_turn === "b" ? "text-neutral-200" : "text-[var(--lj-muted)]"}`}>
+          <span
+            className={`flex items-center gap-1 font-semibold ${state.current_turn === "b" ? "text-neutral-200" : "text-[var(--lj-muted)]"}`}
+          >
             ● Black {state.b_player_id === userId ? "(you)" : ""}
           </span>
           <span>vs</span>
-          <span className={`flex items-center gap-1 font-semibold ${state.current_turn === "r" ? "text-red-400" : "text-[var(--lj-muted)]"}`}>
+          <span
+            className={`flex items-center gap-1 font-semibold ${state.current_turn === "r" ? "text-red-400" : "text-[var(--lj-muted)]"}`}
+          >
             ● Red {state.r_player_id === userId ? "(you)" : ""}
           </span>
         </div>
