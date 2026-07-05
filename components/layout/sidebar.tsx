@@ -3,7 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutDashboard, Gamepad2, Swords, Wallet, Users, User, Shield, Trophy } from "lucide-react";
+import { LayoutDashboard, Gamepad2, Swords, Wallet, Users, User, Shield, Trophy, MessageCircle } from "lucide-react";
 
 const NAV = [
   { href: "/dashboard",   icon: LayoutDashboard, label: "Dashboard" },
@@ -12,6 +12,7 @@ const NAV = [
   { href: "/leaderboard", icon: Trophy,          label: "Leaderboard" },
   { href: "/wallet",      icon: Wallet,          label: "Wallet" },
   { href: "/friends",     icon: Users,           label: "Friends" },
+  { href: "/messages",    icon: MessageCircle,   label: "Messages" },
   { href: "/profile",     icon: User,            label: "Profile" },
 ];
 
@@ -36,7 +37,7 @@ export default function Sidebar({ isAdmin }: { isAdmin?: boolean }) {
 
       {/* ── Mobile bottom tab bar ── */}
       <nav
-        className="fixed inset-x-0 bottom-0 z-40 grid grid-cols-7 md:hidden"
+        className="fixed inset-x-0 bottom-0 z-40 grid grid-cols-8 md:hidden"
         style={{
           background: "var(--lj-navy-2)",
           borderTop: "1px solid var(--lj-border)",

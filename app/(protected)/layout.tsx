@@ -5,6 +5,8 @@ import SupportChatWidget from "@/components/ai/support-chat-widget";
 import { requireAuth } from "@/lib/auth/require-auth";
 import { createClient } from "@/lib/supabase/server";
 import { PresenceProvider } from "@/lib/presence/presence-context";
+import { ToastProvider } from "@/components/ui/toast-provider";
+import DmToastListener from "@/components/messages/dm-toast-listener";
 
 export default async function ProtectedLayout({ children }: { children: ReactNode }) {
   await requireAuth();
@@ -19,14 +21,17 @@ export default async function ProtectedLayout({ children }: { children: ReactNod
 
   return (
     <PresenceProvider userId={user?.id ?? ""}>
-      <div className="min-h-screen" style={{ background: "var(--lj-navy)" }}>
-        <Navbar />
-        <div className="flex flex-col md:flex-row">
-          <Sidebar isAdmin={isAdmin} />
-          <main className="flex-1 p-4 pb-20 md:p-6 md:pb-6">{children}</main>
+      <ToastProvider>
+        {user && <DmToastListener userId={user.id} />}
+        <div className="min-h-screen" style={{ background: "var(--lj-navy)" }}>
+          <Navbar />
+          <div className="flex flex-col md:flex-row">
+            <Sidebar isAdmin={isAdmin} />
+            <main className="flex-1 p-4 pb-20 md:p-6 md:pb-6">{children}</main>
+          </div>
+          <SupportChatWidget />
         </div>
-        <SupportChatWidget />
-      </div>
+      </ToastProvider>
     </PresenceProvider>
   );
 }

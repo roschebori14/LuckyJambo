@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Swords } from "lucide-react";
+import { Swords, MessageCircle } from "lucide-react";
 
 interface FriendCardProps {
   id: string;
@@ -8,6 +8,7 @@ interface FriendCardProps {
 }
 
 export default function FriendCard({
+  id,
   username,
   online = false,
 }: FriendCardProps) {
@@ -32,13 +33,22 @@ export default function FriendCard({
         </div>
       </Link>
 
-      <Link
-        href="/matches"
-        className="flex items-center gap-1.5 rounded-lg px-3 py-2 text-xs font-bold text-white transition-colors hover:brightness-110"
-        style={{ background: "var(--lj-blue)" }}
-      >
-        <Swords size={13} /> Challenge
-      </Link>
+      <div className="flex items-center gap-2">
+        <Link
+          href={`/messages/${id}`}
+          className="flex items-center gap-1.5 rounded-lg px-3 py-2 text-xs font-bold text-[var(--lj-muted)] transition-colors hover:bg-white/5 hover:text-white"
+          style={{ border: "1px solid var(--lj-border)" }}
+        >
+          <MessageCircle size={13} /> Message
+        </Link>
+        <Link
+          href="/matches"
+          className="flex items-center gap-1.5 rounded-lg px-3 py-2 text-xs font-bold text-white transition-colors hover:brightness-110"
+          style={{ background: "var(--lj-blue)" }}
+        >
+          <Swords size={13} /> Challenge
+        </Link>
+      </div>
     </div>
   );
 }
