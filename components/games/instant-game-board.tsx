@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { useMatchRealtime } from "@/hooks/use-match-realtime";
 import Confetti from "@/components/ui/confetti";
+import { useSound } from "@/lib/sound/sound-manager";
 
 type GameType = "rock_paper_scissors" | "dice_duel" | "coin_flip";
 
@@ -23,6 +24,7 @@ const COIN_MOVES = [
 ];
 
 export default function InstantGameBoard({ matchId, gameType }: Props) {
+  const { play } = useSound();
   const [submitted, setSubmitted] = useState(false);
   const [move, setMove] = useState("");
   const [result, setResult] = useState<{ status: string; you_won?: boolean; winner_id?: string } | null>(null);
@@ -97,6 +99,13 @@ export default function InstantGameBoard({ matchId, gameType }: Props) {
   }, [checkResult]);
 
   async function submitMove(selectedMove: string) {
+    // Fire the matching "you just acted" sound immediately on click,
+    // rather than waiting on the round trip - a die/coin/choice sound
+    // that lags behind the tap feels broken even at 100-200ms.
+    if (gameType === "dice_duel") play("dice-roll");
+    else if (gameType === "coin_flip") play("coin-flip");
+    else play("button-tap"); // rock/paper/scissors choice click
+
     setLoading(true);
     setError("");
     try {

@@ -10,6 +10,7 @@ import {
 import { Chessboard } from "react-chessboard";
 import { Chess, type Move } from "chess.js";
 import { useMatchRealtime } from "@/hooks/use-match-realtime";
+import { useSound } from "@/lib/sound/sound-manager";
 
 interface ChessBoardProps {
   matchId: string;
@@ -24,6 +25,7 @@ interface ChessGameState {
 }
 
 export default function ChessBoard({ matchId, userId }: ChessBoardProps) {
+  const { play } = useSound();
   const [state, setState] = useState<ChessGameState | null>(null);
   const [loading, setLoading] = useState(true);
   const [moving, setMoving] = useState(false);
@@ -128,6 +130,7 @@ export default function ChessBoard({ matchId, userId }: ChessBoardProps) {
         fetchState();
         return;
       }
+      play("move");
       setState((prev) =>
         prev
           ? {

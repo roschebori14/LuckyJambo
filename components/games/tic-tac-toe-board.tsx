@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { useMatchRealtime } from "@/hooks/use-match-realtime";
+import { useSound } from "@/lib/sound/sound-manager";
 
 interface TicState {
   board: Array<"X" | "O" | null>;
@@ -19,6 +20,7 @@ interface Props {
 }
 
 export default function TicTacToeBoard({ matchId, userId }: Props) {
+  const { play } = useSound();
   const [state, setState] = useState<TicState | null>(null);
   const [loading, setLoading] = useState(true);
   const [moving, setMoving] = useState(false);
@@ -59,8 +61,12 @@ export default function TicTacToeBoard({ matchId, userId }: Props) {
         body: JSON.stringify({ match_id: matchId, cell_index: cellIndex }),
       });
       const json = await res.json();
-      if (json.success) setState(json.state);
-      else setError(json.message);
+      if (json.success) {
+        play("move");
+        setState(json.state);
+      } else {
+        setError(json.message);
+      }
     } finally {
       setMoving(false);
     }

@@ -7,6 +7,7 @@ import dynamic from "next/dynamic";
 import { RefreshCw, LogOut } from "lucide-react";
 import { useMatchRealtime } from "@/hooks/use-match-realtime";
 import { useMatchResultSound } from "@/lib/sound/use-match-result-sound";
+import { useSound } from "@/lib/sound/sound-manager";
 
 const ChessBoard = dynamic(() => import("@/components/games/chess-board"), {
   ssr: false,
@@ -75,6 +76,7 @@ export default function GameClient({
   opponentUsername = null,
 }: Props) {
   const router = useRouter();
+  const { play } = useSound();
   const isInstant = INSTANT_SLUGS.includes(gameSlug as InstantSlug);
   const [status, setStatus] = useState(initialStatus);
   const [winnerId, setWinnerId] = useState(initialWinnerId);
@@ -168,6 +170,7 @@ export default function GameClient({
   const shareUrl = typeof window !== "undefined" ? window.location.href : "";
 
   const copyLink = async () => {
+    play("button-tap");
     if (shareUrl) {
       await navigator.clipboard.writeText(shareUrl);
       setCopied(true);
@@ -176,6 +179,7 @@ export default function GameClient({
   };
 
   async function joinMatch() {
+    play("button-tap");
     setJoining(true);
     setJoinError("");
     try {
@@ -229,6 +233,7 @@ export default function GameClient({
   }
 
   async function cancelMatch() {
+    play("button-tap");
     setCancelling(true);
     setCancelError("");
     try {
@@ -356,6 +361,7 @@ export default function GameClient({
   }
 
   async function playRematch() {
+    play("button-tap");
     setRematching(true);
     setRematchError("");
     try {

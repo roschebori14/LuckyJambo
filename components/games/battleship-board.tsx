@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useMemo } from "react";
 import { Crosshair, Ship, Flame, Waves } from "lucide-react";
 import { GRID_SIZE, CELL_COUNT, shipLabel, type BattleshipState, type OwnShip } from "@/types/battleship";
 import { useMatchRealtime } from "@/hooks/use-match-realtime";
+import { useSound } from "@/lib/sound/sound-manager";
 
 interface Props {
   matchId: string;
@@ -13,6 +14,7 @@ interface Props {
 const COLS = "ABCDEFGH".split("");
 
 export default function BattleshipBoard({ matchId, userId }: Props) {
+  const { play } = useSound();
   const [state, setState] = useState<BattleshipState | null>(null);
   const [myShips, setMyShips] = useState<OwnShip[] | null>(null);
   const [loading, setLoading] = useState(true);
@@ -85,6 +87,7 @@ export default function BattleshipBoard({ matchId, userId }: Props) {
       });
       const json = await res.json();
       if (json.success) {
+        play("move"); // firing a shot is this board's "played turn"
         setState(json.state);
         setLastShot({ cell, hit: json.hit });
       } else {

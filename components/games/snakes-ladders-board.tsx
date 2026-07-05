@@ -11,6 +11,7 @@ import {
   type LastRoll,
 } from "@/types/snakes-ladders";
 import { useMatchRealtime } from "@/hooks/use-match-realtime";
+import { useSound } from "@/lib/sound/sound-manager";
 
 interface Props {
   matchId: string;
@@ -108,6 +109,7 @@ function snakePath(head: number, tail: number) {
 // ---------------------------------------------------------------------
 
 export default function SnakesLaddersBoard({ matchId, userId }: Props) {
+  const { play } = useSound();
   const [state, setState] = useState<SnakesLaddersState | null>(null);
   const [loading, setLoading] = useState(true);
   const [rolling, setRolling] = useState(false);
@@ -217,6 +219,7 @@ export default function SnakesLaddersBoard({ matchId, userId }: Props) {
 
   async function rollDice() {
     if (!state || state.game_over || rolling || !state.player_2_id) return;
+    play("dice-roll");
     setRolling(true);
     setError("");
 

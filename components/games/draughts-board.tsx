@@ -9,6 +9,7 @@ import {
   DraughtsPiece,
 } from "@/lib/games/draughts-engine";
 import { useMatchRealtime } from "@/hooks/use-match-realtime";
+import { useSound } from "@/lib/sound/sound-manager";
 
 interface Props {
   matchId: string;
@@ -75,6 +76,7 @@ function diffMove(
 }
 
 export default function DraughtsBoard({ matchId, userId }: Props) {
+  const { play } = useSound();
   const [state, setState] = useState<DraughtsState | null>(null);
   const [loading, setLoading] = useState(true);
   const [moving, setMoving] = useState(false);
@@ -242,6 +244,7 @@ export default function DraughtsBoard({ matchId, userId }: Props) {
       });
       const json = await res.json();
       if (json.success) {
+        play("move");
         applyState(json.state as DraughtsState);
       } else {
         setError(json.message);

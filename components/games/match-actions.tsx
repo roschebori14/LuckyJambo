@@ -1,8 +1,10 @@
 "use client";
 import { useState } from "react";
 import { Flag, Clock, AlertTriangle, FlagOff, Coins } from "lucide-react";
+import { useSound } from "@/lib/sound/sound-manager";
 
 export default function MatchActions({ matchId, onMatchEnded, hideResign = false, stakeAmount }: { matchId: string; onMatchEnded?: () => void; hideResign?: boolean; stakeAmount?: number }) {
+  const { play } = useSound();
   const [reporting, setReporting] = useState(false);
   const [resigning, setResigning] = useState(false);
   const [withdrawing, setWithdrawing] = useState(false);
@@ -14,6 +16,7 @@ export default function MatchActions({ matchId, onMatchEnded, hideResign = false
   const refund = stakeAmount && penalty !== null ? stakeAmount - penalty : null;
 
   async function claimForfeit() {
+    play("button-tap");
     setLoading("forfeit"); setMsg("");
     const res = await fetch("/api/matches/claim-forfeit", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ match_id: matchId }) });
     const j = await res.json();
@@ -23,6 +26,7 @@ export default function MatchActions({ matchId, onMatchEnded, hideResign = false
   }
 
   async function confirmResign() {
+    play("button-tap");
     setLoading("resign"); setMsg("");
     const res = await fetch("/api/matches/resign", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ match_id: matchId }) });
     const j = await res.json();
@@ -33,6 +37,7 @@ export default function MatchActions({ matchId, onMatchEnded, hideResign = false
   }
 
   async function confirmWithdraw() {
+    play("button-tap");
     setLoading("withdraw"); setMsg("");
     const res = await fetch("/api/matches/withdraw-locked", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ match_id: matchId }) });
     const j = await res.json();
@@ -43,6 +48,7 @@ export default function MatchActions({ matchId, onMatchEnded, hideResign = false
   }
 
   async function submitReport() {
+    play("button-tap");
     if (reason.length < 10) { setMsg("❌ Please describe the issue in more detail."); return; }
     setLoading("report"); setMsg("");
     const res = await fetch("/api/matches/report", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ match_id: matchId, reason }) });
@@ -63,19 +69,19 @@ export default function MatchActions({ matchId, onMatchEnded, hideResign = false
           {loading === "forfeit" ? <span className="h-3 w-3 animate-spin rounded-full border-2 border-current border-t-transparent"/> : <Clock size={12}/>}
           Claim Forfeit
         </button>
-        <button onClick={() => setReporting(v => !v)}
+        <button onClick={() => { play("button-tap"); setReporting(v => !v); }}
           className="flex items-center gap-1.5 rounded-xl px-3 py-2 text-xs font-semibold transition-all hover:brightness-110"
           style={{ background: "rgba(255,61,90,0.1)", border: "1px solid rgba(255,61,90,0.2)", color: "var(--lj-danger)" }}>
           <Flag size={12}/> Report Issue
         </button>
         {!hideResign && (
-          <button onClick={() => setResigning(v => !v)} disabled={loading === "resign"}
+          <button onClick={() => { play("button-tap"); setResigning(v => !v); }} disabled={loading === "resign"}
             className="flex items-center gap-1.5 rounded-xl px-3 py-2 text-xs font-semibold transition-all hover:brightness-110 disabled:opacity-50"
             style={{ background: "rgba(255,61,90,0.1)", border: "1px solid rgba(255,61,90,0.2)", color: "var(--lj-danger)" }}>
             <FlagOff size={12}/> Resign
           </button>
         )}
-        <button onClick={() => setWithdrawing(v => !v)} disabled={loading === "withdraw"}
+        <button onClick={() => { play("button-tap"); setWithdrawing(v => !v); }} disabled={loading === "withdraw"}
           className="flex items-center gap-1.5 rounded-xl px-3 py-2 text-xs font-semibold text-white transition-all hover:brightness-110 disabled:opacity-50"
           style={{ background: "rgba(96,165,250,0.15)", border: "1px solid rgba(96,165,250,0.3)", color: "#93c5fd" }}>
           <Coins size={12}/> Withdraw Stake
@@ -97,7 +103,7 @@ export default function MatchActions({ matchId, onMatchEnded, hideResign = false
               {loading === "withdraw" ? <span className="h-3 w-3 animate-spin rounded-full border-2 border-white border-t-transparent"/> : <Coins size={12}/>}
               Confirm Withdraw
             </button>
-            <button onClick={() => setWithdrawing(false)} disabled={loading === "withdraw"}
+            <button onClick={() => { play("button-tap"); setWithdrawing(false); }} disabled={loading === "withdraw"}
               className="rounded-xl px-3 py-2 text-xs font-semibold text-[var(--lj-muted)] hover:brightness-110 disabled:opacity-50"
               style={{ background: "rgba(255,255,255,0.05)", border: "1px solid var(--lj-border)" }}>
               Cancel
@@ -116,7 +122,7 @@ export default function MatchActions({ matchId, onMatchEnded, hideResign = false
               {loading === "resign" ? <span className="h-3 w-3 animate-spin rounded-full border-2 border-white border-t-transparent"/> : <FlagOff size={12}/>}
               Confirm Resign
             </button>
-            <button onClick={() => setResigning(false)} disabled={loading === "resign"}
+            <button onClick={() => { play("button-tap"); setResigning(false); }} disabled={loading === "resign"}
               className="rounded-xl px-3 py-2 text-xs font-semibold text-[var(--lj-muted)] hover:brightness-110 disabled:opacity-50"
               style={{ background: "rgba(255,255,255,0.05)", border: "1px solid var(--lj-border)" }}>
               Cancel
