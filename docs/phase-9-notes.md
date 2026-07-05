@@ -142,7 +142,73 @@ slice was cut - resolve these first in the next session):
 
 ### ⏳ Not started - freesound.org sound effects + UI effects
 
-## 🐛 Open bug - DM toast notification not appearing
+## ✅ Fixed - DM toast notification + sound not appearing (this slice)
+
+**Root cause #1 - toast/realtime never firing:** `postgres_changes`
+realtime events are filtered server-side using the *websocket's own*
+JWT for RLS, not the reader's cookies session directly - and that
+token is only attached to the socket once
+`supabase.auth.getSession()` resolves (it reads cookies, which is
+async). `DmToastListener` mounts at the very root of
+`(protected)/layout.tsx`, so `useDirectMessageRealtime`'s old code
+called `.channel(...).subscribe()` synchronously in `useEffect`,
+which usually won a race against session hydration on a fresh page
+load. The socket then opened with no user token, `auth.uid()`
+evaluated to `NULL` for the "view own direct messages" policy, and
+`receiver_id = auth.uid()` matched nothing - **silently**: channel
+status still logs `SUBSCRIBED` (that's just the topic join succeeding),
+there's no error, and no `INSERT` event ever arrives. This exactly
+matches log line (1) firing and log line (2) never firing in the
+diagnostics that were added last slice.
+
+Fix, in `hooks/use-direct-message-realtime.ts`: explicitly
+`await supabase.auth.getSession()` and call
+`supabase.realtime.setAuth(session.access_token)` *before*
+`.channel(...).subscribe()`, plus an `onAuthStateChange` listener that
+re-calls `setAuth` on token refresh (otherwise the same silent-drop
+symptom would reappear ~1hr into a session when the access token
+expires). Compounding factor fixed in `lib/supabase/client.ts`:
+`createClient()` used to construct a brand-new `SupabaseClient` (and
+therefore a brand-new GoTrueClient + Realtime client) on every call
+site - `PresenceProvider`, `SoundProvider`,
+`useDirectMessageRealtime`, every conversation page, etc. each had
+their own copy racing to hydrate its own session independently. It's
+now a module-level singleton, so there's exactly one session/socket to
+keep in sync. This wasn't strictly required for the fix but removes a
+"Multiple GoTrueClient instances" condition and closes the same race
+for every other realtime hook in the app (`use-match-chat-realtime.ts`,
+presence), even though those weren't touched otherwise per the
+existing-games scope note.
+
+**Root cause #2 - `message-received` sound never playing:**
+`FREESOUND_API_KEY` was never actually set in `.env` (only documented
+in `.env.example` as a placeholder). Every call to
+`/api/sound/resolve` was throwing inside `freesound-client.ts`'s
+`apiKey()` guard, `sound-manager.tsx`'s `resolveUrl()` catches that
+and resolves `null`, and `play()` no-ops on a `null` URL - so every
+sound effect (not just DM) was silently failing the exact same way.
+Fixed by adding the real key to `.env` (kept out of `.env.example`,
+which stays a placeholder for other environments/deploys).
+
+**Not independently verified in this session** (no network access in
+this container - `npm install` hit a registry 403, so `next build`
+and `eslint` could not be run here): the actual live Freesound
+response for each catalog query, and a real end-to-end DM send/receive
+test. Recommended before calling this fully closed:
+1. Run `npm install && npx next build && npx eslint .` in an
+   environment with registry access.
+2. Re-run the test protocol from last slice (recipient tab open,
+   devtools console open, friend sends a DM) - all three
+   `[useDirectMessageRealtime]` / `[DmToastListener]` log lines should
+   now appear, and both the toast and the `message-received` sound
+   should fire.
+3. Once `FREESOUND_API_KEY` is confirmed live, eyeball what Freesound
+   actually resolves for `message-received` and the rest of
+   `effect-catalog.ts`'s queries and pin a `fallbackId` for any that
+   drift from a good match - this was already flagged as open work
+   before this bugfix slice and still applies.
+
+## 🐛 Open bug - DM toast notification not appearing (superseded above)
 
 Reported: recipient does not see a toast when a friend sends them a
 DM. They only see the message if/when they navigate to the messages
