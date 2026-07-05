@@ -50,10 +50,33 @@ export function useDirectMessageRealtime(
           filter: `receiver_id=eq.${userId}`,
         },
         (payload) => {
+          // Confirms the event actually reached the browser. If this
+          // never logs on a real send, the break is upstream (publication/
+          // RLS/websocket) - not in DmToastListener or ToastProvider.
+          console.log("[useDirectMessageRealtime] INSERT received:", payload.new);
           onInsertRef.current(payload.new as DirectMessageRow);
         },
       )
-      .subscribe();
+      .subscribe((status, err) => {
+        // SUBSCRIBED = healthy. CHANNEL_ERROR / TIMED_OUT here almost
+        // always means either (a) `direct_messages` was never actually
+        // added to the `supabase_realtime` publication on this
+        // project (migration 048 not applied to the live DB), or
+        // (b) Realtime is disabled for this project/table in the
+        // Supabase dashboard. This previously failed completely
+        // silently - no toast, no error - which made the missing-toast
+        // bug look like a UI issue when it was really a subscription
+        // that never went live.
+        console.log(`[useDirectMessageRealtime] channel status for ${userId}:`, status, err ?? "");
+        if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
+          console.error(
+            `[useDirectMessageRealtime] subscription for user ${userId} failed (${status}).`,
+            "Check that 'direct_messages' is in the supabase_realtime publication",
+            "and that RLS allows this user to SELECT their own rows.",
+            err,
+          );
+        }
+      });
 
     return () => {
       supabase.removeChannel(channel);

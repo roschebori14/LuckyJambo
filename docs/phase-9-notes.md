@@ -142,7 +142,69 @@ slice was cut - resolve these first in the next session):
 
 ### ⏳ Not started - freesound.org sound effects + UI effects
 
-## Next: boardgame.io - new games plan
+## 🐛 Open bug - DM toast notification not appearing
+
+Reported: recipient does not see a toast when a friend sends them a
+DM. They only see the message if/when they navigate to the messages
+page themselves (i.e. it's not being pushed live).
+
+**Confirmed NOT the cause:**
+- Not a "recipient's tab wasn't open" issue - confirmed the recipient's
+  tab was already open and logged in at the moment the message was sent.
+- Not a missing-publication issue - confirmed via
+  `select schemaname, tablename from pg_publication_tables where pubname = 'supabase_realtime' and tablename = 'direct_messages';`
+  returns the row, so `direct_messages` IS in the realtime publication
+  on the live project (migration 048 was applied correctly).
+- Fixed along the way (real bug, but probably not THE bug): `@keyframes
+  toast-in` was referenced by `toast-provider.tsx`
+  (`animate-[toast-in_0.2s_ease-out]`) but never defined anywhere in
+  `app/globals.css`. Now added. Cosmetic only - Tailwind silently
+  no-ops an unknown arbitrary animation name rather than hiding the
+  element, so this alone would not explain a fully invisible toast.
+
+**Diagnostics added, NOT YET USED (do this first in the next session):**
+`hooks/use-direct-message-realtime.ts` and
+`components/messages/dm-toast-listener.tsx` now have `console.log`s at
+every stage of the chain:
+1. `[useDirectMessageRealtime] channel status for <id>: SUBSCRIBED` -
+   logs on mount. If this never appears (or shows `CHANNEL_ERROR` /
+   `TIMED_OUT` instead), the channel itself never opened - check RLS
+   next (the `"view own direct messages"` select policy in
+   `048_direct_messages.sql`), and double check **Database →
+   Replication** in the Supabase dashboard has `direct_messages`
+   toggled on there too - some Supabase versions keep this as a
+   separate switch from `pg_publication_tables` membership even though
+   logically it should be redundant.
+2. `[useDirectMessageRealtime] INSERT received: {...}` - logs the
+   instant a matching row is inserted. If (1) logged `SUBSCRIBED` but
+   this never fires when a real message is sent, the row isn't
+   reaching the client - RLS is the top suspect (the receiver's JWT
+   might not be evaluating `auth.uid() = receiver_id` correctly over
+   the realtime websocket the same way it does over a normal
+   `supabase.from(...).select()` call - worth testing directly with
+   the Supabase Realtime inspector/logs if the dashboard has one).
+3. `[DmToastListener] handling incoming DM, about to push toast: <id>`
+   - logs right before `pushToast(...)` is called. If (2) fired but
+     this doesn't, the bug is in `DmToastListener` itself (e.g. it's
+     not actually mounted in the tree for the recipient's session -
+     double check the `{user && <DmToastListener userId={user.id} />}`
+     line in `app/(protected)/layout.tsx` is actually rendering, e.g.
+     `user` isn't null). If ALL THREE log, but nothing is visually
+     seen, the bug is downstream in `ToastProvider`'s render
+     (`components/ui/toast-provider.tsx`) - check z-index stacking
+     against other fixed-position elements (`SupportChatWidget`,
+     `Sidebar` on mobile), and check the toast div's computed
+     styles/opacity in devtools while it should be on screen.
+
+**Test protocol for next session:** have the recipient open the app
+with devtools console open and logged in, have a friend send them a
+message, and report back exactly which of the 3 log lines above
+appeared and which didn't - that determines which of RLS / component
+mounting / CSS rendering to fix. Do not guess-fix without that
+information; the point of the added logging is to make this
+deterministic instead of trial-and-error.
+
+
 
 The existing games are explicitly out of scope for this - see the
 scope note above. This is purely additive infrastructure for games

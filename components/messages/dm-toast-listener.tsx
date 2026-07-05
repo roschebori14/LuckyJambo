@@ -24,6 +24,7 @@ export default function DmToastListener({ userId }: { userId: string }) {
   const usernameCache = useRef<Map<string, string>>(new Map());
 
   useDirectMessageRealtime(userId, async (row: DirectMessageRow) => {
+    console.log("[DmToastListener] handling incoming DM, about to push toast:", row.id);
     let senderName = usernameCache.current.get(row.sender_id);
 
     if (!senderName) {
