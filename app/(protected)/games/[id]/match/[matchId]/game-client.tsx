@@ -14,6 +14,7 @@ const DraughtsBoard = dynamic(() => import("@/components/games/draughts-board"),
 const BattleshipBoard = dynamic(() => import("@/components/games/battleship-board"), { ssr: false });
 const SnakesLaddersBoard = dynamic(() => import("@/components/games/snakes-ladders-board"), { ssr: false });
 const MatchActions = dynamic(() => import("@/components/games/match-actions"), { ssr: false });
+const AiGameRecap = dynamic(() => import("@/components/games/ai-game-recap"), { ssr: false });
 
 const INSTANT_SLUGS = ["rock_paper_scissors", "coin_flip", "dice"] as const;
 type InstantSlug = typeof INSTANT_SLUGS[number];
@@ -331,6 +332,8 @@ export default function GameClient({
             Rematch isn&apos;t available without a known opponent - head back to Games to start a new match.
           </p>
         )}
+
+        {gameSlug === "chess" && <AiGameRecap matchId={matchId} />}
       </div>
     );
   }

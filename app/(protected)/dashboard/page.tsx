@@ -6,6 +6,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { Gamepad2, Swords, TrendingUp, Wallet, ArrowRight, Trophy, Clock, Users } from "lucide-react";
 import AvatarUpload from "@/components/profile/avatar-upload";
+import AiSuggestions from "@/components/dashboard/ai-suggestions";
 
 export default async function DashboardPage() {
   const user = await requireAuth();
@@ -113,6 +114,8 @@ export default async function DashboardPage() {
           )}
         </div>
       </div>
+
+      <AiSuggestions />
 
       {/* Recent matches */}
       {recentMatches && recentMatches.length > 0 && (
