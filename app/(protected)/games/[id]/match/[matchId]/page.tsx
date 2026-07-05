@@ -10,26 +10,31 @@ interface PageProps {
 export default async function MatchPlayPage({ params }: PageProps) {
   const { id: slug, matchId } = await params;
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
-  const { data: match } = await supabase
+  const { data: match, error: matchError } = await supabase
     .from("matches")
     .select("*, games(name, slug)")
     .eq("id", matchId)
     .single();
 
   if (!match) {
+    // This used to swallow whatever went wrong (RLS denial, a bad
+    // embed, matchId not actually existing, etc.) and always show the
+    // same generic message - making a real bug indistinguishable from
+    // "someone typo'd a link". Logging the actual PostgREST error
+    // means the next occurrence shows up in Vercel's function logs
+    // with a real reason instead of a guess.
+    console.error("Match lookup failed", {
+      matchId,
+      userId: user.id,
+      error: matchError,
+    });
     return (
       <div className="flex flex-col items-center gap-4 py-20 text-center">
-        <p className="text-lg font-semibold text-[var(--lj-text)]">
-          Match not found
-        </p>
-        <Link href="/games" className="text-sm text-green-600 hover:underline">
-          Back to Games
-        </Link>
+        <p className="text-lg font-semibold text-[var(--lj-text)]">Match not found</p>
+        <Link href="/games" className="text-sm text-green-600 hover:underline">Back to Games</Link>
       </div>
     );
   }
@@ -70,25 +75,18 @@ export default async function MatchPlayPage({ params }: PageProps) {
   type PublicProfile = { id: string; username: string };
 
   const { data: participantProfiles } = participantIds.length
-    ? await supabase.rpc("get_public_profiles_by_ids", {
-        p_ids: participantIds,
-      })
+    ? await supabase.rpc("get_public_profiles_by_ids", { p_ids: participantIds })
     : { data: [] as PublicProfile[] };
 
   const usernameById = new Map(
-    ((participantProfiles ?? []) as PublicProfile[]).map((p) => [
-      p.id,
-      p.username,
-    ]),
+    ((participantProfiles ?? []) as PublicProfile[]).map((p) => [p.id, p.username])
   );
 
   // Opponent info (relative to the current user) for the post-match
   // "Rematch" action - only meaningful when the viewer is one of the
   // two players.
   const opponentId = participantIds.find((id) => id !== user.id) ?? null;
-  const opponentUsername = opponentId
-    ? (usernameById.get(opponentId) ?? null)
-    : null;
+  const opponentUsername = opponentId ? usernameById.get(opponentId) ?? null : null;
 
   // A non-participant only ever gets a genuine "spectate" view once
   // the match has actually started or finished - an 'active'/
@@ -106,37 +104,23 @@ export default async function MatchPlayPage({ params }: PageProps) {
   return (
     <div className="mx-auto max-w-lg space-y-4">
       <div className="flex items-center justify-between">
-        <Link
-          href={`/games/${slug}`}
-          className="text-sm text-[var(--lj-muted)] hover:text-white"
-        >
+        <Link href={`/games/${slug}`} className="text-sm text-[var(--lj-muted)] hover:text-white">
           ← {gameName}
         </Link>
-        <span
-          className={`rounded-full px-3 py-1 text-xs font-semibold ${
-            match.status === "active"
-              ? "bg-green-100 text-green-300"
-              : match.status === "waiting"
-                ? "bg-yellow-100 text-yellow-300"
-                : match.status === "completed"
-                  ? "bg-white/5 text-[var(--lj-muted)]"
-                  : "bg-red-100 text-red-600"
-          }`}
-        >
+        <span className={`rounded-full px-3 py-1 text-xs font-semibold ${
+          match.status === "active"    ? "bg-green-100 text-green-300" :
+          match.status === "waiting"   ? "bg-yellow-100 text-yellow-300" :
+          match.status === "completed" ? "bg-white/5 text-[var(--lj-muted)]" :
+          "bg-red-100 text-red-600"
+        }`}>
           {match.status.charAt(0).toUpperCase() + match.status.slice(1)}
         </span>
       </div>
 
       {isSpectator && (
-        <div
-          className="rounded-xl px-4 py-2.5 text-center text-xs font-semibold text-[var(--lj-muted)]"
-          style={{
-            background: "rgba(255,255,255,0.04)",
-            border: "1px solid var(--lj-border)",
-          }}
-        >
-          👀 Spectating
-          {players.length === 2 ? ` — ${players[0]} vs ${players[1]}` : ""}
+        <div className="rounded-xl px-4 py-2.5 text-center text-xs font-semibold text-[var(--lj-muted)]"
+          style={{ background: "rgba(255,255,255,0.04)", border: "1px solid var(--lj-border)" }}>
+          👀 Spectating{players.length === 2 ? ` — ${players[0]} vs ${players[1]}` : ""}
         </div>
       )}
 
