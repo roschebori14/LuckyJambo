@@ -3,15 +3,27 @@ import { SOUND_EFFECTS, type SoundEffectName } from "./effect-catalog";
 
 const FREESOUND_API_BASE = "https://freesound.org/apiv2";
 
-// Only license terms that are safe to bundle into a commercial product
-// without per-sound attribution bookkeeping getting out of hand.
-// (Freesound's "Attribution" license still legally requires crediting
-// the author - see /legal/attribution for how this project surfaces
-// that - but it does NOT restrict commercial use, unlike NC variants.)
-const ALLOWED_LICENSES = [
-  "Creative Commons 0",
-  "Attribution",
-];
+// Freesound's *filter* param takes the human-readable license names
+// below ("Creative Commons 0", "Attribution"), but the *response*
+// field for each sound is a license URL instead, e.g.
+//   http://creativecommons.org/publicdomain/zero/1.0/   (CC0)
+//   https://creativecommons.org/licenses/by/4.0/         (Attribution)
+//   https://creativecommons.org/licenses/by-nc/4.0/      (Attribution-NonCommercial - NOT allowed)
+// so results can't be re-checked with the same strings used to build
+// the filter - that comparison always fails (the substring never
+// appears in a URL), silently discarding every valid result. Match
+// against the URL shape instead.
+function isAllowedLicense(license: string | undefined | null): boolean {
+  if (!license) return false;
+  // CC0 - public domain, no attribution required.
+  if (license.includes("publicdomain/zero")) return true;
+  // Plain Attribution ("by") only - explicitly exclude the
+  // NonCommercial ("by-nc") and retired Sampling+ variants, both of
+  // which also contain "/licenses/" and would otherwise slip through
+  // a looser check.
+  if (/\/licenses\/by\/\d/.test(license)) return true;
+  return false;
+}
 
 interface FreesoundSearchResult {
   results: Array<{
@@ -38,7 +50,7 @@ function apiKey(): string {
   const key = process.env.FREESOUND_API_KEY;
   if (!key) {
     throw new Error(
-      "FREESOUND_API_KEY is not set. Add it to .env.local (see .env.example)."
+      "FREESOUND_API_KEY is not set. Add it to .env.local (see .env.example).",
     );
   }
   return key;
@@ -55,7 +67,7 @@ function apiKey(): string {
  * API key at time of writing - re-verify on the Freesound dashboard).
  */
 export async function resolveEffectFromFreesound(
-  effect: SoundEffectName
+  effect: SoundEffectName,
 ): Promise<ResolvedSound | null> {
   const definition = SOUND_EFFECTS[effect];
   if (!definition) return null;
@@ -81,17 +93,22 @@ export async function resolveEffectFromFreesound(
   });
 
   if (!res.ok) {
-    console.error(`Freesound search failed for "${effect}":`, res.status, await res.text());
+    console.error(
+      `Freesound search failed for "${effect}":`,
+      res.status,
+      await res.text(),
+    );
     return null;
   }
 
   const data = (await res.json()) as FreesoundSearchResult;
-  const match = data.results.find((r) => ALLOWED_LICENSES.some((l) => r.license.includes(l)));
+  const match = data.results.find((r) => isAllowedLicense(r.license));
   if (!match) return null;
 
   return {
     freesoundId: match.id,
-    previewUrl: match.previews["preview-hq-mp3"] ?? match.previews["preview-lq-mp3"],
+    previewUrl:
+      match.previews["preview-hq-mp3"] ?? match.previews["preview-lq-mp3"],
     name: match.name,
     author: match.username,
     license: match.license,
@@ -104,11 +121,11 @@ async function fetchSoundById(id: number): Promise<ResolvedSound | null> {
     {
       headers: { Authorization: `Token ${apiKey()}` },
       next: { revalidate: Number(process.env.FREESOUND_CACHE_TTL ?? 86400) },
-    }
+    },
   );
   if (!res.ok) return null;
   const s = await res.json();
-  if (!ALLOWED_LICENSES.some((l) => (s.license as string)?.includes(l))) return null;
+  if (!isAllowedLicense(s.license)) return null;
   return {
     freesoundId: s.id,
     previewUrl: s.previews["preview-hq-mp3"] ?? s.previews["preview-lq-mp3"],

@@ -1,11 +1,12 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import dynamic from "next/dynamic";
 import { RefreshCw, LogOut } from "lucide-react";
 import { useMatchRealtime } from "@/hooks/use-match-realtime";
+import { useMatchResultSound } from "@/lib/sound/use-match-result-sound";
 
 const ChessBoard = dynamic(() => import("@/components/games/chess-board"), {
   ssr: false,
@@ -144,6 +145,25 @@ export default function GameClient({
       setWinnerId(row.winner_id as string | null);
     }
   });
+
+  // Board-specific components (chess/tic-tac-toe/draughts/battleship/
+  // snakes-ladders) each track their own local win/lose text, but none
+  // of them ever fired a sound - only the separate "instant game"
+  // board (rock-paper-scissors/coin-flip/dice) had useMatchResultSound
+  // wired up. `status` + `winnerId` here are already the single
+  // source of truth shared by every game type, so hook the sound in
+  // once at this level instead of duplicating it into five board
+  // components. A spectator has no personal result, so no sound fires
+  // for them.
+  const matchResult = useMemo(() => {
+    if (status !== "completed" || isSpectator) return null;
+    return {
+      status: winnerId == null ? "draw" : ("completed" as const),
+      you_won: winnerId === userId,
+    };
+  }, [status, winnerId, userId, isSpectator]);
+
+  useMatchResultSound(matchResult);
 
   const shareUrl = typeof window !== "undefined" ? window.location.href : "";
 

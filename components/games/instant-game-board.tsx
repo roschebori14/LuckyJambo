@@ -2,7 +2,6 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { useMatchRealtime } from "@/hooks/use-match-realtime";
-import { useMatchResultSound } from "@/lib/sound/use-match-result-sound";
 import Confetti from "@/components/ui/confetti";
 
 type GameType = "rock_paper_scissors" | "dice_duel" | "coin_flip";
@@ -62,9 +61,12 @@ export default function InstantGameBoard({ matchId, gameType }: Props) {
     }
   }, [matchId]);
 
-  // Plays match-win / match-lose / match-draw exactly once, the moment
-  // `result` first becomes a resolved status - see use-match-result-sound.ts.
-  useMatchResultSound(result);
+  // Note: match-win/match-lose/match-draw sound is now fired once,
+  // centrally, by GameClient (the shared parent for every game type)
+  // based on the match's `status`/`winner_id` - not here. This board
+  // used to call useMatchResultSound(result) itself, which duplicated
+  // the sound (played twice, overlapping) once GameClient started
+  // covering every game type instead of just chess/tic-tac-toe.
 
   // Live update: the opponent joining, or the match resolving the
   // instant both moves are in, lands immediately instead of waiting up
