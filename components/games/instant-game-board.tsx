@@ -2,6 +2,8 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { useMatchRealtime } from "@/hooks/use-match-realtime";
+import { useMatchResultSound } from "@/lib/sound/use-match-result-sound";
+import Confetti from "@/components/ui/confetti";
 
 type GameType = "rock_paper_scissors" | "dice_duel" | "coin_flip";
 
@@ -59,6 +61,10 @@ export default function InstantGameBoard({ matchId, gameType }: Props) {
       setMove(r.move ?? "");
     }
   }, [matchId]);
+
+  // Plays match-win / match-lose / match-draw exactly once, the moment
+  // `result` first becomes a resolved status - see use-match-result-sound.ts.
+  useMatchResultSound(result);
 
   // Live update: the opponent joining, or the match resolving the
   // instant both moves are in, lands immediately instead of waiting up
@@ -151,6 +157,7 @@ export default function InstantGameBoard({ matchId, gameType }: Props) {
     }
     return (
       <div className={`rounded-2xl p-6 text-center ${result.you_won ? "bg-green-500/10" : "bg-red-500/10"}`}>
+        <Confetti fire={!!result.you_won} />
         <div className="text-5xl mb-3">{result.you_won ? "🏆" : "😔"}</div>
         <h2 className="text-xl font-extrabold text-white">
           {result.you_won ? "You Won!" : "You Lost"}

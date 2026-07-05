@@ -7,6 +7,7 @@ import { createClient } from "@/lib/supabase/server";
 import { PresenceProvider } from "@/lib/presence/presence-context";
 import { ToastProvider } from "@/components/ui/toast-provider";
 import DmToastListener from "@/components/messages/dm-toast-listener";
+import { SoundProvider } from "@/lib/sound/sound-manager";
 
 export default async function ProtectedLayout({ children }: { children: ReactNode }) {
   await requireAuth();
@@ -21,6 +22,7 @@ export default async function ProtectedLayout({ children }: { children: ReactNod
 
   return (
     <PresenceProvider userId={user?.id ?? ""}>
+      <SoundProvider>
       <ToastProvider>
         {user && <DmToastListener userId={user.id} />}
         <div className="min-h-screen" style={{ background: "var(--lj-navy)" }}>
@@ -32,6 +34,7 @@ export default async function ProtectedLayout({ children }: { children: ReactNod
           <SupportChatWidget />
         </div>
       </ToastProvider>
+      </SoundProvider>
     </PresenceProvider>
   );
 }

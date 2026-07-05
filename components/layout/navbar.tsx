@@ -3,6 +3,7 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { WalletService } from "@/lib/wallet/wallet-service";
 import { Bell, ChevronDown } from "lucide-react";
+import SoundToggle from "@/components/ui/sound-toggle";
 
 export default async function Navbar() {
   const supabase = await createClient();
@@ -40,6 +41,9 @@ export default async function Navbar() {
           <Image src="/logo.png" alt="" width={16} height={16} />
           {balance.toLocaleString()} XAF
         </Link>
+
+        {/* Sound mute toggle */}
+        <SoundToggle />
 
         {/* Notifications */}
         <Link href="/notifications" className="relative rounded-xl p-2.5 text-[var(--lj-muted)] transition-colors hover:bg-white/5 hover:text-white"

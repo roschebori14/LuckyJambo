@@ -4,6 +4,7 @@ import { useRef } from "react";
 import { useDirectMessageRealtime, type DirectMessageRow } from "@/hooks/use-direct-message-realtime";
 import { useToast } from "@/components/ui/toast-provider";
 import { createClient } from "@/lib/supabase/client";
+import { useSound } from "@/lib/sound/sound-manager";
 
 /**
  * Mounted once near the root of the authenticated app (see
@@ -17,6 +18,7 @@ import { createClient } from "@/lib/supabase/client";
  */
 export default function DmToastListener({ userId }: { userId: string }) {
   const { pushToast } = useToast();
+  const { play } = useSound();
   // Small in-memory cache so repeated messages from the same sender in
   // a short burst don't each trigger a fresh profile lookup.
   const usernameCache = useRef<Map<string, string>>(new Map());
@@ -37,6 +39,7 @@ export default function DmToastListener({ userId }: { userId: string }) {
       }
     }
 
+    play("message-received");
     pushToast({
       title: `💬 ${senderName}`,
       message: row.message,

@@ -3,8 +3,11 @@
 ## Goal
 
 Three big, mostly-independent workstreams requested together:
-1. Migrate the game engine to `boardgame.io` and use it for new games and
-   to enhance the existing ones.
+1. Use `boardgame.io` for **new** games going forward. **Decision as of
+   this slice: do NOT migrate the existing games (tic-tac-toe, chess,
+   draughts, battleship, snakes & ladders) onto it.** They stay exactly
+   as they are - their own Postgres RPCs + hand-rolled React boards.
+   `boardgame.io` is only for games built from here on out.
 2. Friend-to-friend direct messages that arrive as a toast notification
    anywhere in the app.
 3. `freesound.org`-powered sound effects, plus general UI polish/effects.
@@ -55,18 +58,97 @@ right after the toast auto-dismissed).
 ### ✅ Done - boardgame.io installed
 
 `boardgame.io` is now in `package.json`/`package-lock.json`. **Not yet
-used anywhere** - no game has been migrated or built with it yet. See
-"Next: boardgame.io migration" below for the concrete plan.
+used anywhere** - no game has been built with it yet. See "Next:
+boardgame.io - new games" below. **Scope note:** per an explicit
+decision this slice, this is additive only - none of the five existing
+games are being touched or ported.
 
-### ⏳ Not started - boardgame.io migration/new games
+### ✅ Done - freesound.org sound effects + first UI effect (this slice)
+
+- `.env.example`: added `FREESOUND_API_KEY` + `FREESOUND_CACHE_TTL`.
+  Get a free key at https://freesound.org/apiv2/apply/.
+- `lib/sound/effect-catalog.ts` - single source of truth for every
+  effect name used in the app (`move`, `dice-roll`, `coin-flip`,
+  `match-win/lose/draw`, `message-received`, `notification`,
+  `button-tap`, `match-found`, `deposit-success`,
+  `withdrawal-success`), each with a Freesound search query + default
+  volume. Add new effects here first.
+- `lib/sound/freesound-client.ts` (server-only, `import "server-only"`
+  guards it from ever being bundled client-side) - queries Freesound's
+  text search, filtered to `CC0`/`Attribution` licensed clips only (no
+  NC content in a commercial product), with an optional pinned
+  `fallbackId` per effect for once you've hand-picked good sounds.
+- `lib/sound/sound-cache.ts` - process-local cache + in-flight
+  de-duplication in front of the Freesound client, so N players
+  triggering the same effect doesn't mean N Freesound API calls.
+- `app/api/sound/resolve/route.ts` - the only endpoint the browser
+  talks to (`GET /api/sound/resolve?effect=match-win`). Auth-gated like
+  every other route here. The Freesound API key never reaches the
+  client - only a resolved preview URL does.
+- `lib/sound/sound-manager.tsx` - `SoundProvider` (mounted in
+  `(protected)/layout.tsx`, alongside `ToastProvider`) + `useSound()`
+  hook. Resolves each effect once per session, caches the `<audio>`
+  element, and persists mute + master-volume preference to
+  `localStorage`.
+- `components/ui/sound-toggle.tsx` - mute button, wired into
+  `components/layout/navbar.tsx` next to the notification bell.
+- `lib/sound/use-match-result-sound.ts` - one-line hook
+  (`useMatchResultSound(result)`) that fires `match-win` /
+  `match-lose` / `match-draw` exactly once when a board's existing
+  `result` state resolves. Wired into
+  `components/games/instant-game-board.tsx` (covers dice, RPS, coin
+  flip - all three share this component).
+- `components/ui/confetti.tsx` - dependency-free CSS confetti burst
+  (matches the "no extra dependency" style of `toast-provider.tsx`).
+  Wired into the win banner in `instant-game-board.tsx`.
+- `message-received` sound wired into `dm-toast-listener.tsx` so an
+  incoming DM is audible, not just a toast.
+
+**Not yet wired (do these next, same one-line pattern each time):**
+- `useMatchResultSound(result)` + `<Confetti fire={result.you_won} />`
+  into the other five boards - `chess-board.tsx`, `draughts-board.tsx`,
+  `tic-tac-toe-board.tsx`, `battleship-board.tsx`,
+  `snakes-ladders-board.tsx`. Each already tracks an equivalent result
+  object; check the exact shape per board before assuming it matches
+  `instant-game-board.tsx`'s `{status, you_won}`.
+- `move` sound on each board's own move-submit handler (not just
+  win/lose) - one `play("move")` call per board, right where the move
+  request succeeds.
+- `deposit-success` / `withdrawal-success` - wire once those flows call
+  `pushToast(...)`; right now neither deposits nor withdrawals push a
+  toast at all yet, so there's no hook point - add the toast call first,
+  then `play(...)` next to it, same as `dm-toast-listener.tsx` does.
+- `notification` - generic fallback for any future toast that isn't a
+  DM (friend request accepted, etc.) - same pattern.
+- `button-tap` - decorative, lowest priority; wrap the shared button
+  component (if one exists) or skip entirely if it turns out too noisy
+  in practice.
+- Verify licensing on whatever Freesound actually resolves for each
+  query once a real `FREESOUND_API_KEY` is in `.env.local` - the code
+  filters to CC0/Attribution, but eyeball the actual matches and pin a
+  `fallbackId` in `effect-catalog.ts` for any effect that's core to the
+  feel of the app (win/lose especially) so it doesn't drift if
+  Freesound's top search result changes later.
+
+### ⏳ Not started - first boardgame.io game: Penalty Shootout
+
+In-progress design discussion (answers not yet locked in when this
+slice was cut - resolve these first in the next session):
+- Simultaneous-blind rounds (both players pick a corner/side at once,
+  like Rock-Paper-Scissors) vs. turn-based reveal (shooter picks, then
+  keeper picks, shown before the next kick).
+- Best-of-5 kicks with sudden death on a tie (real shootout rules) vs.
+  a simpler fixed-round format.
 
 ### ⏳ Not started - freesound.org sound effects + UI effects
 
-## Next: boardgame.io migration plan
+## Next: boardgame.io - new games plan
 
-Recommended order (each is its own slice/zip):
+The existing games are explicitly out of scope for this - see the
+scope note above. This is purely additive infrastructure for games
+that don't exist yet.
 
-1. **Scaffold + one new game as the template.** Add a
+1. **Scaffold + Penalty Shootout as the first game.** Add a
    `lib/boardgame/` folder with: a `Game` definition, a thin
    `Client`-wrapped React board component, and a server-authoritative
    move-validation bridge so boardgame.io's client-side state is never
@@ -74,17 +156,10 @@ Recommended order (each is its own slice/zip):
    via a Postgres RPC the same way every existing game does - see rule
    #1 in the very first continuation brief this project has been using:
    *never persist match/wallet state without a SECURITY DEFINER RPC*).
-   Picking a **new, currently-unbuilt game** (e.g. Connect Four, or a
-   simple card game) as this template avoids risking a currently-working
-   real-money game while the pattern is worked out.
-2. **Migrate one existing, simple game** (tic-tac-toe is the smallest
-   board) onto the same boardgame.io pattern, side by side with the
-   current implementation behind a feature check, so it can be rolled
-   back instantly if anything regresses.
-3. **Migrate the rest** (draughts, chess, battleship, snakes & ladders)
-   one at a time, each its own slice.
-4. Once all are migrated, remove the old per-game board components and
-   RPCs that are no longer used.
+   Lock in the two open design questions above before building.
+2. **Additional new games** on the same pattern, each its own slice,
+   as they come up - e.g. Connect Four, a simple card game. No fixed
+   list yet.
 
 ## Next: freesound.org + UI effects plan
 
@@ -106,9 +181,14 @@ fresh session (with the most recently delivered zip attached):
 
 > Continue work on the Lucky Jambo project (attached zip). Read
 > `docs/phase-9-notes.md` first - it has the full plan and exactly
-> what's done vs. not done. Pick up at the first unchecked item and
-> keep going: implement one slice, verify with `npm install` + `npx
-> next build` + `npx eslint` (all must pass clean), zip the whole
-> project (excluding node_modules/.next/.git), update
-> `docs/phase-9-notes.md` with what you just finished, and deliver the
-> zip before doing anything else. Repeat slice by slice.
+> what's done vs. not done. Pick up at the first unchecked item -
+> right now that's the "Not yet wired" list under the sound-effects
+> section (wiring `useMatchResultSound` + move sounds into the
+> remaining 5 boards), then move on to the Penalty Shootout
+> boardgame.io scaffold once that's done. Implement one slice, verify
+> with `npm install` + `npx next build` + `npx eslint` (all must pass
+> clean - if your environment has no network access, say so explicitly
+> instead of skipping verification silently), zip the whole project
+> (excluding node_modules/.next/.git), update `docs/phase-9-notes.md`
+> with what you just finished, and deliver the zip before doing
+> anything else. Repeat slice by slice.
