@@ -42,12 +42,36 @@ function pieceColor(piece: DraughtsPiece): DraughtsPlayer {
 }
 
 function pieceDirs(piece: DraughtsPiece): [number, number][] {
-  if (piece === "r") return [[1, -1], [1, 1]];
-  if (piece === "b") return [[-1, -1], [-1, 1]];
-  return [[1, -1], [1, 1], [-1, -1], [-1, 1]];
+  // Black starts at rows 0-2 (top) and advances toward higher row
+  // numbers; Red starts at rows 5-7 (bottom) and advances toward
+  // lower row numbers. These were previously swapped, which made
+  // every regular (non-jump) move illegal from turn one - every
+  // piece's only "forward" step either ran off the board or into its
+  // own back-row pieces, so literally any tap looked like "no legal
+  // moves right now".
+  if (piece === "r")
+    return [
+      [-1, -1],
+      [-1, 1],
+    ];
+  if (piece === "b")
+    return [
+      [1, -1],
+      [1, 1],
+    ];
+  return [
+    [1, -1],
+    [1, 1],
+    [-1, -1],
+    [-1, 1],
+  ];
 }
 
-function stepsFrom(pos: number, piece: DraughtsPiece, board: DraughtsBoard): number[] {
+function stepsFrom(
+  pos: number,
+  piece: DraughtsPiece,
+  board: DraughtsBoard,
+): number[] {
   const [row, col] = toRC(pos);
   return pieceDirs(piece)
     .map(([dr, dc]) => fromRC(row + dr, col + dc))
@@ -82,7 +106,11 @@ function jumpsFrom(
     const further = jumpsFrom(landPos, piece, newBoard, newCaptured, chainFrom);
 
     if (further.length === 0) {
-      results.push({ from: chainFrom, to: landPos, captures: [...newCaptured] });
+      results.push({
+        from: chainFrom,
+        to: landPos,
+        captures: [...newCaptured],
+      });
     } else {
       results.push(...further);
     }
@@ -96,7 +124,14 @@ export class DraughtsEngine {
     const board: DraughtsBoard = {};
     for (let i = 1; i <= 12; i++) board[i] = "b";
     for (let i = 21; i <= 32; i++) board[i] = "r";
-    return { board, current_turn: "b", winner: null, game_over: false, r_player_id: null, b_player_id: null };
+    return {
+      board,
+      current_turn: "b",
+      winner: null,
+      game_over: false,
+      r_player_id: null,
+      b_player_id: null,
+    };
   }
 
   static getLegalMoves(state: DraughtsState): DraughtsMove[] {
@@ -106,12 +141,16 @@ export class DraughtsEngine {
       .map(([pos]) => Number(pos));
 
     const captures = mine.flatMap((pos) =>
-      jumpsFrom(pos, board[pos], board, new Set(), pos)
+      jumpsFrom(pos, board[pos], board, new Set(), pos),
     );
     if (captures.length > 0) return captures;
 
     return mine.flatMap((pos) =>
-      stepsFrom(pos, board[pos], board).map((to) => ({ from: pos, to, captures: [] }))
+      stepsFrom(pos, board[pos], board).map((to) => ({
+        from: pos,
+        to,
+        captures: [],
+      })),
     );
   }
 
@@ -124,7 +163,7 @@ export class DraughtsEngine {
         m.from === move.from &&
         m.to === move.to &&
         m.captures.length === move.captures.length &&
-        m.captures.every((c) => move.captures.includes(c))
+        m.captures.every((c) => move.captures.includes(c)),
     );
     if (!isLegal) throw new Error("Illegal move");
 
@@ -135,14 +174,25 @@ export class DraughtsEngine {
 
     const [landRow] = toRC(move.to);
     let promoted = piece;
-    if (piece === "r" && landRow === 7) promoted = "R";
-    if (piece === "b" && landRow === 0) promoted = "B";
+    // Promotion rows must match each side's actual direction of
+    // travel: Red now advances toward row 0, Black toward row 7 (see
+    // the pieceDirs() fix above) - these were previously the old,
+    // backwards rows and would have promoted the wrong color at the
+    // wrong end of the board (or never, in practice).
+    if (piece === "r" && landRow === 0) promoted = "R";
+    if (piece === "b" && landRow === 7) promoted = "B";
     board[move.to] = promoted;
 
     const nextTurn: DraughtsPlayer = state.current_turn === "r" ? "b" : "r";
-    const nextState: DraughtsState = { ...state, board, current_turn: nextTurn };
+    const nextState: DraughtsState = {
+      ...state,
+      board,
+      current_turn: nextTurn,
+    };
     const hasNextMoves = DraughtsEngine.getLegalMoves(nextState).length > 0;
-    const winner: DraughtsPlayer | null = hasNextMoves ? null : state.current_turn;
+    const winner: DraughtsPlayer | null = hasNextMoves
+      ? null
+      : state.current_turn;
 
     return { ...nextState, winner, game_over: winner !== null };
   }
