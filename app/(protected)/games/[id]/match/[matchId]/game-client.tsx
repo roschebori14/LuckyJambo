@@ -1,7 +1,11 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
+import { useRouter } from "next/navigation";
+import Link from "next/link";
 import dynamic from "next/dynamic";
+import { RefreshCw, LogOut } from "lucide-react";
+import { useMatchRealtime } from "@/hooks/use-match-realtime";
 
 const ChessBoard = dynamic(() => import("@/components/games/chess-board"), {
   ssr: false,
@@ -20,6 +24,10 @@ const DraughtsBoard = dynamic(
 );
 const BattleshipBoard = dynamic(
   () => import("@/components/games/battleship-board"),
+  { ssr: false },
+);
+const SnakesLaddersBoard = dynamic(
+  () => import("@/components/games/snakes-ladders-board"),
   { ssr: false },
 );
 const MatchActions = dynamic(() => import("@/components/games/match-actions"), {
@@ -44,6 +52,9 @@ interface Props {
   stakeAmount: number;
   initialStatus?: string;
   isParticipant?: boolean;
+  initialWinnerId?: string | null;
+  opponentId?: string | null;
+  opponentUsername?: string | null;
 }
 
 export default function GameClient({
@@ -53,23 +64,31 @@ export default function GameClient({
   stakeAmount,
   initialStatus = "waiting",
   isParticipant = true,
+  initialWinnerId = null,
+  opponentId = null,
+  opponentUsername = null,
 }: Props) {
+  const router = useRouter();
   const isInstant = INSTANT_SLUGS.includes(gameSlug as InstantSlug);
   const [status, setStatus] = useState(initialStatus);
+  const [winnerId, setWinnerId] = useState(initialWinnerId);
   const [copied, setCopied] = useState(false);
   const [joined, setJoined] = useState(isParticipant);
   const [joining, setJoining] = useState(false);
   const [joinError, setJoinError] = useState("");
   const [cancelling, setCancelling] = useState(false);
   const [cancelError, setCancelError] = useState("");
+  const [rematching, setRematching] = useState(false);
+  const [rematchError, setRematchError] = useState("");
 
   const pollStatus = useCallback(async () => {
-    // Only stop polling once the match has actually reached a terminal
-    // state - "waiting" and "active" both still need to be watched.
-    // This used to bail out for any status other than "waiting", which
-    // meant that once a match went active, nothing but the realtime
-    // subscription ever checked again - if that subscription silently
-    // dropped an event (tab backgrounded, brief reconnect, etc.), a
+    // Only stop polling once the match has reached a genuinely
+    // terminal state - "waiting" and "active" both still need
+    // watching. This used to bail out for anything other than
+    // "waiting", which meant that once a match went active, this
+    // fallback poll stopped entirely and useMatchRealtime below was
+    // the only thing left checking. If a realtime event was ever
+    // missed (tab backgrounded, brief reconnect, dropped message), a
     // forfeit/resign/withdraw by the other player would never show up
     // here until the page was manually reloaded.
     if (status === "completed" || status === "cancelled") return;
@@ -82,6 +101,9 @@ export default function GameClient({
         if (nextStatus && nextStatus !== status) {
           setStatus(nextStatus);
         }
+        if ("winner_id" in (data.match ?? {})) {
+          setWinnerId(data.match.winner_id ?? null);
+        }
       }
     } catch (e) {
       console.error("Error polling match status", e);
@@ -89,16 +111,29 @@ export default function GameClient({
   }, [matchId, status]);
 
   useEffect(() => {
-    // Same fix mirrored here: keep the interval alive through "active",
-    // not just "waiting". Realtime (below) is still the fast path for
-    // an instant update; this poll is the reliable fallback that
-    // guarantees the other player finds out within one interval even
-    // if a realtime event never arrives.
+    // Same fix mirrored here: keep the interval alive through
+    // "active", not just "waiting". useMatchRealtime is still the
+    // fast path for an instant update; this poll is the reliable
+    // fallback that guarantees the other player finds out within one
+    // interval even if a realtime event never arrives.
     if (joined && status !== "completed" && status !== "cancelled") {
       const interval = setInterval(pollStatus, 3000);
       return () => clearInterval(interval);
     }
   }, [status, joined, pollStatus]);
+
+  // Live update: the instant the opponent joins, cancels, or the match
+  // otherwise changes status, react immediately instead of waiting for
+  // the next 3s poll. The poll above stays as a fallback.
+  useMatchRealtime(matchId, (row) => {
+    const nextStatus = row.status as string | undefined;
+    if (nextStatus) {
+      setStatus((prev) => (nextStatus !== prev ? nextStatus : prev));
+    }
+    if ("winner_id" in row) {
+      setWinnerId(row.winner_id as string | null);
+    }
+  });
 
   const shareUrl = typeof window !== "undefined" ? window.location.href : "";
 
@@ -226,24 +261,153 @@ export default function GameClient({
   }
 
   if (status === "cancelled") {
+    // cancel_match (creator backing out of an open match) only ever
+    // works while status is still "waiting" - i.e. before anyone else
+    // has joined. So if this match reached "cancelled" status AND has
+    // a known opponent, it can only have gotten here through
+    // refund_draw (a real draw both players finished), not a
+    // pre-match cancellation - worth a different message and a
+    // rematch option, same as a decisive finish.
+    if (opponentId) {
+      return (
+        <div className="flex flex-col items-center justify-center rounded-2xl border border-[var(--lj-border)] bg-[var(--lj-card-2)] p-8 shadow-sm text-center">
+          <h3 className="mb-2 text-2xl font-black text-yellow-300">
+            🤝 It&apos;s a draw!
+          </h3>
+          <p className="mb-6 text-sm text-[var(--lj-muted)]">
+            Your stake was refunded to your wallet.
+          </p>
+          {rematchError && (
+            <div className="mb-4 rounded-xl bg-red-500/10 px-4 py-3 text-sm text-red-300">
+              {rematchError}
+            </div>
+          )}
+          <div className="flex flex-wrap items-center justify-center gap-3">
+            <button
+              onClick={playRematch}
+              disabled={rematching}
+              className="flex items-center gap-2 rounded-xl bg-green-600 px-6 py-3 text-sm font-bold text-white hover:bg-green-700 disabled:opacity-50"
+            >
+              <RefreshCw
+                size={16}
+                className={rematching ? "animate-spin" : ""}
+              />
+              {rematching
+                ? "Setting up…"
+                : opponentUsername
+                  ? `Rematch ${opponentUsername}`
+                  : "Rematch"}
+            </button>
+            <Link
+              href="/games"
+              className="flex items-center gap-2 rounded-xl border border-[var(--lj-border)] px-6 py-3 text-sm font-semibold text-[var(--lj-muted)] hover:bg-white/5"
+            >
+              <LogOut size={16} /> Quit
+            </Link>
+          </div>
+        </div>
+      );
+    }
+
     return (
       <div className="flex flex-col items-center justify-center rounded-2xl border border-[var(--lj-border)] bg-[var(--lj-card-2)] p-8 shadow-sm text-center">
         <h3 className="mb-2 text-xl font-bold text-white">Match cancelled</h3>
-        <p className="text-sm text-[var(--lj-muted)]">
+        <p className="mb-6 text-sm text-[var(--lj-muted)]">
           Your stake was refunded to your wallet.
         </p>
+        <Link
+          href="/games"
+          className="flex items-center gap-2 rounded-xl border border-[var(--lj-border)] px-6 py-3 text-sm font-semibold text-[var(--lj-muted)] hover:bg-white/5"
+        >
+          <LogOut size={16} /> Back to Games
+        </Link>
       </div>
     );
   }
 
+  async function playRematch() {
+    setRematching(true);
+    setRematchError("");
+    try {
+      const res = await fetch("/api/matches/create", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          game_slug: gameSlug,
+          stake_amount: stakeAmount,
+          invited_user_id: opponentId ?? undefined,
+        }),
+      });
+      const json = await res.json();
+      if (!json.success) {
+        setRematchError(json.message ?? "Could not create rematch");
+        return;
+      }
+      router.push(`/games/${gameSlug}/match/${json.match.id}`);
+    } catch {
+      setRematchError("Network error — please try again.");
+    } finally {
+      setRematching(false);
+    }
+  }
+
   if (status === "completed") {
+    const won = winnerId != null && winnerId === userId;
+    const lost = winnerId != null && winnerId !== userId;
+    const resultText = won
+      ? "🏆 You won!"
+      : lost
+        ? "😔 You lost"
+        : "Match settled";
+    const resultColor = won
+      ? "text-green-300"
+      : lost
+        ? "text-red-300"
+        : "text-[var(--lj-muted)]";
+
     return (
       <div className="flex flex-col items-center justify-center rounded-2xl border border-[var(--lj-border)] bg-[var(--lj-card-2)] p-8 shadow-sm text-center">
-        <h3 className="mb-2 text-xl font-bold text-white">Match ended</h3>
-        <p className="text-sm text-[var(--lj-muted)]">
+        <h3 className={`mb-2 text-2xl font-black ${resultColor}`}>
+          {resultText}
+        </h3>
+        <p className="mb-6 text-sm text-[var(--lj-muted)]">
           This match has been settled. Check your wallet or match history for
-          the result.
+          the payout details.
         </p>
+
+        {rematchError && (
+          <div className="mb-4 rounded-xl bg-red-500/10 px-4 py-3 text-sm text-red-300">
+            {rematchError}
+          </div>
+        )}
+
+        <div className="flex flex-wrap items-center justify-center gap-3">
+          <button
+            onClick={playRematch}
+            disabled={rematching || !opponentId}
+            className="flex items-center gap-2 rounded-xl bg-green-600 px-6 py-3 text-sm font-bold text-white hover:bg-green-700 disabled:opacity-50"
+          >
+            <RefreshCw size={16} className={rematching ? "animate-spin" : ""} />
+            {rematching
+              ? "Setting up…"
+              : opponentUsername
+                ? `Rematch ${opponentUsername}`
+                : "Rematch"}
+          </button>
+          <Link
+            href="/games"
+            className="flex items-center gap-2 rounded-xl border border-[var(--lj-border)] px-6 py-3 text-sm font-semibold text-[var(--lj-muted)] hover:bg-white/5"
+          >
+            <LogOut size={16} /> Quit
+          </Link>
+        </div>
+
+        {!opponentId && (
+          <p className="mt-4 text-xs text-[var(--lj-muted)]">
+            Rematch isn&apos;t available without a known opponent - head back to
+            Games to start a new match.
+          </p>
+        )}
       </div>
     );
   }
@@ -282,13 +446,25 @@ export default function GameClient({
         {gameSlug === "battleship" && (
           <BattleshipBoard matchId={matchId} userId={userId} />
         )}
+        {gameSlug === "snakes-ladders" && (
+          <SnakesLaddersBoard matchId={matchId} userId={userId} />
+        )}
       </div>
 
       {/* Forfeit / report / resign controls */}
       <div className="rounded-2xl border border-[var(--lj-border)] bg-[var(--lj-card-2)] p-4 shadow-sm">
         <MatchActions
           matchId={matchId}
-          onMatchEnded={() => setStatus("completed")}
+          onMatchEnded={async () => {
+            setStatus("completed");
+            try {
+              const res = await fetch(`/api/matches/status?id=${matchId}`);
+              const json = await res.json();
+              if (json.success) setWinnerId(json.match?.winner_id ?? null);
+            } catch {
+              /* realtime will pick this up shortly regardless */
+            }
+          }}
           hideResign={gameSlug === "chess"}
           stakeAmount={stakeAmount}
         />
