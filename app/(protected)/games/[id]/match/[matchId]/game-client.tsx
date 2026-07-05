@@ -55,6 +55,7 @@ interface Props {
   stakeAmount: number;
   initialStatus?: string;
   isParticipant?: boolean;
+  isSpectator?: boolean;
   initialWinnerId?: string | null;
   opponentId?: string | null;
   opponentUsername?: string | null;
@@ -67,6 +68,7 @@ export default function GameClient({
   stakeAmount,
   initialStatus = "waiting",
   isParticipant = true,
+  isSpectator = false,
   initialWinnerId = null,
   opponentId = null,
   opponentUsername = null,
@@ -76,7 +78,12 @@ export default function GameClient({
   const [status, setStatus] = useState(initialStatus);
   const [winnerId, setWinnerId] = useState(initialWinnerId);
   const [copied, setCopied] = useState(false);
-  const [joined, setJoined] = useState(isParticipant);
+  // A spectator is never "joined" (they have no participant row and
+  // never will), but they also shouldn't hit the "Accept Challenge"
+  // gate below - that's only for a real prospective player. Treating
+  // `joined` as true for spectators skips straight past that gate to
+  // the read-only board render further down.
+  const [joined, setJoined] = useState(isParticipant || isSpectator);
   const [joining, setJoining] = useState(false);
   const [joinError, setJoinError] = useState("");
   const [cancelling, setCancelling] = useState(false);
@@ -355,6 +362,26 @@ export default function GameClient({
   }
 
   if (status === "completed") {
+    // A spectator has no stake or personal result in this match - the
+    // won/lost framing and Rematch action below are meaningless (and
+    // opponentId is always null for them anyway, since that field is
+    // relative to "the other player from *my* seat"). Show a plain,
+    // neutral result instead.
+    if (isSpectator) {
+      return (
+        <div className="flex flex-col items-center justify-center rounded-2xl border border-[var(--lj-border)] bg-[var(--lj-card-2)] p-8 shadow-sm text-center">
+          <h3 className="mb-2 text-2xl font-black text-[var(--lj-muted)]">Match settled</h3>
+          <p className="mb-6 text-sm text-[var(--lj-muted)]">This match has finished.</p>
+          <Link
+            href="/matches"
+            className="flex items-center gap-2 rounded-xl border border-[var(--lj-border)] px-6 py-3 text-sm font-semibold text-[var(--lj-muted)] hover:bg-white/5"
+          >
+            <LogOut size={16} /> Back to Matches
+          </Link>
+        </div>
+      );
+    }
+
     const won = winnerId != null && winnerId === userId;
     const lost = winnerId != null && winnerId !== userId;
     const resultText = won
@@ -417,20 +444,36 @@ export default function GameClient({
 
   return (
     <>
-      {/* Stake info */}
-      <div className="flex items-center justify-between rounded-xl bg-[var(--lj-card-2)] px-4 py-3 border text-sm shadow-sm">
-        <span className="text-[var(--lj-muted)]">Stake</span>
-        <span className="font-bold text-white">
-          {stakeAmount.toLocaleString()} XAF each
-        </span>
-        <span className="text-[var(--lj-muted)]">Prize</span>
-        <span className="font-bold text-green-300">
-          {Math.round(stakeAmount * 2 * 0.95).toLocaleString()} XAF
-        </span>
-      </div>
+      {/* Stake info - meaningless to a spectator, who has no stake in
+          this match */}
+      {!isSpectator && (
+        <div className="flex items-center justify-between rounded-xl bg-[var(--lj-card-2)] px-4 py-3 border text-sm shadow-sm">
+          <span className="text-[var(--lj-muted)]">Stake</span>
+          <span className="font-bold text-white">
+            {stakeAmount.toLocaleString()} XAF each
+          </span>
+          <span className="text-[var(--lj-muted)]">Prize</span>
+          <span className="font-bold text-green-300">
+            {Math.round(stakeAmount * 2 * 0.95).toLocaleString()} XAF
+          </span>
+        </div>
+      )}
 
-      {/* Game board */}
-      <div className="rounded-2xl border border-[var(--lj-border)] bg-[var(--lj-card-2)] p-5 shadow-sm">
+      {/* Game board - spectators get the same live board (it's driven
+          by the same match_id and realtime channel as the players see),
+          just visually locked so clicks can't attempt a move. The move
+          APIs already reject non-participants server-side regardless -
+          this is purely so a spectator isn't left guessing why nothing
+          happens when they click a cell. */}
+      <div
+        className="relative rounded-2xl border border-[var(--lj-border)] bg-[var(--lj-card-2)] p-5 shadow-sm"
+        style={isSpectator ? { pointerEvents: "none" } : undefined}
+      >
+        {isSpectator && (
+          <span className="absolute right-3 top-3 z-10 rounded-full bg-black/40 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide text-white">
+            👀 Spectating
+          </span>
+        )}
         {gameSlug === "chess" && (
           <ChessBoard matchId={matchId} userId={userId} />
         )}
@@ -454,27 +497,31 @@ export default function GameClient({
         )}
       </div>
 
-      {/* Quick chat */}
-      <MatchChat matchId={matchId} userId={userId} opponentUsername={opponentUsername} />
+      {/* Quick chat + forfeit/report/resign controls only make sense
+          for the two actual players. */}
+      {!isSpectator && (
+        <>
+          <MatchChat matchId={matchId} userId={userId} opponentUsername={opponentUsername} />
 
-      {/* Forfeit / report / resign controls */}
-      <div className="rounded-2xl border border-[var(--lj-border)] bg-[var(--lj-card-2)] p-4 shadow-sm">
-        <MatchActions
-          matchId={matchId}
-          onMatchEnded={async () => {
-            setStatus("completed");
-            try {
-              const res = await fetch(`/api/matches/status?id=${matchId}`);
-              const json = await res.json();
-              if (json.success) setWinnerId(json.match?.winner_id ?? null);
-            } catch {
-              /* realtime will pick this up shortly regardless */
-            }
-          }}
-          hideResign={gameSlug === "chess"}
-          stakeAmount={stakeAmount}
-        />
-      </div>
+          <div className="rounded-2xl border border-[var(--lj-border)] bg-[var(--lj-card-2)] p-4 shadow-sm">
+            <MatchActions
+              matchId={matchId}
+              onMatchEnded={async () => {
+                setStatus("completed");
+                try {
+                  const res = await fetch(`/api/matches/status?id=${matchId}`);
+                  const json = await res.json();
+                  if (json.success) setWinnerId(json.match?.winner_id ?? null);
+                } catch {
+                  /* realtime will pick this up shortly regardless */
+                }
+              }}
+              hideResign={gameSlug === "chess"}
+              stakeAmount={stakeAmount}
+            />
+          </div>
+        </>
+      )}
     </>
   );
 }

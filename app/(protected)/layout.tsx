@@ -8,6 +8,7 @@ import { PresenceProvider } from "@/lib/presence/presence-context";
 import { ToastProvider } from "@/components/ui/toast-provider";
 import DmToastListener from "@/components/messages/dm-toast-listener";
 import { SoundProvider } from "@/lib/sound/sound-manager";
+import ActiveMatchBanner from "@/components/matches/active-match-banner";
 
 export default async function ProtectedLayout({ children }: { children: ReactNode }) {
   await requireAuth();
@@ -29,7 +30,10 @@ export default async function ProtectedLayout({ children }: { children: ReactNod
           <Navbar />
           <div className="flex flex-col md:flex-row">
             <Sidebar isAdmin={isAdmin} />
-            <main className="flex-1 p-4 pb-20 md:p-6 md:pb-6">{children}</main>
+            <main className="flex-1 p-4 pb-20 md:p-6 md:pb-6">
+              {user && <ActiveMatchBanner userId={user.id} />}
+              {children}
+            </main>
           </div>
           <SupportChatWidget />
         </div>

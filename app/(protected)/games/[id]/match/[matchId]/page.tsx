@@ -49,27 +49,42 @@ export default async function MatchPlayPage({ params }: PageProps) {
 
   const isParticipant = !!participant;
 
-  // Opponent info for the post-match "Rematch" action - a rematch
-  // challenges the same opponent again rather than opening a new
-  // match to anyone. Only needed once there IS an opponent (both
-  // participants present), so this is best-effort: an open "waiting"
-  // match with nobody else in it yet simply won't offer a rematch
-  // target (there's nothing to render there anyway since that state
-  // shows the "waiting for opponent" screen, not the completed one).
+  // Every participant in the match (0-2 rows). Reading someone else's
+  // participant row here only works now that match_participants RLS
+  // (migration 049) allows it for matches you can already view - it
+  // used to be locked to "your own row only", which silently broke
+  // opponent-name lookups for real players too, not just spectators.
   const { data: participantRows } = await supabase
     .from("match_participants")
     .select("user_id")
     .eq("match_id", matchId);
 
-  const opponentId = participantRows?.map((p) => p.user_id).find((id) => id !== user.id) ?? null;
+  const participantIds = participantRows?.map((p) => p.user_id) ?? [];
 
-  let opponentUsername: string | null = null;
-  if (opponentId) {
-    const { data: opponentProfiles } = await supabase.rpc("get_public_profiles_by_ids", {
-      p_ids: [opponentId],
-    });
-    opponentUsername = opponentProfiles?.[0]?.username ?? null;
-  }
+  const { data: participantProfiles } = participantIds.length
+    ? await supabase.rpc("get_public_profiles_by_ids", { p_ids: participantIds })
+    : { data: [] as { id: string; username: string }[] };
+
+  const usernameById = new Map((participantProfiles ?? []).map((p) => [p.id, p.username]));
+
+  // Opponent info (relative to the current user) for the post-match
+  // "Rematch" action - only meaningful when the viewer is one of the
+  // two players.
+  const opponentId = participantIds.find((id) => id !== user.id) ?? null;
+  const opponentUsername = opponentId ? usernameById.get(opponentId) ?? null : null;
+
+  // A non-participant only ever gets a genuine "spectate" view once
+  // the match has actually started or finished - an 'active'/
+  // 'completed' match already has its two players locked in, so there's
+  // nothing for a third visitor to join. A 'waiting' match, by
+  // contrast, still has an open (or specifically-invited) seat, so
+  // that case keeps going through GameClient's existing "Accept
+  // Challenge" / join flow instead of spectate mode.
+  const isSpectator = !isParticipant && match.status !== "waiting";
+
+  // "PlayerA vs PlayerB" label for the spectator view, independent of
+  // which user is viewing.
+  const players = participantIds.map((id) => usernameById.get(id) ?? "Player");
 
   return (
     <div className="mx-auto max-w-lg space-y-4">
@@ -87,6 +102,13 @@ export default async function MatchPlayPage({ params }: PageProps) {
         </span>
       </div>
 
+      {isSpectator && (
+        <div className="rounded-xl px-4 py-2.5 text-center text-xs font-semibold text-[var(--lj-muted)]"
+          style={{ background: "rgba(255,255,255,0.04)", border: "1px solid var(--lj-border)" }}>
+          👀 Spectating{players.length === 2 ? ` — ${players[0]} vs ${players[1]}` : ""}
+        </div>
+      )}
+
       <GameClient
         matchId={matchId}
         gameSlug={gameSlug}
@@ -94,6 +116,7 @@ export default async function MatchPlayPage({ params }: PageProps) {
         stakeAmount={match.stake_amount ?? 0}
         initialStatus={match.status}
         isParticipant={isParticipant}
+        isSpectator={isSpectator}
         initialWinnerId={match.winner_id ?? null}
         opponentId={opponentId}
         opponentUsername={opponentUsername}

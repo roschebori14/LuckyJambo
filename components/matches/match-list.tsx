@@ -8,17 +8,19 @@ interface Match {
   stakeAmount: number;
   status: string;
   isOwn?: boolean;
+  isParticipant?: boolean;
 }
 
 interface MatchListProps {
   matches: Match[];
+  emptyMessage?: string;
 }
 
-export default function MatchList({ matches }: MatchListProps) {
+export default function MatchList({ matches, emptyMessage }: MatchListProps) {
   if (matches.length === 0) {
     return (
       <div className="rounded-xl border border-[var(--lj-border)] bg-[var(--lj-card-2)] p-8 text-center text-sm text-[var(--lj-muted)] shadow-sm">
-        No open matches right now — create one above to get the ball rolling.
+        {emptyMessage ?? "No open matches right now — create one above to get the ball rolling."}
       </div>
     );
   }
@@ -35,6 +37,7 @@ export default function MatchList({ matches }: MatchListProps) {
           stakeAmount={match.stakeAmount}
           status={match.status}
           isOwn={match.isOwn}
+          isParticipant={match.isParticipant}
         />
       ))}
     </div>

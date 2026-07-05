@@ -18,12 +18,26 @@ export default async function DashboardPage() {
     supabase.from("profiles").select("avatar_url").eq("id", user.id).single(),
   ]);
 
-  const { data: recentMatches } = await supabase
-    .from("matches")
-    .select("id, status, stake_amount, created_at, games(name)")
-    .or(`creator_id.eq.${user.id}`)
-    .order("created_at", { ascending: false })
-    .limit(4);
+  // Every match the user is actually part of - as creator OR as the
+  // joining opponent. The old `.eq("creator_id", user.id)` here only
+  // ever found matches you created, so a match you joined as the
+  // *opponent* silently never showed up in "Recent Matches" even
+  // though you're actively playing it.
+  const { data: myMatchIds } = await supabase
+    .from("match_participants")
+    .select("match_id")
+    .eq("user_id", user.id)
+    .order("joined_at", { ascending: false })
+    .limit(20);
+
+  const { data: recentMatches } = myMatchIds?.length
+    ? await supabase
+        .from("matches")
+        .select("id, status, stake_amount, created_at, games(name, slug)")
+        .in("id", myMatchIds.map((r) => r.match_id))
+        .order("created_at", { ascending: false })
+        .limit(4)
+    : { data: [] as { id: string; status: string; stake_amount: number; created_at: string; games: unknown }[] };
 
   const { count: totalMatches } = await supabase
     .from("match_participants").select("*", { count: "exact", head: true }).eq("user_id", user.id);
@@ -125,20 +139,24 @@ export default async function DashboardPage() {
             <Link href="/matches" className="text-xs text-[var(--lj-blue-2)] hover:text-[var(--lj-cyan)]">View all</Link>
           </div>
           <div className="space-y-2">
-            {recentMatches.map(m => (
-              <div key={m.id} className="flex items-center justify-between rounded-xl px-3 py-2.5 text-sm"
-                style={{ background: "rgba(255,255,255,0.03)" }}>
-                <span className="text-white">{((m.games as unknown) as {name:string}|null)?.name ?? "Match"}</span>
-                <span className="text-[var(--lj-muted)]">{m.stake_amount?.toLocaleString()} XAF</span>
-                <span className={`lj-badge ${
-                  m.status === "active" ? "bg-green-500/20 text-green-400" :
-                  m.status === "waiting" ? "bg-yellow-500/20 text-yellow-400" :
-                  m.status === "completed" ? "bg-blue-500/20 text-blue-300" :
-                  "bg-red-500/20 text-red-400"}`}>
-                  {m.status}
-                </span>
-              </div>
-            ))}
+            {recentMatches.map(m => {
+              const game = (m.games as unknown) as { name: string; slug: string } | null;
+              return (
+                <Link key={m.id} href={`/games/${game?.slug ?? ""}/match/${m.id}`}
+                  className="flex items-center justify-between rounded-xl px-3 py-2.5 text-sm transition-colors hover:bg-white/5"
+                  style={{ background: "rgba(255,255,255,0.03)" }}>
+                  <span className="text-white">{game?.name ?? "Match"}</span>
+                  <span className="text-[var(--lj-muted)]">{m.stake_amount?.toLocaleString()} XAF</span>
+                  <span className={`lj-badge ${
+                    m.status === "active" ? "bg-green-500/20 text-green-400" :
+                    m.status === "waiting" ? "bg-yellow-500/20 text-yellow-400" :
+                    m.status === "completed" ? "bg-blue-500/20 text-blue-300" :
+                    "bg-red-500/20 text-red-400"}`}>
+                    {m.status}
+                  </span>
+                </Link>
+              );
+            })}
           </div>
         </div>
       )}
