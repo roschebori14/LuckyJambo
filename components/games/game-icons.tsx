@@ -115,6 +115,24 @@ export function SnakesLaddersIcon({ className }: IconProps) {
   );
 }
 
+export function FourInARowIcon({ className }: IconProps) {
+  return (
+    <svg viewBox="0 0 48 48" fill="none" className={className} aria-hidden="true">
+      <rect x="6" y="10" width="36" height="30" rx="4" fill="currentColor" opacity="0.18" />
+      <rect x="6" y="10" width="36" height="30" rx="4" stroke="currentColor" strokeWidth="2.5" />
+      <circle cx="15" cy="18" r="3.4" fill="currentColor" />
+      <circle cx="24" cy="18" r="3.4" fill="currentColor" opacity="0.4" />
+      <circle cx="33" cy="18" r="3.4" fill="currentColor" opacity="0.4" />
+      <circle cx="15" cy="26" r="3.4" fill="currentColor" opacity="0.4" />
+      <circle cx="24" cy="26" r="3.4" fill="currentColor" />
+      <circle cx="33" cy="26" r="3.4" fill="currentColor" opacity="0.4" />
+      <circle cx="15" cy="34" r="3.4" fill="currentColor" opacity="0.4" />
+      <circle cx="24" cy="34" r="3.4" fill="currentColor" opacity="0.4" />
+      <circle cx="33" cy="34" r="3.4" fill="currentColor" />
+    </svg>
+  );
+}
+
 export const GAME_ICON: Record<string, (props: IconProps) => React.JSX.Element> = {
   chess: ChessIcon,
   draughts: DraughtsIcon,
@@ -124,6 +142,7 @@ export const GAME_ICON: Record<string, (props: IconProps) => React.JSX.Element> 
   coin_flip: CoinFlipIcon,
   battleship: BattleshipIcon,
   "snakes-ladders": SnakesLaddersIcon,
+  "four-in-a-row": FourInARowIcon,
 };
 
 export function GameIcon({ slug, className }: { slug: string; className?: string }) {

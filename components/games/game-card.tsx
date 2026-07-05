@@ -23,6 +23,7 @@ const GAME_META: Record<string, { type: string; bg: string }> = {
   coin_flip:           { type: "Instant",    bg: "bg-yellow-950" },
   battleship:          { type: "Turn-based", bg: "bg-slate-950" },
   "snakes-ladders":    { type: "Turn-based", bg: "bg-emerald-950" },
+  "four-in-a-row":     { type: "Turn-based", bg: "bg-blue-950" },
 };
 
 export default function GameCard({ game }: { game: Game }) {
