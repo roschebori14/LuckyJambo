@@ -33,6 +33,9 @@ const SnakesLaddersBoard = dynamic(
 const MatchActions = dynamic(() => import("@/components/games/match-actions"), {
   ssr: false,
 });
+const MatchChat = dynamic(() => import("@/components/games/match-chat"), {
+  ssr: false,
+});
 
 const INSTANT_SLUGS = ["rock_paper_scissors", "coin_flip", "dice"] as const;
 type InstantSlug = (typeof INSTANT_SLUGS)[number];
@@ -450,6 +453,9 @@ export default function GameClient({
           <SnakesLaddersBoard matchId={matchId} userId={userId} />
         )}
       </div>
+
+      {/* Quick chat */}
+      <MatchChat matchId={matchId} userId={userId} opponentUsername={opponentUsername} />
 
       {/* Forfeit / report / resign controls */}
       <div className="rounded-2xl border border-[var(--lj-border)] bg-[var(--lj-card-2)] p-4 shadow-sm">
