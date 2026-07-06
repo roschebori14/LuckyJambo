@@ -64,6 +64,13 @@ const INSTANT_TYPE_MAP: Record<
   dice: "dice_duel",
 };
 
+// How long both players get to look at the final board (the winning
+// move, checkmate position, last word played, etc.) before the
+// full-screen result/rematch overlay replaces it. Without this, the
+// board used to vanish the instant `status` flipped to "completed" -
+// often mid-animation on the move that actually ended the match.
+const RESULT_REVEAL_DELAY_MS = 3000;
+
 interface Props {
   matchId: string;
   gameSlug: string;
@@ -99,6 +106,16 @@ export default function GameClient({
   const { play } = useSound();
   const isInstant = INSTANT_SLUGS.includes(gameSlug as InstantSlug);
   const [status, setStatus] = useState(initialStatus);
+  // `status` is the raw, immediate truth (used for polling/realtime
+  // bookkeeping below). `displayStatus` is what the UI actually
+  // branches on - it tracks `status` instantly for every transition
+  // except into "completed", which it holds off on for
+  // RESULT_REVEAL_DELAY_MS so the board underneath stays visible for a
+  // beat first. Both players get this delay since both read it off the
+  // same status/realtime feed, not off whichever client happened to
+  // make the final move.
+  const [displayStatus, setDisplayStatus] = useState(initialStatus);
+  const revealTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [winnerId, setWinnerId] = useState(initialWinnerId);
   const [copied, setCopied] = useState(false);
   // A spectator is never "joined" (they have no participant row and
@@ -168,6 +185,32 @@ export default function GameClient({
     }
   });
 
+  // Drive displayStatus off status: instant for everything except the
+  // "-> completed" transition, which is held back a few seconds. If
+  // status somehow flips away from completed (shouldn't happen, but if
+  // it did) or arrives already completed on first load (page refresh
+  // after the fact), there's no board-reveal moment to protect, so show
+  // it immediately - the delay only matters for a transition witnessed
+  // live.
+  useEffect(() => {
+    if (status === "completed" && displayStatus !== "completed") {
+      revealTimerRef.current = setTimeout(
+        () => setDisplayStatus("completed"),
+        RESULT_REVEAL_DELAY_MS,
+      );
+      return () => {
+        if (revealTimerRef.current) clearTimeout(revealTimerRef.current);
+      };
+    }
+    if (status !== "completed") {
+      setDisplayStatus(status);
+    }
+  }, [status, displayStatus]);
+
+  useEffect(() => () => {
+    if (revealTimerRef.current) clearTimeout(revealTimerRef.current);
+  }, []);
+
   // Board-specific components (chess/tic-tac-toe/draughts/battleship/
   // snakes-ladders) each track their own local win/lose text, but none
   // of them ever fired a sound - only the separate "instant game"
@@ -178,12 +221,12 @@ export default function GameClient({
   // components. A spectator has no personal result, so no sound fires
   // for them.
   const matchResult = useMemo(() => {
-    if (status !== "completed" || isSpectator) return null;
+    if (displayStatus !== "completed" || isSpectator) return null;
     return {
       status: winnerId == null ? "draw" : ("completed" as const),
       you_won: winnerId === userId,
     };
-  }, [status, winnerId, userId, isSpectator]);
+  }, [displayStatus, winnerId, userId, isSpectator]);
 
   useMatchResultSound(matchResult);
 
@@ -309,7 +352,7 @@ export default function GameClient({
     }
   }
 
-  if (status === "waiting") {
+  if (displayStatus === "waiting") {
     return (
       <WaitingForOpponent
         gameSlug={gameSlug}
@@ -327,7 +370,7 @@ export default function GameClient({
     );
   }
 
-  if (status === "cancelled") {
+  if (displayStatus === "cancelled") {
     // cancel_match (creator backing out of an open match) only ever
     // works while status is still "waiting" - i.e. before anyone else
     // has joined. So if this match reached "cancelled" status AND has
@@ -419,7 +462,7 @@ export default function GameClient({
     }
   }
 
-  if (status === "completed") {
+  if (displayStatus === "completed") {
     // A spectator has no stake or personal result in this match - the
     // won/lost framing and Rematch action below are meaningless (and
     // opponentId is always null for them anyway, since that field is

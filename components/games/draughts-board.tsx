@@ -190,7 +190,13 @@ export default function DraughtsBoard({ matchId, userId }: Props) {
 
   useEffect(() => {
     if (state?.game_over && !prevGameOver.current) {
-      queue(() => setShowResult(true), 500);
+      // A few seconds to actually look at the final board position
+      // (the capturing move that just won it, etc.) before the
+      // trophy/result popup covers it - this also lands comfortably
+      // before GameClient's own RESULT_REVEAL_DELAY_MS full-screen
+      // takeover, so the reveal feels like one continuous beat rather
+      // than two overlays racing each other.
+      queue(() => setShowResult(true), 2200);
     }
     prevGameOver.current = !!state?.game_over;
     // eslint-disable-next-line react-hooks/exhaustive-deps

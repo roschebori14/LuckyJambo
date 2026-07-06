@@ -39,6 +39,8 @@ export function createInitialState(creatorId: string): WordChainState {
     game_over: false,
     a_player_id: creatorId,
     b_player_id: null,
+    turn_started_at: new Date().toISOString(),
+    turn_seconds: 20,
   };
 }
 
@@ -80,6 +82,23 @@ export function applySubmitWord(
   const mySeat: Seat = isA ? "A" : "B";
   if (state.current_turn !== mySeat) {
     throw new WordChainRulesError("It's not your turn");
+  }
+
+  // Belt-and-suspenders check: if this player's turn clock already ran
+  // out, don't let a word submitted right as (or after) the deadline
+  // sneak through and get accepted before the timeout endpoint (which
+  // either player's client can call - see apply_word_chain_timeout)
+  // lands its strike. The turn_seconds/turn_started_at pair is the
+  // same server-trusted clock that endpoint uses, so a submission and
+  // a timeout report racing each other resolve consistently either way.
+  const turnStartedAt = Date.parse(state.turn_started_at);
+  if (
+    Number.isFinite(turnStartedAt) &&
+    Date.now() - turnStartedAt > state.turn_seconds * 1000
+  ) {
+    throw new WordChainRulesError(
+      "Your turn timed out - refresh to see the result",
+    );
   }
 
   const word = rawWord.trim().toLowerCase();
@@ -133,6 +152,13 @@ export function applySubmitWord(
     game_over: gameOver,
     a_player_id: state.a_player_id,
     b_player_id: state.b_player_id,
+    // Fresh clock for whoever has the turn next, same idea as the
+    // "invalid word resets your own timer for a retry" behavior -
+    // actual persistence sets this from the DB's own `now()` (see
+    // apply_word_chain_move_result), this value is just what the
+    // caller sees back immediately.
+    turn_started_at: new Date().toISOString(),
+    turn_seconds: state.turn_seconds,
   };
 
   return { state: nextState, wordAccepted: valid, reason };

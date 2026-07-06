@@ -262,7 +262,11 @@ export default function SnakesLaddersBoard({ matchId, userId }: Props) {
   // Pop the result overlay once, right when the match actually ends.
   useEffect(() => {
     if (state?.game_over && !prevGameOver.current) {
-      queue(() => setShowResult(true), 500);
+      // See draughts-board.tsx for why this is a few seconds now
+      // instead of the old 500ms - gives both players a moment on the
+      // final board before the popup (and then GameClient's own
+      // full-screen result screen shortly after that) covers it.
+      queue(() => setShowResult(true), 2200);
     }
     prevGameOver.current = !!state?.game_over;
     // eslint-disable-next-line react-hooks/exhaustive-deps

@@ -26,6 +26,17 @@ export interface WordChainState {
 
   a_player_id: string;
   b_player_id: string | null;
+
+  // ISO timestamp of when the current turn began, and how many
+  // seconds each player gets to submit a word once it's their turn.
+  // Enforced server-side (see apply_word_chain_timeout in
+  // 056_word_chain_turn_timer.sql) - the deadline is computed from
+  // this timestamp, never from a client-reported "time's up", so
+  // stalling on purpose (e.g. to look a word up elsewhere) can't be
+  // dodged by simply not calling the timeout endpoint yourself: your
+  // opponent's client is watching the same clock and can report it.
+  turn_started_at: string;
+  turn_seconds: number;
 }
 
 // What the move API returns in addition to the new state, so the board
