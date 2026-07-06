@@ -66,23 +66,28 @@ Each game gets built, tested, and merged before the next one starts — no
 parallel half-finished games.
 
 ## Build order
-1. **Four in a Row (Connect 4)** — closest to Draughts/Tic-Tac-Toe already
-   in the app; the easiest first proof that boardgame.io fits the existing
-   pattern cleanly.
-2. **Dots and Boxes** — turn-based grid game; the extra-turn-on-completed-box
-   rule is the only real complexity.
-3. **Gomoku** — bigger board, same shape as Connect 4, straightforward
-   win-condition scan.
-4. **Word Game (iMessage-style)** — first game needing a dictionary/word
-   list and word-validation; still fully turn-based.
-5. **Penalty Shootout** — first skill game, but the simplest one (one
-   discrete kick per turn, binary outcome).
-6. **Archery** — skill game with aim + power, alternating turns, discrete
-   shots.
-7. **Cup Pong** — skill game, needs a simple trajectory/arc renderer.
-8. **8-Ball Pool** — most complex: full 2D physics, multi-ball collisions,
-   longest build — done last on purpose once the skill-game pattern from
-   #5–7 is proven.
+1. ✅ **Four in a Row (Connect 4)** — done.
+2. ✅ **Dots and Boxes** — done.
+3. ⏭️ **Gomoku** — not started, deferred (see below - Word Chain was
+   pulled ahead of it to build next after Dots and Boxes; Gomoku is
+   still queued after Word Chain).
+4. ✅ **Word Game — built as "Word Chain"** (see
+   `docs/phase-10-notes.md` for the full slice writeup). Concrete
+   design chosen for this slot: turn-based Shiritori/word-chain style
+   (each player's word must start with the last letter of the
+   opponent's previous word; a word must be a real, unused dictionary
+   word). This satisfies the roadmap's "first game needing a
+   dictionary/word list and word-validation; still fully turn-based"
+   requirement with the smallest surface area that's genuinely
+   competitive - no grid/tile geometry, no real-time/simultaneous
+   component (ruled out an iMessage-GamePigeon-style Boggle/"Word
+   Hunt" clone specifically because that's simultaneous-real-time, not
+   turn-based). See phase-10-notes.md for the "3 strikes, no timer"
+   decisive-outcome design and why.
+5. **Penalty Shootout** — first skill game, still next up after Gomoku.
+6. **Archery** — not started.
+7. **Cup Pong** — not started.
+8. **8-Ball Pool** — not started, last on purpose.
 
 ---
 

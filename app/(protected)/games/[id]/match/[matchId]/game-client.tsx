@@ -32,6 +32,10 @@ const SnakesLaddersBoard = dynamic(
   () => import("@/components/games/snakes-ladders-board"),
   { ssr: false },
 );
+const WordChainBoard = dynamic(
+  () => import("@/components/games/word-chain-board"),
+  { ssr: false },
+);
 const FourInARowBoard = dynamic(
   () => import("@/components/games/four-in-a-row-board"),
   { ssr: false },
@@ -534,6 +538,9 @@ export default function GameClient({
         )}
         {gameSlug === "dots-and-boxes" && (
           <DotsAndBoxesBoard matchId={matchId} userId={userId} />
+        )}
+        {gameSlug === "word-chain" && (
+          <WordChainBoard matchId={matchId} userId={userId} />
         )}
       </div>
 

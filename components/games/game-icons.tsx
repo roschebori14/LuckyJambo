@@ -158,6 +158,23 @@ export function DotsAndBoxesIcon({ className }: IconProps) {
   );
 }
 
+export function WordChainIcon({ className }: IconProps) {
+  return (
+    <svg viewBox="0 0 48 48" fill="none" className={className} aria-hidden="true">
+      {/* Three letter tiles linked by a chain, reading left to right */}
+      <rect x="4" y="17" width="13" height="14" rx="2.5" fill="currentColor" />
+      <text x="10.5" y="27.5" textAnchor="middle" fontSize="9" fontWeight="700" fill="var(--lj-navy, #04091a)">A</text>
+      <rect x="17.5" y="17" width="13" height="14" rx="2.5" fill="currentColor" opacity="0.7" />
+      <text x="24" y="27.5" textAnchor="middle" fontSize="9" fontWeight="700" fill="var(--lj-navy, #04091a)">N</text>
+      <rect x="31" y="17" width="13" height="14" rx="2.5" fill="currentColor" opacity="0.4" />
+      <text x="37.5" y="27.5" textAnchor="middle" fontSize="9" fontWeight="700" fill="var(--lj-navy, #04091a)">T</text>
+      {/* Chain links between tiles */}
+      <circle cx="17.2" cy="24" r="2.6" fill="none" stroke="currentColor" strokeWidth="2" />
+      <circle cx="30.8" cy="24" r="2.6" fill="none" stroke="currentColor" strokeWidth="2" opacity="0.7" />
+    </svg>
+  );
+}
+
 export const GAME_ICON: Record<string, (props: IconProps) => React.JSX.Element> = {
   chess: ChessIcon,
   draughts: DraughtsIcon,
@@ -169,6 +186,7 @@ export const GAME_ICON: Record<string, (props: IconProps) => React.JSX.Element> 
   "snakes-ladders": SnakesLaddersIcon,
   "four-in-a-row": FourInARowIcon,
   "dots-and-boxes": DotsAndBoxesIcon,
+  "word-chain": WordChainIcon,
 };
 
 export function GameIcon({ slug, className }: { slug: string; className?: string }) {
