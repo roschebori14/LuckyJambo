@@ -42,6 +42,7 @@ export default function GameLobbyPage({
   const [game, setGame] = useState<GameInfo | null>(null);
   const [openMatches, setOpenMatches] = useState<Match[]>([]);
   const [stake, setStake] = useState<number>(0);
+  const [maxPlayers, setMaxPlayers] = useState<2 | 3 | 4>(4);
   const [creating, setCreating] = useState(false);
   const [joining, setJoining] = useState<string | null>(null);
   const [message, setMessage] = useState("");
@@ -84,10 +85,23 @@ export default function GameLobbyPage({
     setCreating(true);
     setMessage("");
     try {
-      const res = await fetch("/api/matches/create", {
+      // Ludo is a 2-4 player game with its own seating/token state
+      // (create_ludo_match in supabase/migrations/057_ludo.sql) - the
+      // generic create_match RPC has no 'ludo' branch at all, so
+      // calling it for this slug silently succeeds with an empty
+      // game_state ({}) rather than erroring, and the board then
+      // crashes trying to read state.seats/state.tokens off that empty
+      // object. Every other game still goes through the shared,
+      // slug-agnostic endpoint.
+      const isLudo = slug === "ludo";
+      const res = await fetch(isLudo ? "/api/ludo/create" : "/api/matches/create", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ game_slug: slug, stake_amount: stake }),
+        body: JSON.stringify(
+          isLudo
+            ? { stake_amount: stake, max_players: maxPlayers }
+            : { game_slug: slug, stake_amount: stake },
+        ),
       });
       const json = await res.json();
       if (json.success) {
@@ -105,7 +119,14 @@ export default function GameLobbyPage({
     setJoining(matchId);
     setMessage("");
     try {
-      const res = await fetch("/api/matches/join", {
+      // Same reasoning as createMatch() above - joining a Ludo match
+      // seats the joiner into the next open color slot
+      // (join_ludo_match) rather than immediately flipping the match
+      // to 'active' the way the generic 2-player join_match does,
+      // since a 3-4 player Ludo match can still be waiting on more
+      // seats after this join.
+      const isLudo = slug === "ludo";
+      const res = await fetch(isLudo ? "/api/ludo/join" : "/api/matches/join", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ match_id: matchId }),
@@ -199,6 +220,33 @@ export default function GameLobbyPage({
             platform fee)
           </p>
         </div>
+
+        {slug === "ludo" && (
+          <div>
+            <label className="mb-1.5 block text-xs font-semibold text-[var(--lj-muted)] uppercase tracking-wide">
+              Players
+            </label>
+            <div className="flex gap-2">
+              {([2, 3, 4] as const).map((n) => (
+                <button
+                  key={n}
+                  type="button"
+                  onClick={() => setMaxPlayers(n)}
+                  className={`flex-1 rounded-xl border px-3 py-2 text-sm font-bold transition-colors ${
+                    maxPlayers === n
+                      ? "border-green-500 bg-green-500/10 text-green-300"
+                      : "border-[var(--lj-border)] text-[var(--lj-muted)] hover:bg-white/5"
+                  }`}
+                >
+                  {n}
+                </button>
+              ))}
+            </div>
+            <p className="mt-1 text-xs text-[var(--lj-muted)]">
+              Total pot: {(stake * maxPlayers * 0.95).toLocaleString()} XAF net to the winner
+            </p>
+          </div>
+        )}
 
         <button
           onClick={createMatch}
