@@ -5,6 +5,7 @@ import Link from "next/link";
 import { Users, Zap, Gamepad2 } from "lucide-react";
 
 import Image from "next/image";
+import { getGameMeta } from "./game-meta";
 
 interface Game {
   id: string;
@@ -15,20 +16,6 @@ interface Game {
   max_stake: number;
 }
 
-const GAME_META: Record<string, { type: string; bg: string }> = {
-  chess:               { type: "Turn-based", bg: "bg-slate-900" },
-  draughts:            { type: "Turn-based", bg: "bg-red-950" },
-  "tic-tac-toe":       { type: "Turn-based", bg: "bg-blue-950" },
-  dice:                { type: "Instant",    bg: "bg-purple-950" },
-  rock_paper_scissors: { type: "Instant",    bg: "bg-orange-950" },
-  coin_flip:           { type: "Instant",    bg: "bg-yellow-950" },
-  battleship:          { type: "Turn-based", bg: "bg-slate-950" },
-  "snakes-ladders":    { type: "Turn-based", bg: "bg-emerald-950" },
-  "four-in-a-row":     { type: "Turn-based", bg: "bg-blue-950" },
-  "dots-and-boxes":    { type: "Turn-based", bg: "bg-pink-950" },
-  "word-chain":        { type: "Turn-based", bg: "bg-indigo-950" },
-};
-
 export default function GameCard({ game }: { game: Game }) {
   // Defensive: the image path is an exact, case-sensitive match against
   // a static filename (public/images/<slug>.png) - trim/lowercase here
@@ -36,7 +23,7 @@ export default function GameCard({ game }: { game: Game }) {
   // 052_normalize_game_slugs.sql for why that can happen and the DB-side
   // fix) still resolves to the right file instead of 404ing.
   const normalizedSlug = game.slug.trim().toLowerCase();
-  const meta = GAME_META[normalizedSlug] ?? { type: "Game", bg: "bg-gray-900" };
+  const meta = getGameMeta(normalizedSlug);
   const isInstant = meta.type === "Instant";
   const [imgFailed, setImgFailed] = useState(false);
 

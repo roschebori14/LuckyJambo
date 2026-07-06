@@ -119,6 +119,59 @@ body {
   border-bottom: 1px solid var(--lj-border);
 }
 
+/* Stake amount - gold is used nowhere else in the UI, reserved
+   specifically for "real money on the table" so it reads instantly
+   wherever it appears (match cards, stake inputs, payout copy). */
+.lj-stake {
+  color: var(--lj-gold);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Match card - a game's own accent color washes the top edge instead
+   of every card looking identical regardless of game. */
+.lj-match-card {
+  position: relative;
+  border-radius: 18px;
+  border: 1px solid var(--lj-border);
+  background: var(--lj-card);
+  backdrop-filter: blur(12px);
+  overflow: hidden;
+  transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+}
+.lj-match-card:hover {
+  transform: translateY(-2px);
+  border-color: var(--lj-blue);
+  box-shadow: 0 0 24px var(--lj-glow);
+}
+
+/* Signature moment: a match that just streamed in live (via
+   useMatchesLobbyRealtime) gets one deliberate entrance instead of
+   silently appearing in the grid - a quick gold-edged glow that fades
+   over ~2.4s, plus a "Just now" pill (see MatchCard's `isNew` prop)
+   that lingers a little longer. This is the one place in the lobby
+   that moves - everything else stays still by design. */
+@keyframes lj-arrive {
+  0% {
+    box-shadow: 0 0 0 0 rgba(255, 215, 0, 0.55), 0 0 40px rgba(255, 215, 0, 0.35);
+    border-color: rgba(255, 215, 0, 0.7);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(255, 215, 0, 0);
+    border-color: var(--lj-border);
+  }
+}
+.lj-match-card-new {
+  animation: lj-arrive 2.4s ease-out;
+}
+
+@keyframes lj-fade-in-up {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.lj-fade-in-up {
+  animation: lj-fade-in-up 0.35s ease-out both;
+}
+
 /* Toast entrance animation - referenced by
    components/ui/toast-provider.tsx via animate-[toast-in_0.2s_ease-out].
    Was previously undefined anywhere, so toasts had no slide/fade-in

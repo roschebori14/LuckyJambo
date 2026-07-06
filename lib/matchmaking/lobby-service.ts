@@ -11,6 +11,10 @@ export interface LobbyMatch {
   status: string;
   isOwn: boolean;
   isParticipant?: boolean;
+  /** created_at for waiting matches, updated_at for active ones -
+   *  whichever timestamp is more meaningful for "how fresh is this"
+   *  on the given list. Used for the relative-time line on each card. */
+  timestamp: string;
 }
 
 export interface LobbyData {
@@ -45,7 +49,7 @@ export async function getLobbyData(userId: string): Promise<LobbyData> {
       .limit(30),
     supabase
       .from("matches")
-      .select("id, stake_amount, status, created_at, creator_id, games(name, slug)")
+      .select("id, stake_amount, status, created_at, updated_at, creator_id, games(name, slug)")
       .eq("status", "active")
       .order("updated_at", { ascending: false })
       .limit(30),
@@ -73,6 +77,7 @@ export async function getLobbyData(userId: string): Promise<LobbyData> {
     stakeAmount: m.stake_amount,
     status: m.status,
     isOwn: m.creator_id === userId,
+    timestamp: m.created_at,
   }));
 
   const liveMatches: LobbyMatch[] = (activeMatches ?? []).map((m) => ({
@@ -84,6 +89,7 @@ export async function getLobbyData(userId: string): Promise<LobbyData> {
     status: m.status,
     isOwn: m.creator_id === userId,
     isParticipant: myActiveMatchIds.has(m.id),
+    timestamp: m.updated_at ?? m.created_at,
   }));
 
   return { openMatches, liveMatches };

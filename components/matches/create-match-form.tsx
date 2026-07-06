@@ -102,7 +102,8 @@ export default function CreateMatchForm({ games }: { games: GameOption[] }) {
         />
         {selectedGame && (
           <p className="mt-1 text-xs text-[var(--lj-muted)]">
-            {selectedGame.min_stake.toLocaleString()}–{selectedGame.max_stake.toLocaleString()} XAF · winner takes {(Number(stakeAmount || 0) * 2 * 0.95).toLocaleString()} XAF after fee
+            {selectedGame.min_stake.toLocaleString()}–{selectedGame.max_stake.toLocaleString()} XAF · winner takes{" "}
+            <span className="lj-stake font-semibold">{(Number(stakeAmount || 0) * 2 * 0.95).toLocaleString()} XAF</span> after fee
           </p>
         )}
       </div>
@@ -110,7 +111,7 @@ export default function CreateMatchForm({ games }: { games: GameOption[] }) {
       <button
         type="submit"
         disabled={loading}
-        className="w-full rounded-xl bg-blue-600 py-3 text-sm font-bold text-white transition-colors hover:bg-blue-700 disabled:opacity-50"
+        className="lj-btn-primary w-full py-3 text-sm"
       >
         {loading ? "Creating…" : "Create Match"}
       </button>

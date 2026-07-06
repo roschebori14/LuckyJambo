@@ -39,7 +39,7 @@ export default async function MatchesPage() {
   return (
     <div className="mx-auto max-w-7xl space-y-6 p-6">
       <div>
-        <h1 className="text-3xl font-bold text-white">Matchmaking</h1>
+        <h1 className="lj-gradient-text text-3xl font-extrabold">Matchmaking</h1>
         <p className="mt-1 text-sm text-[var(--lj-muted)]">Create an open match, challenge a friend, jump into one that's already waiting, or watch a live match in progress.</p>
       </div>
 

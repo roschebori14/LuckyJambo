@@ -99,7 +99,8 @@ export default function ChallengeFriendForm({
           <input readOnly value={shareLink} className="flex-1 bg-transparent text-xs text-[var(--lj-text)] outline-none" />
           <button
             onClick={copyLink}
-            className="shrink-0 rounded-lg bg-purple-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-purple-700"
+            className="lj-btn-primary shrink-0 text-xs"
+            style={{ padding: "6px 12px" }}
           >
             {copied ? "Copied!" : "Copy"}
           </button>
@@ -171,7 +172,7 @@ export default function ChallengeFriendForm({
       <button
         type="submit"
         disabled={loading}
-        className="w-full rounded-xl bg-purple-600 py-3 text-sm font-bold text-white transition-colors hover:bg-purple-700 disabled:opacity-50"
+        className="lj-btn-primary w-full py-3 text-sm"
       >
         {loading ? "Creating…" : "Create Challenge"}
       </button>
