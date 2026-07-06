@@ -17,7 +17,7 @@ export async function GET(request: Request) {
 
     const { data, error } = await supabase
       .from("matches")
-      .select("id, stake_amount, status, created_at, creator_id, creator:profiles!matches_creator_id_fkey(username, avatar_url)")
+      .select("id, stake_amount, status, created_at, creator_id, max_players, creator:profiles!matches_creator_id_fkey(username, avatar_url)")
       .eq("game_id", game.id)
       .eq("status", "waiting")
       .neq("creator_id", user.id)   // don't show your own open matches

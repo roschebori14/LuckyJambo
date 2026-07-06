@@ -133,7 +133,7 @@ export default async function MatchPlayPage({ params }: PageProps) {
       {isSpectator && (
         <div className="rounded-xl px-4 py-2.5 text-center text-xs font-semibold text-[var(--lj-muted)]"
           style={{ background: "rgba(255,255,255,0.04)", border: "1px solid var(--lj-border)" }}>
-          👀 Spectating{players.length === 2 ? ` — ${players[0]} vs ${players[1]}` : ""}
+          👀 Spectating{players.length >= 2 ? ` — ${players.join(" vs ")}` : ""}
         </div>
       )}
 

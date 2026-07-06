@@ -14,6 +14,7 @@ export const GAME_META: Record<string, { type: "Instant" | "Turn-based"; bg: str
   "four-in-a-row":     { type: "Turn-based", bg: "bg-blue-950" },
   "dots-and-boxes":    { type: "Turn-based", bg: "bg-pink-950" },
   "word-chain":        { type: "Turn-based", bg: "bg-indigo-950" },
+  "ludo":              { type: "Turn-based", bg: "bg-rose-950" },
 };
 
 export function getGameMeta(slug: string) {

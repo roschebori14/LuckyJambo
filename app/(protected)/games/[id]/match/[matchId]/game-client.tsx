@@ -9,9 +9,13 @@ import { useMatchRealtime } from "@/hooks/use-match-realtime";
 import { useMatchResultSound } from "@/lib/sound/use-match-result-sound";
 import { useSound } from "@/lib/sound/sound-manager";
 import WaitingForOpponent from "@/components/games/waiting-for-opponent";
+import LudoWaitingRoom from "@/components/games/ludo-waiting-room";
 import { GameIcon } from "@/components/games/game-icons";
 
 const ChessBoard = dynamic(() => import("@/components/games/chess-board"), {
+  ssr: false,
+});
+const LudoBoard = dynamic(() => import("@/components/games/ludo-board"), {
   ssr: false,
 });
 const TicTacToeBoard = dynamic(
@@ -262,7 +266,11 @@ export default function GameClient({
     setJoining(true);
     setJoinError("");
     try {
-      const res = await fetch("/api/matches/join", {
+      // Ludo has its own join RPC (seats/colors/N-player lobby) - see
+      // join_ludo_match in migration 057_ludo.sql. Every other game
+      // still goes through the original shared join endpoint.
+      const endpoint = gameSlug === "ludo" ? "/api/ludo/join" : "/api/matches/join";
+      const res = await fetch(endpoint, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ match_id: matchId }),
@@ -273,7 +281,11 @@ export default function GameClient({
         return;
       }
       setJoined(true);
-      setStatus("active");
+      // A Ludo match may still need more seats after you join (a
+      // creator can pick 3 or 4 players) - trust whatever status the
+      // server actually put the match in rather than assuming it's
+      // immediately active, the way every 2-player game always is.
+      setStatus(gameSlug === "ludo" ? json.match?.status ?? "waiting" : "active");
     } catch {
       setJoinError("Network error — please try again.");
     } finally {
@@ -334,7 +346,8 @@ export default function GameClient({
     setCancelling(true);
     setCancelError("");
     try {
-      const res = await fetch("/api/matches/cancel", {
+      const endpoint = gameSlug === "ludo" ? "/api/ludo/cancel" : "/api/matches/cancel";
+      const res = await fetch(endpoint, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ match_id: matchId }),
@@ -353,6 +366,21 @@ export default function GameClient({
   }
 
   if (displayStatus === "waiting") {
+    if (gameSlug === "ludo") {
+      return (
+        <LudoWaitingRoom
+          matchId={matchId}
+          userId={userId}
+          stakeAmount={stakeAmount}
+          shareUrl={shareUrl}
+          copied={copied}
+          onCopy={copyLink}
+          cancelling={cancelling}
+          cancelError={cancelError}
+          onCancel={cancelMatch}
+        />
+      );
+    }
     return (
       <WaitingForOpponent
         gameSlug={gameSlug}
@@ -513,18 +541,27 @@ export default function GameClient({
         )}
 
         <div className="flex flex-wrap items-center justify-center gap-3">
-          <button
-            onClick={playRematch}
-            disabled={rematching || !opponentId}
-            className="flex items-center gap-2 rounded-xl bg-green-600 px-6 py-3 text-sm font-bold text-white hover:bg-green-700 disabled:opacity-50"
-          >
-            <RefreshCw size={16} className={rematching ? "animate-spin" : ""} />
-            {rematching
-              ? "Setting up…"
-              : opponentUsername
-                ? `Rematch ${opponentUsername}`
-                : "Rematch"}
-          </button>
+          {gameSlug === "ludo" ? (
+            <Link
+              href="/matches"
+              className="flex items-center gap-2 rounded-xl bg-green-600 px-6 py-3 text-sm font-bold text-white hover:bg-green-700"
+            >
+              <RefreshCw size={16} /> Create New Ludo Match
+            </Link>
+          ) : (
+            <button
+              onClick={playRematch}
+              disabled={rematching || !opponentId}
+              className="flex items-center gap-2 rounded-xl bg-green-600 px-6 py-3 text-sm font-bold text-white hover:bg-green-700 disabled:opacity-50"
+            >
+              <RefreshCw size={16} className={rematching ? "animate-spin" : ""} />
+              {rematching
+                ? "Setting up…"
+                : opponentUsername
+                  ? `Rematch ${opponentUsername}`
+                  : "Rematch"}
+            </button>
+          )}
           <Link
             href="/games"
             className="flex items-center gap-2 rounded-xl border border-[var(--lj-border)] px-6 py-3 text-sm font-semibold text-[var(--lj-muted)] hover:bg-white/5"
@@ -533,7 +570,7 @@ export default function GameClient({
           </Link>
         </div>
 
-        {!opponentId && (
+        {!opponentId && gameSlug !== "ludo" && (
           <p className="mt-4 text-xs text-[var(--lj-muted)]">
             Rematch isn&apos;t available without a known opponent - head back to
             Games to start a new match.
@@ -605,14 +642,44 @@ export default function GameClient({
         {gameSlug === "word-chain" && (
           <WordChainBoard matchId={matchId} userId={userId} />
         )}
+        {gameSlug === "ludo" && (
+          <LudoBoard matchId={matchId} userId={userId} />
+        )}
       </div>
 
       {/* Quick chat + forfeit/report/resign controls only make sense
-          for the two actual players. */}
+          for the two actual players. MatchActions (resign/forfeit)
+          hard-assumes exactly 2 participants under the hood
+          (resign_match/claim_forfeit_win both settle to "the other
+          player"), so Ludo - which can have 3-4 - gets its own
+          idle-turn safety valve (pass_ludo_turn) instead of that
+          component. */}
       {!isSpectator && (
         <>
           <MatchChat matchId={matchId} userId={userId} opponentUsername={opponentUsername} />
 
+          {gameSlug === "ludo" ? (
+            <div className="rounded-2xl border border-[var(--lj-border)] bg-[var(--lj-card-2)] p-4 text-center shadow-sm">
+              <button
+                onClick={async () => {
+                  try {
+                    const res = await fetch("/api/ludo/pass", {
+                      method: "POST",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({ match_id: matchId }),
+                    });
+                    const json = await res.json();
+                    if (!json.success) setCancelError(json.message ?? "");
+                  } catch {
+                    /* ignore - button can just be tapped again */
+                  }
+                }}
+                className="text-xs font-semibold text-[var(--lj-muted)] hover:text-white"
+              >
+                Skip an idle player&apos;s turn (only works once they&apos;ve been quiet 2+ minutes)
+              </button>
+            </div>
+          ) : (
           <div className="rounded-2xl border border-[var(--lj-border)] bg-[var(--lj-card-2)] p-4 shadow-sm">
             <MatchActions
               matchId={matchId}
@@ -630,6 +697,7 @@ export default function GameClient({
               stakeAmount={stakeAmount}
             />
           </div>
+          )}
         </>
       )}
     </>

@@ -17,6 +17,11 @@ interface MatchCardProps {
   creatorName: string;
   timestamp?: string;
   isOwn?: boolean;
+  /** Defaults to 2 (every game except Ludo is exactly 2 players).
+   *  Ludo can be 2-4 - the pot math below multiplies by this instead
+   *  of a hardcoded *2, which previously undercounted 3-4 player Ludo
+   *  pots. */
+  maxPlayers?: number;
   /** True if the current user is one of this match's two players
    *  (creator or joined opponent). Only meaningful for 'active'
    *  matches - 'waiting' matches use `isOwn` instead, since nobody
@@ -39,6 +44,7 @@ export default function MatchCard({
   isOwn = false,
   isParticipant = false,
   isNew = false,
+  maxPlayers = 2,
 }: MatchCardProps) {
   const router = useRouter();
   const [joining, setJoining] = useState(false);
@@ -48,13 +54,14 @@ export default function MatchCard({
   const mine = isOwn || isParticipant;
   const isActive = status === "active";
   const meta = getGameMeta(gameSlug);
-  const potAmount = isActive ? stakeAmount * 2 : Math.round(stakeAmount * 2 * 0.95);
+  const potAmount = isActive ? stakeAmount * maxPlayers : Math.round(stakeAmount * maxPlayers * 0.95);
 
   async function joinMatch() {
     setJoining(true);
     setError("");
     try {
-      const res = await fetch("/api/matches/join", {
+      const endpoint = gameSlug === "ludo" ? "/api/ludo/join" : "/api/matches/join";
+      const res = await fetch(endpoint, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ match_id: id }),

@@ -15,10 +15,12 @@ export default function CreateMatchForm({ games }: { games: GameOption[] }) {
   const router = useRouter();
   const [gameSlug, setGameSlug] = useState(games[0]?.slug ?? "");
   const [stakeAmount, setStakeAmount] = useState(String(games[0]?.min_stake ?? ""));
+  const [maxPlayers, setMaxPlayers] = useState(2);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
   const selectedGame = games.find((g) => g.slug === gameSlug);
+  const isLudo = gameSlug === "ludo";
 
   async function createMatch(e: React.FormEvent) {
     e.preventDefault();
@@ -36,10 +38,17 @@ export default function CreateMatchForm({ games }: { games: GameOption[] }) {
 
     setLoading(true);
     try {
-      const res = await fetch("/api/matches/create", {
+      // Ludo has its own creation endpoint (player count, seat/color
+      // assignment) - every other game still uses the shared one.
+      const endpoint = isLudo ? "/api/ludo/create" : "/api/matches/create";
+      const body = isLudo
+        ? { stake_amount: stake, max_players: maxPlayers }
+        : { game_slug: gameSlug, stake_amount: stake };
+
+      const res = await fetch(endpoint, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ game_slug: gameSlug, stake_amount: stake }),
+        body: JSON.stringify(body),
       });
       const json = await res.json();
 
@@ -87,6 +96,31 @@ export default function CreateMatchForm({ games }: { games: GameOption[] }) {
         </select>
       </div>
 
+      {isLudo && (
+        <div>
+          <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-[var(--lj-muted)]">
+            Players
+          </label>
+          <div className="flex gap-2">
+            {[2, 3, 4].map((n) => (
+              <button
+                key={n}
+                type="button"
+                onClick={() => setMaxPlayers(n)}
+                className={`flex-1 rounded-lg py-2 text-sm font-bold transition-colors ${
+                  maxPlayers === n ? "bg-blue-600 text-white" : "bg-white/5 text-[var(--lj-muted)] hover:bg-white/10"
+                }`}
+              >
+                {n}
+              </button>
+            ))}
+          </div>
+          <p className="mt-1 text-xs text-[var(--lj-muted)]">
+            Match starts once all {maxPlayers} seats are filled.
+          </p>
+        </div>
+      )}
+
       <div>
         <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-[var(--lj-muted)]">
           Stake Amount (XAF)
@@ -103,7 +137,7 @@ export default function CreateMatchForm({ games }: { games: GameOption[] }) {
         {selectedGame && (
           <p className="mt-1 text-xs text-[var(--lj-muted)]">
             {selectedGame.min_stake.toLocaleString()}–{selectedGame.max_stake.toLocaleString()} XAF · winner takes{" "}
-            <span className="lj-stake font-semibold">{(Number(stakeAmount || 0) * 2 * 0.95).toLocaleString()} XAF</span> after fee
+            <span className="lj-stake font-semibold">{(Number(stakeAmount || 0) * (isLudo ? maxPlayers : 2) * 0.95).toLocaleString()} XAF</span> after fee
           </p>
         )}
       </div>

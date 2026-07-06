@@ -9,6 +9,7 @@ import { useMatchesLobbyRealtime } from "@/hooks/use-matches-lobby-realtime";
 interface Match {
   id: string;
   stake_amount: number;
+  max_players?: number;
   status: string;
   created_at: string;
   creator?: { username: string; avatar_url: string | null } | null;
@@ -252,7 +253,7 @@ export default function GameLobbyPage({
                     </p>
                     <p className="text-xs text-[var(--lj-muted)]">
                       {m.stake_amount.toLocaleString()} XAF stake · Pot:{" "}
-                      {(m.stake_amount * 2 * 0.95).toLocaleString()} XAF net
+                      {(m.stake_amount * (m.max_players ?? 2) * 0.95).toLocaleString()} XAF net
                     </p>
                   </div>
                 </div>

@@ -175,6 +175,18 @@ export function WordChainIcon({ className }: IconProps) {
   );
 }
 
+export function LudoIcon({ className }: IconProps) {
+  return (
+    <svg viewBox="0 0 48 48" fill="none" className={className} aria-hidden="true">
+      <rect x="6" y="6" width="15" height="15" rx="2" fill="currentColor" opacity="0.9" />
+      <rect x="27" y="6" width="15" height="15" rx="2" fill="currentColor" opacity="0.55" />
+      <rect x="6" y="27" width="15" height="15" rx="2" fill="currentColor" opacity="0.55" />
+      <rect x="27" y="27" width="15" height="15" rx="2" fill="currentColor" opacity="0.9" />
+      <circle cx="24" cy="24" r="5" fill="currentColor" />
+    </svg>
+  );
+}
+
 export const GAME_ICON: Record<string, (props: IconProps) => React.JSX.Element> = {
   chess: ChessIcon,
   draughts: DraughtsIcon,
@@ -187,6 +199,7 @@ export const GAME_ICON: Record<string, (props: IconProps) => React.JSX.Element> 
   "four-in-a-row": FourInARowIcon,
   "dots-and-boxes": DotsAndBoxesIcon,
   "word-chain": WordChainIcon,
+  ludo: LudoIcon,
 };
 
 export function GameIcon({ slug, className }: { slug: string; className?: string }) {

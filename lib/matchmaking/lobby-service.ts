@@ -11,6 +11,7 @@ export interface LobbyMatch {
   status: string;
   isOwn: boolean;
   isParticipant?: boolean;
+  maxPlayers: number;
   /** created_at for waiting matches, updated_at for active ones -
    *  whichever timestamp is more meaningful for "how fresh is this"
    *  on the given list. Used for the relative-time line on each card. */
@@ -37,7 +38,7 @@ export async function getLobbyData(userId: string): Promise<LobbyData> {
   const [{ data: matches }, { data: activeMatches }] = await Promise.all([
     supabase
       .from("matches")
-      .select("id, stake_amount, status, created_at, creator_id, invited_user_id, games(name, slug)")
+      .select("id, stake_amount, status, created_at, creator_id, invited_user_id, max_players, games(name, slug)")
       .eq("status", "waiting")
       // See the original comment in page.tsx: matches RLS allows
       // reading every waiting/active/completed row, so without this
@@ -49,7 +50,7 @@ export async function getLobbyData(userId: string): Promise<LobbyData> {
       .limit(30),
     supabase
       .from("matches")
-      .select("id, stake_amount, status, created_at, updated_at, creator_id, games(name, slug)")
+      .select("id, stake_amount, status, created_at, updated_at, creator_id, max_players, games(name, slug)")
       .eq("status", "active")
       .order("updated_at", { ascending: false })
       .limit(30),
@@ -78,6 +79,7 @@ export async function getLobbyData(userId: string): Promise<LobbyData> {
     status: m.status,
     isOwn: m.creator_id === userId,
     timestamp: m.created_at,
+    maxPlayers: m.max_players ?? 2,
   }));
 
   const liveMatches: LobbyMatch[] = (activeMatches ?? []).map((m) => ({
@@ -90,6 +92,7 @@ export async function getLobbyData(userId: string): Promise<LobbyData> {
     isOwn: m.creator_id === userId,
     isParticipant: myActiveMatchIds.has(m.id),
     timestamp: m.updated_at ?? m.created_at,
+    maxPlayers: m.max_players ?? 2,
   }));
 
   return { openMatches, liveMatches };

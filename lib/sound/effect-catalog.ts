@@ -28,7 +28,8 @@ export type SoundEffectName =
   | "deposit-success"
   | "withdrawal-success"
   | "box-complete" // Dots and Boxes - claiming a box
-  | "word-rejected"; // Word Chain - invalid/duplicate word (a strike)
+  | "word-rejected" // Word Chain - invalid/duplicate word (a strike)
+  | "token-capture"; // Ludo - a token gets sent home by an opponent
 
 interface EffectDefinition {
   query: string;
@@ -52,6 +53,7 @@ export const SOUND_EFFECTS: Record<SoundEffectName, EffectDefinition> = {
   "withdrawal-success": { query: "confirm success chime", volume: 0.7 },
   "box-complete": { query: "pop bubble success short", volume: 0.55 },
   "word-rejected": { query: "error buzz short negative", volume: 0.5 },
+  "token-capture": { query: "hit impact thud short game", volume: 0.6 },
 };
 
 export const SOUND_EFFECT_NAMES = Object.keys(SOUND_EFFECTS) as SoundEffectName[];

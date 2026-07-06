@@ -38,6 +38,7 @@ export default function MatchList({ matches, emptyMessage, justArrivedIds }: Mat
             timestamp={match.timestamp}
             isOwn={match.isOwn}
             isParticipant={match.isParticipant}
+            maxPlayers={match.maxPlayers}
             isNew={justArrivedIds?.has(match.id) ?? false}
           />
         </div>
