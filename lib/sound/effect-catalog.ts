@@ -26,7 +26,8 @@ export type SoundEffectName =
   | "button-tap"
   | "match-found" // opponent joined / match started
   | "deposit-success"
-  | "withdrawal-success";
+  | "withdrawal-success"
+  | "box-complete"; // Dots and Boxes - claiming a box
 
 interface EffectDefinition {
   query: string;
@@ -48,6 +49,7 @@ export const SOUND_EFFECTS: Record<SoundEffectName, EffectDefinition> = {
   "match-found": { query: "game start whoosh", volume: 0.6 },
   "deposit-success": { query: "cash register coin success", volume: 0.7 },
   "withdrawal-success": { query: "confirm success chime", volume: 0.7 },
+  "box-complete": { query: "pop bubble success short", volume: 0.55 },
 };
 
 export const SOUND_EFFECT_NAMES = Object.keys(SOUND_EFFECTS) as SoundEffectName[];

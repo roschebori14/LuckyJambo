@@ -36,6 +36,10 @@ const FourInARowBoard = dynamic(
   () => import("@/components/games/four-in-a-row-board"),
   { ssr: false },
 );
+const DotsAndBoxesBoard = dynamic(
+  () => import("@/components/games/dots-and-boxes-board"),
+  { ssr: false },
+);
 const MatchActions = dynamic(() => import("@/components/games/match-actions"), {
   ssr: false,
 });
@@ -527,6 +531,9 @@ export default function GameClient({
         )}
         {gameSlug === "four-in-a-row" && (
           <FourInARowBoard matchId={matchId} userId={userId} />
+        )}
+        {gameSlug === "dots-and-boxes" && (
+          <DotsAndBoxesBoard matchId={matchId} userId={userId} />
         )}
       </div>
 

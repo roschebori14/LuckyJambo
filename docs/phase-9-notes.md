@@ -19,6 +19,74 @@ still open; keep it updated at the end of every slice.
 
 ## Status
 
+### 📋 Authoritative build order as of this slice
+
+The user supplied a dedicated roadmap doc (`lucky-jambo-new-games-roadmap.md`)
+covering the full new-games plan in more detail than this file did -
+treat that doc as authoritative for architecture rationale and the
+per-game checklist. Build order:
+
+1. ✅ Four in a Row (Connect 4) - done (prior slice)
+2. ✅ Dots and Boxes - done (this slice)
+3. ⏳ Gomoku - not started (next up)
+4. ⏳ Word Game (iMessage-style) - not started
+5. ⏳ Penalty Shootout - not started
+6. ⏳ Archery - not started
+7. ⏳ Cup Pong - not started
+8. ⏳ 8-Ball Pool - not started (do last, most complex)
+9. ⏳ Phase 2 (enhance existing games) - not started, see the roadmap
+   doc's "Phase 2" section
+
+(A couple of stale entries further down this file - e.g. one that says
+"Penalty Shootout" is the first boardgame.io game - predate the roadmap
+doc and are superseded by the order above.)
+
+### ✅ Done - Dots and Boxes (this slice)
+
+Built following the exact architecture Four in a Row established
+(headless boardgame.io `Game` object as the rules authority, run
+per-request from a Next.js API route, persisted via a SECURITY DEFINER
+Postgres RPC with optimistic concurrency - see that game's `engine.ts`
+for the full rationale, not repeated per-game):
+
+- `lib/games/dots-and-boxes/game.ts` (boardgame.io `Game` definition:
+  4x4 boxes / 5x5 dots, `drawLine` move, win/draw `endIf`) + `engine.ts`
+  (headless runner; also owns the "complete a box, go again" turn rule,
+  since that's turn-order logic the headless approach handles itself
+  rather than through boardgame.io's own turn/event system).
+- `supabase/migrations/051_dots_and_boxes.sql`: `create_match`/
+  `join_match` branches, `apply_dots_and_boxes_move_result` RPC
+  (optimistic concurrency checked against both line arrays), game
+  registration.
+- `types/dots-and-boxes.ts`, `app/api/dots-and-boxes/{create,state,move}`,
+  `components/games/dots-and-boxes-board.tsx` (dot grid with clickable
+  line segments, filled boxes, score display, uses the shared
+  `useMatchResultSound` hook for win/lose/draw sound - Four in a Row's
+  board doesn't use that hook yet, worth a quick follow-up fix there),
+  a new `box-complete` sound effect, wired into `game-client.tsx`,
+  `game-card.tsx`, and `game-icons.tsx`. New cover art at
+  `public/images/dots-and-boxes.png`.
+
+**Drive-by fix**: `app/api/four-in-a-row/create/route.ts` had a
+leftover `supabase.from("matches").update(...)` call using the
+player's own session client, right after already correctly creating
+the match via the `create_match` RPC - that update is a guaranteed
+no-op (no RLS UPDATE policy on `matches`, the same footgun this
+project has hit repeatedly). Harmless here since `create_match` had
+already seeded the right state, but confusing/wrong code. Didn't touch
+`four-in-a-row`'s copy (out of scope for this slice) but made sure
+`dots-and-boxes/create/route.ts` doesn't repeat it.
+
+**Also worth knowing**: neither `/api/four-in-a-row/create` nor
+`/api/dots-and-boxes/create` are actually called by the real UI - match
+creation goes through the generic `/api/matches/create` route (see
+`create-match-form.tsx` / `challenge-friend-form.tsx`), which calls
+`create_match` directly with whatever `game_slug` was picked. Both
+per-game `create` routes are therefore dead code today, consistent
+with (if not ideal alongside) how Four in a Row already shipped. Not
+fixed in this slice since it's pre-existing and harmless; worth a
+cleanup pass later.
+
 ### ✅ Done - Direct Messages + Toast Notifications (this slice)
 
 - `direct_messages` table (migration `048_direct_messages.sql`):

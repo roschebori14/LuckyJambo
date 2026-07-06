@@ -133,6 +133,31 @@ export function FourInARowIcon({ className }: IconProps) {
   );
 }
 
+export function DotsAndBoxesIcon({ className }: IconProps) {
+  return (
+    <svg viewBox="0 0 48 48" fill="none" className={className} aria-hidden="true">
+      <rect x="8" y="10" width="14" height="14" rx="2" fill="currentColor" opacity="0.35" />
+      <rect x="26" y="24" width="14" height="14" rx="2" fill="currentColor" opacity="0.35" />
+      <line x1="8" y1="10" x2="22" y2="10" stroke="currentColor" strokeWidth="2.5" />
+      <line x1="8" y1="24" x2="22" y2="24" stroke="currentColor" strokeWidth="2.5" />
+      <line x1="8" y1="10" x2="8" y2="24" stroke="currentColor" strokeWidth="2.5" />
+      <line x1="22" y1="10" x2="22" y2="24" stroke="currentColor" strokeWidth="2.5" />
+      <line x1="26" y1="24" x2="40" y2="24" stroke="currentColor" strokeWidth="2.5" />
+      <line x1="26" y1="38" x2="40" y2="38" stroke="currentColor" strokeWidth="2.5" />
+      <line x1="26" y1="24" x2="26" y2="38" stroke="currentColor" strokeWidth="2.5" />
+      <line x1="40" y1="24" x2="40" y2="38" stroke="currentColor" strokeWidth="2.5" />
+      <circle cx="8" cy="10" r="2.2" fill="currentColor" />
+      <circle cx="22" cy="10" r="2.2" fill="currentColor" />
+      <circle cx="8" cy="24" r="2.2" fill="currentColor" />
+      <circle cx="22" cy="24" r="2.2" fill="currentColor" />
+      <circle cx="26" cy="24" r="2.2" fill="currentColor" />
+      <circle cx="40" cy="24" r="2.2" fill="currentColor" />
+      <circle cx="26" cy="38" r="2.2" fill="currentColor" />
+      <circle cx="40" cy="38" r="2.2" fill="currentColor" />
+    </svg>
+  );
+}
+
 export const GAME_ICON: Record<string, (props: IconProps) => React.JSX.Element> = {
   chess: ChessIcon,
   draughts: DraughtsIcon,
@@ -143,6 +168,7 @@ export const GAME_ICON: Record<string, (props: IconProps) => React.JSX.Element> 
   battleship: BattleshipIcon,
   "snakes-ladders": SnakesLaddersIcon,
   "four-in-a-row": FourInARowIcon,
+  "dots-and-boxes": DotsAndBoxesIcon,
 };
 
 export function GameIcon({ slug, className }: { slug: string; className?: string }) {
