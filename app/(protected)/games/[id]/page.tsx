@@ -3,6 +3,7 @@
 import { useState, useEffect, use } from "react";
 import Link from "next/link";
 import Image from "next/image";
+import { Gamepad2 } from "lucide-react";
 
 interface Match {
   id: string;
@@ -42,6 +43,7 @@ export default function GameLobbyPage({
   const [creating, setCreating] = useState(false);
   const [joining, setJoining] = useState<string | null>(null);
   const [message, setMessage] = useState("");
+  const [imgFailed, setImgFailed] = useState(false);
 
   useEffect(() => {
     async function load() {
@@ -132,13 +134,20 @@ export default function GameLobbyPage({
         </div>
         <div className="absolute top-0 right-0 h-full w-1/2 md:w-1/3">
           <div className="absolute inset-0 bg-gradient-to-r from-white via-white/80 to-transparent z-10" />
-          <Image
-            src={`/images/${slug}.png`}
-            alt={game.name}
-            fill
-            className="object-cover object-right opacity-90"
-            priority
-          />
+          {imgFailed ? (
+            <div className="flex h-full items-center justify-center bg-[var(--lj-card)]">
+              <Gamepad2 size={40} className="text-[var(--lj-muted)]" />
+            </div>
+          ) : (
+            <Image
+              src={`/images/${slug.trim().toLowerCase()}.png`}
+              alt={game.name}
+              fill
+              className="object-cover object-right opacity-90"
+              priority
+              onError={() => setImgFailed(true)}
+            />
+          )}
         </div>
       </div>
 

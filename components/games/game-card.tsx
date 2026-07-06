@@ -1,7 +1,8 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
-import { Users, Zap } from "lucide-react";
+import { Users, Zap, Gamepad2 } from "lucide-react";
 
 import Image from "next/image";
 
@@ -28,19 +29,34 @@ const GAME_META: Record<string, { type: string; bg: string }> = {
 };
 
 export default function GameCard({ game }: { game: Game }) {
-  const meta = GAME_META[game.slug] ?? { type: "Game", bg: "bg-gray-900" };
+  // Defensive: the image path is an exact, case-sensitive match against
+  // a static filename (public/images/<slug>.png) - trim/lowercase here
+  // so a row with drifted whitespace/casing (see
+  // 052_normalize_game_slugs.sql for why that can happen and the DB-side
+  // fix) still resolves to the right file instead of 404ing.
+  const normalizedSlug = game.slug.trim().toLowerCase();
+  const meta = GAME_META[normalizedSlug] ?? { type: "Game", bg: "bg-gray-900" };
   const isInstant = meta.type === "Instant";
+  const [imgFailed, setImgFailed] = useState(false);
 
   return (
     <div className="lj-card lj-card-hover group flex flex-col overflow-hidden">
       {/* Header */}
       <div className={`relative h-48 w-full flex items-center justify-center ${meta.bg}`}>
-        <Image 
-          src={`/images/${game.slug}.png`}
-          alt={game.name}
-          fill
-          className="object-cover transition-transform duration-500 group-hover:scale-110"
-        />
+        {imgFailed ? (
+          // A missing/broken thumbnail should never leave the whole
+          // card looking blank - fall back to something on-brand
+          // instead of a broken-image icon.
+          <Gamepad2 size={40} className="text-white/30" />
+        ) : (
+          <Image
+            src={`/images/${normalizedSlug}.png`}
+            alt={game.name}
+            fill
+            className="object-cover transition-transform duration-500 group-hover:scale-110"
+            onError={() => setImgFailed(true)}
+          />
+        )}
         <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent"></div>
         <span className={`absolute right-2 top-2 z-10 flex items-center gap-1 rounded-full px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider backdrop-blur-sm ${isInstant ? "bg-yellow-400/30 text-yellow-100" : "bg-blue-400/30 text-blue-100"}`}>
           {isInstant ? <Zap size={8} /> : <Users size={8} />}
