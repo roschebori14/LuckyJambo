@@ -67,15 +67,43 @@ function pieceDirs(piece: DraughtsPiece): [number, number][] {
   ];
 }
 
+// Captures always look in all four diagonal directions, regardless of
+// piece type - only *non-capturing* moves for men stay forward-only
+// (see pieceDirs()). Kings additionally get "flying king" movement:
+// they may slide any number of empty squares along a diagonal, and
+// when capturing may fly over the gap before a piece, jump it, and
+// land on any empty square beyond it (not just the very next one).
+const ALL_DIRS: [number, number][] = [
+  [-1, -1],
+  [-1, 1],
+  [1, -1],
+  [1, 1],
+];
+
 function stepsFrom(
   pos: number,
   piece: DraughtsPiece,
   board: DraughtsBoard,
 ): number[] {
   const [row, col] = toRC(pos);
-  return pieceDirs(piece)
-    .map(([dr, dc]) => fromRC(row + dr, col + dc))
-    .filter((to): to is number => to !== null && !(to in board));
+  const king = piece === "R" || piece === "B";
+  const dirs = king ? ALL_DIRS : pieceDirs(piece);
+  const results: number[] = [];
+
+  for (const [dr, dc] of dirs) {
+    let r = row + dr;
+    let c = col + dc;
+    while (true) {
+      const to = fromRC(r, c);
+      if (to === null || to in board) break;
+      results.push(to);
+      if (!king) break; // men only ever step one square
+      r += dr;
+      c += dc;
+    }
+  }
+
+  return results;
 }
 
 function jumpsFrom(
@@ -86,23 +114,16 @@ function jumpsFrom(
   chainFrom: number,
 ): DraughtsMove[] {
   const [row, col] = toRC(pos);
+  const king = piece === "R" || piece === "B";
   const results: DraughtsMove[] = [];
 
-  for (const [dr, dc] of pieceDirs(piece)) {
-    const midPos = fromRC(row + dr, col + dc);
-    const landPos = fromRC(row + dr * 2, col + dc * 2);
-    if (!midPos || !landPos) continue;
-    if (captured.has(midPos)) continue;
-    const midPiece = board[midPos];
-    if (!midPiece || pieceColor(midPiece) === pieceColor(piece)) continue;
-    if (board[landPos] !== undefined) continue;
-
+  const branch = (capturedPos: number, landPos: number) => {
     const newBoard: DraughtsBoard = { ...board };
-    delete newBoard[midPos];
+    delete newBoard[capturedPos];
     delete newBoard[pos];
     newBoard[landPos] = piece;
 
-    const newCaptured = new Set(captured).add(midPos);
+    const newCaptured = new Set(captured).add(capturedPos);
     const further = jumpsFrom(landPos, piece, newBoard, newCaptured, chainFrom);
 
     if (further.length === 0) {
@@ -113,6 +134,54 @@ function jumpsFrom(
       });
     } else {
       results.push(...further);
+    }
+  };
+
+  for (const [dr, dc] of ALL_DIRS) {
+    if (!king) {
+      const midPos = fromRC(row + dr, col + dc);
+      const landPos = fromRC(row + dr * 2, col + dc * 2);
+      if (!midPos || !landPos) continue;
+      if (captured.has(midPos)) continue;
+      const midPiece = board[midPos];
+      if (!midPiece || pieceColor(midPiece) === pieceColor(piece)) continue;
+      if (board[landPos] !== undefined) continue;
+      branch(midPos, landPos);
+      continue;
+    }
+
+    // Flying king: slide over empty squares looking for the first
+    // occupied square along this diagonal.
+    let r = row + dr;
+    let c = col + dc;
+    let enemyPos: number | null = null;
+    while (true) {
+      const sq = fromRC(r, c);
+      if (sq === null) break;
+      if (sq in board) {
+        const occupant = board[sq];
+        if (pieceColor(occupant) === pieceColor(piece) || captured.has(sq)) {
+          enemyPos = null; // blocked by own piece or an already-taken one
+        } else {
+          enemyPos = sq;
+        }
+        break;
+      }
+      r += dr;
+      c += dc;
+    }
+    if (enemyPos === null) continue;
+
+    // Land on any empty square past the captured piece.
+    const [enemyRow, enemyCol] = toRC(enemyPos);
+    let lr = enemyRow + dr;
+    let lc = enemyCol + dc;
+    while (true) {
+      const landPos = fromRC(lr, lc);
+      if (landPos === null || landPos in board) break;
+      branch(enemyPos, landPos);
+      lr += dr;
+      lc += dc;
     }
   }
 

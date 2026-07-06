@@ -227,6 +227,23 @@ export default function DraughtsBoard({ matchId, userId }: Props) {
     () => new Set(legalMoves.map((m) => m.from)),
     [legalMoves],
   );
+  // Enemy pieces that would be jumped if the current selection completes
+  // a capture - used to ring/highlight them distinctly from destination
+  // squares, since with omnidirectional & flying-king captures a single
+  // selected piece can threaten pieces in several different directions
+  // (and multiple squares away) at once.
+  const captureTargets = useMemo(() => {
+    const s = new Set<number>();
+    movesFromSelected.forEach((m) => m.captures.forEach((c) => s.add(c)));
+    return s;
+  }, [movesFromSelected]);
+  // Any piece anywhere on the board that is capturable this turn, shown
+  // even before a piece is selected so mandatory captures are obvious.
+  const anyCaptureTargets = useMemo(() => {
+    const s = new Set<number>();
+    legalMoves.forEach((m) => m.captures.forEach((c) => s.add(c)));
+    return s;
+  }, [legalMoves]);
 
   async function submitMove(move: DraughtsMove) {
     setMoving(true);
@@ -330,6 +347,10 @@ export default function DraughtsBoard({ matchId, userId }: Props) {
           0% { transform: scale(1); opacity: 1; }
           100% { transform: scale(0.2); opacity: 0; }
         }
+        @keyframes dr-capture-target-pulse {
+          0%, 100% { box-shadow: 0 0 0 3px rgba(248,113,113,0.9), 0 0 12px 2px rgba(248,113,113,0.6); }
+          50% { box-shadow: 0 0 0 5px rgba(248,113,113,0.55), 0 0 16px 4px rgba(248,113,113,0.35); }
+        }
       `}</style>
 
       {/* Status */}
@@ -382,8 +403,10 @@ export default function DraughtsBoard({ matchId, userId }: Props) {
 
             const isSelected = selected === pos;
             const isInvalidFlash = invalidFlash === pos;
-            const isDestination =
-              selected !== null && movesFromSelected.some((m) => m.to === pos);
+            const destinationMove = movesFromSelected.find((m) => m.to === pos);
+            const isDestination = selected !== null && !!destinationMove;
+            const isCaptureDestination =
+              isDestination && (destinationMove?.captures.length ?? 0) > 0;
             const isSelectable =
               isMyTurn && !!state.board[pos] && selectablePositions.has(pos);
             const isLastMoveSquare =
@@ -399,16 +422,20 @@ export default function DraughtsBoard({ matchId, userId }: Props) {
                     ? "bg-red-500/40"
                     : isSelected
                       ? "bg-blue-500/40"
-                      : isDestination
-                        ? "bg-green-500/30"
-                        : isLastMoveSquare
-                          ? "bg-yellow-400/10"
-                          : "bg-[var(--lj-card-2)]"
+                      : isCaptureDestination
+                        ? "bg-orange-500/30"
+                        : isDestination
+                          ? "bg-green-500/30"
+                          : isLastMoveSquare
+                            ? "bg-yellow-400/10"
+                            : "bg-[var(--lj-card-2)]"
                 } ${isSelectable ? "cursor-pointer hover:bg-blue-500/20" : "cursor-default"}`}
                 style={{ touchAction: "manipulation" }}
               >
                 {!state.board[pos] && isDestination && (
-                  <span className="h-3 w-3 rounded-full bg-green-400/70" />
+                  <span
+                    className={`h-3 w-3 rounded-full ${isCaptureDestination ? "bg-orange-400/80" : "bg-green-400/70"}`}
+                  />
                 )}
               </button>
             );
@@ -425,6 +452,8 @@ export default function DraughtsBoard({ matchId, userId }: Props) {
           const y = row * 12.5 + 6.25;
           const isRed = t.piece === "r" || t.piece === "R";
           const flashing = promoFlash === t.pos;
+          const isCaptureTarget = captureTargets.has(t.pos);
+          const isThreatened = !isCaptureTarget && anyCaptureTargets.has(t.pos);
 
           return (
             <div
@@ -436,15 +465,23 @@ export default function DraughtsBoard({ matchId, userId }: Props) {
                 width: "10.5%",
                 height: "10.5%",
                 transform: "translate(-50%, -50%)",
-                transition: "left 260ms ease-in-out, top 260ms ease-in-out",
+                transition:
+                  "left 260ms ease-in-out, top 260ms ease-in-out, box-shadow 150ms ease-out",
                 animation: t.fading
                   ? "dr-capture-fade 320ms ease-in forwards"
-                  : flashing
-                    ? "dr-promo-flash 700ms ease-in-out"
-                    : undefined,
+                  : isCaptureTarget
+                    ? "dr-capture-target-pulse 900ms ease-in-out infinite"
+                    : flashing
+                      ? "dr-promo-flash 700ms ease-in-out"
+                      : undefined,
                 background: isRed ? "#ef4444" : "#262626",
                 color: isRed ? "#450a0a" : "#e5e5e5",
                 border: isRed ? "none" : "1px solid #525252",
+                boxShadow: isCaptureTarget
+                  ? "0 0 0 3px rgba(248,113,113,0.9), 0 0 12px 2px rgba(248,113,113,0.6)"
+                  : isThreatened
+                    ? "0 0 0 2px rgba(248,113,113,0.45)"
+                    : undefined,
                 zIndex: 10,
               }}
             >
