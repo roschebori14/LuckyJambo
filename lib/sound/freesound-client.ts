@@ -77,8 +77,30 @@ export async function resolveEffectFromFreesound(
     if (pinned) return pinned;
   }
 
+  const found = await searchOnce(definition.query);
+  if (found) return found;
+
+  // The full, specific query (e.g. "board game piece tap click") can
+  // legitimately return nothing - Freesound's text search doesn't
+  // guarantee a hit for an arbitrary multi-word phrase, and until now
+  // that meant the effect just silently never played, permanently
+  // (only a pinned fallbackId could rescue it). Retry with just the
+  // first word, which is virtually always a real, common term
+  // ("dice", "board", "coin"...) with plenty of results on a library
+  // Freesound's size - much more likely to return *something* playable
+  // than giving up outright.
+  const firstWord = definition.query.split(" ")[0];
+  if (firstWord && firstWord !== definition.query) {
+    const fallback = await searchOnce(firstWord);
+    if (fallback) return fallback;
+  }
+
+  return null;
+}
+
+async function searchOnce(query: string): Promise<ResolvedSound | null> {
   const params = new URLSearchParams({
-    query: definition.query,
+    query,
     filter: `duration:[0.1 TO 4] license:("Creative Commons 0" OR "Attribution")`,
     sort: "rating_desc",
     fields: "id,name,license,username,previews",
@@ -93,11 +115,7 @@ export async function resolveEffectFromFreesound(
   });
 
   if (!res.ok) {
-    console.error(
-      `Freesound search failed for "${effect}":`,
-      res.status,
-      await res.text(),
-    );
+    console.error(`Freesound search failed for query "${query}":`, res.status, await res.text());
     return null;
   }
 
@@ -107,8 +125,7 @@ export async function resolveEffectFromFreesound(
 
   return {
     freesoundId: match.id,
-    previewUrl:
-      match.previews["preview-hq-mp3"] ?? match.previews["preview-lq-mp3"],
+    previewUrl: match.previews["preview-hq-mp3"] ?? match.previews["preview-lq-mp3"],
     name: match.name,
     author: match.username,
     license: match.license,

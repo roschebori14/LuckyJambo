@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback, useMemo } from "react";
+import { useEffect, useState, useCallback, useMemo, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import dynamic from "next/dynamic";
@@ -178,6 +178,22 @@ export default function GameClient({
   }, [status, winnerId, userId, isSpectator]);
 
   useMatchResultSound(matchResult);
+
+  // "match-found" is defined in the sound catalog but nothing ever
+  // triggered it - wire it here for the same reason win/lose/draw
+  // live at this level: `status` here is the single source of truth
+  // for every game type, fed by both the realtime handler above and
+  // the poll fallback, regardless of which one actually catches the
+  // transition first. A ref (not state) tracks the previous value so
+  // this fires exactly once on the real waiting->active transition,
+  // not on every render or on a page load that already starts active.
+  const prevStatusRef = useRef(initialStatus);
+  useEffect(() => {
+    if (prevStatusRef.current === "waiting" && status === "active" && !isSpectator) {
+      play("match-found");
+    }
+    prevStatusRef.current = status;
+  }, [status, isSpectator, play]);
 
   const shareUrl = typeof window !== "undefined" ? window.location.href : "";
 

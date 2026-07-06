@@ -388,3 +388,44 @@ fresh session (with the most recently delivered zip attached):
 > (excluding node_modules/.next/.git), update `docs/phase-9-notes.md`
 > with what you just finished, and deliver the zip before doing
 > anything else. Repeat slice by slice.
+
+## ✅ Fixed - Most sounds never played / dice-roll played several seconds late (this slice)
+
+Root causes found and fixed:
+
+1. **No server-side pre-warming ever ran.** `warmSoundCache()` existed
+   in `sound-cache.ts` specifically for this purpose (its own doc
+   comment says so) but nothing ever called it - no `instrumentation.ts`
+   existed. Added one; it calls `warmSoundCache()` on server startup.
+2. **No client-side prefetching either.** Every effect was purely lazy:
+   first `play()` call did resolve-fetch + audio-download + play, all
+   in sequence - exactly why a dice roll's sound trailed a few seconds
+   behind the visual result. `SoundProvider` now prefetches every
+   catalog effect in the background on mount; `play()` still falls back
+   to on-demand resolution if a prefetch hasn't finished, so nothing
+   regresses if that background fetch is slow.
+3. **A failed search retried on every single play(), forever.** Negative
+   results weren't cached at all. Now cached for 5 minutes so a bad
+   moment doesn't get hammered on every attempt.
+4. **A query with zero results had no fallback** - permanently silent
+   for that effect. Added a same-request fallback to a simplified
+   (first-word) query.
+5. **Several effects were defined but never triggered anywhere**:
+   `match-found`, `deposit-success`, `withdrawal-success`, generic
+   `notification`. Wired `match-found` centrally in `game-client.tsx`
+   (fires once on the real waiting→active transition, shared by every
+   game type) and `deposit-success` centrally in `deposit-form.tsx`.
+6. **Bigger gap found while fixing #5**: `notifications` rows
+   (`notify_user()` has populated this table from all over the app for
+   ages - match settled, withdrawal auto-processed, friend requests...)
+   were never surfaced live at all, and had no realtime enabled
+   (migration `055_realtime_notifications.sql`). Only DMs got a toast.
+   Added `NotificationToastListener` (mirrors `DmToastListener`) so
+   every existing `notify_user()` call site now shows a toast + plays
+   either a specific sound (withdrawal/deposit/match-found, sniffed
+   from the notification title) or the generic `notification` chime.
+
+**Not done / worth a follow-up**: pinning `fallbackId`s in
+`effect-catalog.ts` for a few effects once someone has manually vetted
+specific Freesound sound IDs in the Freesound UI - more reliable than
+any text search, first-word fallback included.

@@ -9,6 +9,7 @@ import {
 } from "react";
 import { useRouter } from "next/navigation";
 import { X, MessageCircle, Bell } from "lucide-react";
+import { useSound } from "@/lib/sound/sound-manager";
 
 export interface ToastInput {
   title: string;
@@ -16,6 +17,10 @@ export interface ToastInput {
   href?: string;
   icon?: "message" | "bell";
   durationMs?: number;
+  /** Set true if the caller already played its own sound (e.g. the DM
+   *  listener plays "message-received" itself) so this doesn't also
+   *  play the generic notification sound on top of it. */
+  silent?: boolean;
 }
 
 interface Toast extends ToastInput {
@@ -41,14 +46,17 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   const [toasts, setToasts] = useState<Toast[]>([]);
   const router = useRouter();
 
+  const { play } = useSound();
+
   const pushToast = useCallback((toast: ToastInput) => {
     const id = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
     setToasts((prev) => [...prev, { ...toast, id }]);
+    if (!toast.silent) play("notification");
     const duration = toast.durationMs ?? 6000;
     setTimeout(() => {
       setToasts((prev) => prev.filter((t) => t.id !== id));
     }, duration);
-  }, []);
+  }, [play]);
 
   function dismiss(id: string) {
     setToasts((prev) => prev.filter((t) => t.id !== id));

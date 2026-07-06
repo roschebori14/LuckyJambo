@@ -10,7 +10,7 @@ import {
   useRef,
   useState,
 } from "react";
-import { SOUND_EFFECTS, type SoundEffectName } from "./effect-catalog";
+import { SOUND_EFFECTS, SOUND_EFFECT_NAMES, type SoundEffectName } from "./effect-catalog";
 
 const MUTE_STORAGE_KEY = "lj_sound_muted";
 const VOLUME_STORAGE_KEY = "lj_sound_volume";
@@ -87,6 +87,37 @@ export function SoundProvider({ children }: { children: ReactNode }) {
     resolving.current.set(effect, promise);
     return promise;
   }, []);
+
+  // Previously every effect was purely lazy: the very first time a
+  // sound was needed (e.g. the first dice roll of the session), play()
+  // triggered the resolve fetch + audio download right then - which is
+  // exactly why that first sound could lag a few seconds behind the
+  // action it belonged to. Prefetching the whole catalog in the
+  // background as soon as the provider mounts means almost every
+  // play() call during a real session hits an already-warm
+  // audioCache entry instead. This is fire-and-forget: if a given
+  // effect's prefetch hasn't finished yet by the time it's actually
+  // played, play() below still falls back to resolving it on demand,
+  // so nothing is worse off than before - it's strictly additive.
+  useEffect(() => {
+    let cancelled = false;
+    for (const effect of SOUND_EFFECT_NAMES) {
+      resolveUrl(effect).then((url) => {
+        if (cancelled || !url || audioCache.current.has(effect)) return;
+        const audio = new Audio(url);
+        audio.preload = "auto";
+        audio.volume = Math.min(1, Math.max(0, SOUND_EFFECTS[effect].volume * volume));
+        audioCache.current.set(effect, audio);
+      });
+    }
+    return () => {
+      cancelled = true;
+    };
+    // Intentionally runs once on mount - `volume` is applied fresh on
+    // every actual play() call below regardless of what it was when
+    // the element was first created.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [resolveUrl]);
 
   const play = useCallback(
     (effect: SoundEffectName) => {

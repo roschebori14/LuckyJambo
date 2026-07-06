@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import PaymentLinkCard from "./payment-link-card";
 import PaymentStatus from "./payment-status";
 import { MINIMUM_DEPOSIT, MAXIMUM_DEPOSIT } from "@/lib/wallet/wallet-constants";
+import { useSound } from "@/lib/sound/sound-manager";
 
 const QUICK_AMOUNTS = [500, 1000, 2000, 5000, 10000];
 const POLL_INTERVAL_MS = 4000;
@@ -27,6 +28,21 @@ export default function DepositForm({ pendingReference }: DepositFormProps) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [phase, setPhase] = useState<Phase>(pendingReference ? "reconciling" : "form");
+  const { play } = useSound();
+
+  // "deposit-success" is defined in the sound catalog but nothing
+  // called it - centralizing it on the phase transition (rather than
+  // at each of the two setPhase("completed") call sites above) means
+  // any future success path added to this component gets the sound
+  // for free too.
+  const playedSuccessRef = useRef(false);
+  useEffect(() => {
+    if (phase === "completed" && !playedSuccessRef.current) {
+      playedSuccessRef.current = true;
+      play("deposit-success");
+    }
+    if (phase !== "completed") playedSuccessRef.current = false;
+  }, [phase, play]);
   const [paymentLink, setPaymentLink] = useState("");
   const [transId, setTransId] = useState("");
   const [confirmedAmount, setConfirmedAmount] = useState(0);

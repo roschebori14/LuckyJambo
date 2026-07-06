@@ -9,7 +9,7 @@ import { SOUND_EFFECT_NAMES, type SoundEffectName } from "./effect-catalog";
 // project goes through Supabase rather than in-memory maps - not
 // needed at current traffic.
 interface CacheEntry {
-  sound: ResolvedSound;
+  sound: ResolvedSound | null;
   expiresAt: number;
 }
 
@@ -22,6 +22,14 @@ const inFlight = new Map<SoundEffectName, Promise<ResolvedSound | null>>();
 function ttlMs(): number {
   return Number(process.env.FREESOUND_CACHE_TTL ?? 86400) * 1000;
 }
+
+// A search that genuinely finds nothing (bad query, transient
+// Freesound issue) used to retry on literally every play() call for
+// that effect - each one a full network round trip, and if Freesound
+// itself was having a bad moment, hammering it harder. Cache "no
+// result" too, just for a much shorter window, so it's retried
+// periodically rather than constantly.
+const NEGATIVE_TTL_MS = 5 * 60 * 1000;
 
 export async function getEffectSound(
   effect: SoundEffectName
@@ -38,9 +46,7 @@ export async function getEffectSound(
 
   const promise = resolveEffectFromFreesound(effect)
     .then((sound) => {
-      if (sound) {
-        cache.set(effect, { sound, expiresAt: Date.now() + ttlMs() });
-      }
+      cache.set(effect, { sound, expiresAt: Date.now() + (sound ? ttlMs() : NEGATIVE_TTL_MS) });
       return sound;
     })
     .finally(() => {

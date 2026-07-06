@@ -46,6 +46,7 @@ export default function DmToastListener({ userId }: { userId: string }) {
       message: row.message,
       href: `/messages/${row.sender_id}`,
       icon: "message",
+      silent: true,
     });
   });
 

@@ -7,6 +7,7 @@ import { createClient } from "@/lib/supabase/server";
 import { PresenceProvider } from "@/lib/presence/presence-context";
 import { ToastProvider } from "@/components/ui/toast-provider";
 import DmToastListener from "@/components/messages/dm-toast-listener";
+import NotificationToastListener from "@/components/notifications/notification-toast-listener";
 import { SoundProvider } from "@/lib/sound/sound-manager";
 import ActiveMatchBanner from "@/components/matches/active-match-banner";
 
@@ -26,6 +27,7 @@ export default async function ProtectedLayout({ children }: { children: ReactNod
       <SoundProvider>
       <ToastProvider>
         {user && <DmToastListener userId={user.id} />}
+        {user && <NotificationToastListener userId={user.id} />}
         <div className="min-h-screen" style={{ background: "var(--lj-navy)" }}>
           <Navbar />
           <div className="flex flex-col md:flex-row">
