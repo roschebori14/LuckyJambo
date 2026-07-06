@@ -1,9 +1,10 @@
 "use client";
 
-import { useState, useEffect, use } from "react";
+import { useState, useEffect, useCallback, use } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { Gamepad2 } from "lucide-react";
+import { useMatchesLobbyRealtime } from "@/hooks/use-matches-lobby-realtime";
 
 interface Match {
   id: string;
@@ -45,6 +46,12 @@ export default function GameLobbyPage({
   const [message, setMessage] = useState("");
   const [imgFailed, setImgFailed] = useState(false);
 
+  const refreshOpenMatches = useCallback(async () => {
+    const mr = await fetch(`/api/matches/open?slug=${slug}`);
+    const mj = await mr.json();
+    if (mj.success) setOpenMatches(mj.matches ?? []);
+  }, [slug]);
+
   useEffect(() => {
     async function load() {
       const res = await fetch("/api/games/list");
@@ -55,12 +62,22 @@ export default function GameLobbyPage({
         setStake(found.min_stake);
       }
 
-      const mr = await fetch(`/api/matches/open?slug=${slug}`);
-      const mj = await mr.json();
-      if (mj.success) setOpenMatches(mj.matches ?? []);
+      await refreshOpenMatches();
     }
     load();
-  }, [slug]);
+  }, [slug, refreshOpenMatches]);
+
+  // Live update: another player creating/joining/cancelling a match
+  // for this game shows up here immediately instead of only after a
+  // manual reload - see hooks/use-matches-lobby-realtime.ts.
+  useMatchesLobbyRealtime(refreshOpenMatches);
+
+  // Safety-net poll in case the realtime websocket drops (backgrounded
+  // tab, flaky mobile network) - same reasoning as MatchesLobbyLive.
+  useEffect(() => {
+    const interval = setInterval(refreshOpenMatches, 20000);
+    return () => clearInterval(interval);
+  }, [refreshOpenMatches]);
 
   async function createMatch() {
     setCreating(true);
