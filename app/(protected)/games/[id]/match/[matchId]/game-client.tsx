@@ -8,6 +8,8 @@ import { RefreshCw, LogOut } from "lucide-react";
 import { useMatchRealtime } from "@/hooks/use-match-realtime";
 import { useMatchResultSound } from "@/lib/sound/use-match-result-sound";
 import { useSound } from "@/lib/sound/sound-manager";
+import WaitingForOpponent from "@/components/games/waiting-for-opponent";
+import { GameIcon } from "@/components/games/game-icons";
 
 const ChessBoard = dynamic(() => import("@/components/games/chess-board"), {
   ssr: false,
@@ -65,6 +67,7 @@ const INSTANT_TYPE_MAP: Record<
 interface Props {
   matchId: string;
   gameSlug: string;
+  gameName: string;
   userId: string;
   stakeAmount: number;
   initialStatus?: string;
@@ -73,11 +76,14 @@ interface Props {
   initialWinnerId?: string | null;
   opponentId?: string | null;
   opponentUsername?: string | null;
+  createdAt: string;
+  invitedUsername?: string | null;
 }
 
 export default function GameClient({
   matchId,
   gameSlug,
+  gameName,
   userId,
   stakeAmount,
   initialStatus = "waiting",
@@ -86,6 +92,8 @@ export default function GameClient({
   initialWinnerId = null,
   opponentId = null,
   opponentUsername = null,
+  createdAt,
+  invitedUsername = null,
 }: Props) {
   const router = useRouter();
   const { play } = useSound();
@@ -235,27 +243,45 @@ export default function GameClient({
   // join before anything else happens - just watching the page never
   // calls /api/matches/join on its own.
   if (!joined) {
+    const potentialPrize = Math.round(stakeAmount * 2 * 0.95);
     return (
-      <div className="flex flex-col items-center justify-center rounded-2xl border border-[var(--lj-border)] bg-[var(--lj-card-2)] p-8 shadow-sm text-center">
-        <h3 className="mb-2 text-xl font-bold text-white">
-          You&apos;ve been challenged!
-        </h3>
-        <p className="mb-6 text-sm text-[var(--lj-muted)]">
-          Stake {stakeAmount.toLocaleString()} XAF to accept and start the
-          match.
-        </p>
-        {joinError && (
-          <div className="mb-4 rounded-xl bg-red-500/10 px-4 py-3 text-sm text-red-300">
-            {joinError}
+      <div className="overflow-hidden rounded-2xl border border-[var(--lj-border)] bg-[var(--lj-card-2)] shadow-sm">
+        <div className="flex flex-col items-center gap-4 px-6 pb-8 pt-10 text-center">
+          <div className="flex h-16 w-16 items-center justify-center rounded-full shadow-lg"
+            style={{ background: "linear-gradient(135deg, var(--lj-blue) 0%, var(--lj-cyan) 100%)" }}>
+            <GameIcon slug={gameSlug} className="h-9 w-9 text-white" />
           </div>
-        )}
-        <button
-          onClick={joinMatch}
-          disabled={joining}
-          className="rounded-xl bg-green-600 px-6 py-3 text-sm font-bold text-white hover:bg-green-700 disabled:opacity-50"
-        >
-          {joining ? "Joining…" : "Accept Challenge"}
-        </button>
+          <div>
+            <h3 className="text-xl font-black text-white">You&apos;ve been challenged!</h3>
+            <p className="mt-1 text-sm text-[var(--lj-muted)]">{gameName}</p>
+          </div>
+
+          <div className="flex w-full max-w-xs items-center justify-between rounded-xl px-4 py-2.5 text-sm"
+            style={{ background: "rgba(255,255,255,0.04)", border: "1px solid var(--lj-border)" }}>
+            <div className="text-left">
+              <p className="text-[10px] uppercase tracking-wide text-[var(--lj-muted)]">Stake to accept</p>
+              <p className="font-bold text-white">{stakeAmount.toLocaleString()} XAF</p>
+            </div>
+            <div className="text-right">
+              <p className="text-[10px] uppercase tracking-wide text-[var(--lj-muted)]">Winner takes</p>
+              <p className="font-bold text-green-400">{potentialPrize.toLocaleString()} XAF</p>
+            </div>
+          </div>
+
+          {joinError && (
+            <div className="w-full rounded-xl bg-red-500/10 px-4 py-3 text-sm text-red-300">
+              {joinError}
+            </div>
+          )}
+
+          <button
+            onClick={joinMatch}
+            disabled={joining}
+            className="rounded-xl bg-green-600 px-6 py-3 text-sm font-bold text-white hover:bg-green-700 disabled:opacity-50"
+          >
+            {joining ? "Joining…" : "Accept Challenge"}
+          </button>
+        </div>
       </div>
     );
   }
@@ -285,41 +311,19 @@ export default function GameClient({
 
   if (status === "waiting") {
     return (
-      <div className="flex flex-col items-center justify-center rounded-2xl border border-[var(--lj-border)] bg-[var(--lj-card-2)] p-8 shadow-sm text-center">
-        <div className="mb-4 h-12 w-12 animate-spin rounded-full border-4 border-blue-600 border-t-transparent"></div>
-        <h3 className="mb-2 text-xl font-bold text-white">
-          Waiting for an opponent...
-        </h3>
-        <p className="mb-6 text-sm text-[var(--lj-muted)]">
-          Share this link with a friend to invite them to play.
-        </p>
-        <div className="flex w-full max-w-sm items-center gap-2 rounded-lg border bg-white/5 p-2">
-          <input
-            type="text"
-            readOnly
-            value={shareUrl}
-            className="w-full bg-transparent text-sm text-[var(--lj-muted)] outline-none"
-          />
-          <button
-            onClick={copyLink}
-            className="rounded bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
-          >
-            {copied ? "Copied!" : "Copy"}
-          </button>
-        </div>
-        {cancelError && (
-          <div className="mt-4 rounded-xl bg-red-500/10 px-4 py-3 text-sm text-red-300">
-            {cancelError}
-          </div>
-        )}
-        <button
-          onClick={cancelMatch}
-          disabled={cancelling}
-          className="mt-6 rounded-xl border border-red-400/30 px-5 py-2 text-sm font-semibold text-red-400 hover:bg-red-500/10 disabled:opacity-50"
-        >
-          {cancelling ? "Cancelling…" : "Cancel Match"}
-        </button>
-      </div>
+      <WaitingForOpponent
+        gameSlug={gameSlug}
+        gameName={gameName}
+        stakeAmount={stakeAmount}
+        createdAt={createdAt}
+        shareUrl={shareUrl}
+        copied={copied}
+        onCopy={copyLink}
+        cancelling={cancelling}
+        cancelError={cancelError}
+        onCancel={cancelMatch}
+        invitedUsername={invitedUsername}
+      />
     );
   }
 

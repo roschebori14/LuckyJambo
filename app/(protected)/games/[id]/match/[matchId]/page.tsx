@@ -74,8 +74,16 @@ export default async function MatchPlayPage({ params }: PageProps) {
 
   type PublicProfile = { id: string; username: string };
 
-  const { data: participantProfiles } = participantIds.length
-    ? await supabase.rpc("get_public_profiles_by_ids", { p_ids: participantIds })
+  // Batch in the invited user's id too (if this is a private challenge)
+  // so we can show their name on the waiting screen ("Waiting for
+  // kwame…") instead of a generic "looking for an opponent" message -
+  // one lookup covers both needs.
+  const lookupIds = Array.from(
+    new Set([...participantIds, ...(match.invited_user_id ? [match.invited_user_id] : [])]),
+  );
+
+  const { data: participantProfiles } = lookupIds.length
+    ? await supabase.rpc("get_public_profiles_by_ids", { p_ids: lookupIds })
     : { data: [] as PublicProfile[] };
 
   const usernameById = new Map(
@@ -87,6 +95,11 @@ export default async function MatchPlayPage({ params }: PageProps) {
   // two players.
   const opponentId = participantIds.find((id) => id !== user.id) ?? null;
   const opponentUsername = opponentId ? usernameById.get(opponentId) ?? null : null;
+
+  // Name of the specific friend this match was privately challenged
+  // to, if any - shown on the waiting screen while status is still
+  // "waiting" and nobody (else) has joined yet.
+  const invitedUsername = match.invited_user_id ? usernameById.get(match.invited_user_id) ?? null : null;
 
   // A non-participant only ever gets a genuine "spectate" view once
   // the match has actually started or finished - an 'active'/
@@ -127,6 +140,7 @@ export default async function MatchPlayPage({ params }: PageProps) {
       <GameClient
         matchId={matchId}
         gameSlug={gameSlug}
+        gameName={gameName}
         userId={user.id}
         stakeAmount={match.stake_amount ?? 0}
         initialStatus={match.status}
@@ -135,6 +149,8 @@ export default async function MatchPlayPage({ params }: PageProps) {
         initialWinnerId={match.winner_id ?? null}
         opponentId={opponentId}
         opponentUsername={opponentUsername}
+        createdAt={match.created_at}
+        invitedUsername={invitedUsername}
       />
     </div>
   );
