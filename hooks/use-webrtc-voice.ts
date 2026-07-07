@@ -27,6 +27,7 @@ const ICE_SERVERS: RTCIceServer[] = [
 ];
 
 const NEGOTIATION_TIMEOUT_MS = 15000;
+const SUBSCRIBE_TIMEOUT_MS = 10000;
 
 interface SignalPayload {
   from: string;
@@ -54,6 +55,7 @@ export function useWebRTCVoice(matchId: string, userId: string) {
   const [status, setStatus] = useState<VoiceStatus>("idle");
   const [micOn, setMicOn] = useState(false);
   const [muted, setMuted] = useState(false);
+  const [peerMuted, setPeerMuted] = useState(false);
   const [error, setError] = useState("");
 
   const audioRef = useRef<HTMLAudioElement | null>(null);
@@ -62,12 +64,20 @@ export function useWebRTCVoice(matchId: string, userId: string) {
   const channelRef = useRef<RealtimeChannel | null>(null);
   const peerIdRef = useRef<string | null>(null);
   const negotiationTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const subscribeTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const makingOfferRef = useRef(false);
 
   const clearNegotiationTimer = () => {
     if (negotiationTimerRef.current) {
       clearTimeout(negotiationTimerRef.current);
       negotiationTimerRef.current = null;
+    }
+  };
+
+  const clearSubscribeTimeout = () => {
+    if (subscribeTimeoutRef.current) {
+      clearTimeout(subscribeTimeoutRef.current);
+      subscribeTimeoutRef.current = null;
     }
   };
 
@@ -141,6 +151,7 @@ export function useWebRTCVoice(matchId: string, userId: string) {
       if (payload.kind === "bye") {
         teardownPeerConnection();
         setStatus("peer-left");
+        setPeerMuted(false);
         return;
       }
 
@@ -189,21 +200,39 @@ export function useWebRTCVoice(matchId: string, userId: string) {
 
   const enableMic = useCallback(async () => {
     setError("");
+    // Safe to call again after a failure ("Retry") - clear out
+    // whatever's left of the previous attempt first, otherwise a
+    // retry would leak the old channel subscription and reuse a dead
+    // RTCPeerConnection stuck in "failed".
+    clearSubscribeTimeout();
+    teardownPeerConnection();
+    if (channelRef.current) {
+      const supabase = createClient();
+      channelRef.current.untrack();
+      supabase.removeChannel(channelRef.current);
+      channelRef.current = null;
+    }
+    peerIdRef.current = null;
+
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
       localStreamRef.current = stream;
       setMicOn(true);
       setMuted(false);
+      setPeerMuted(false);
       setStatus("waiting");
 
       const supabase = createClient();
       const channel = supabase.channel(`voice:${matchId}`, {
-        config: { presence: { key: userId } },
+        config: { private: true, presence: { key: userId } },
       });
       channelRef.current = channel;
 
       channel
         .on("broadcast", { event: "signal" }, ({ payload }) => handleSignal(payload as SignalPayload))
+        .on("broadcast", { event: "mute-state" }, ({ payload }) => {
+          if (payload?.from !== userId) setPeerMuted(!!payload?.muted);
+        })
         .on("presence", { event: "sync" }, () => {
           const state = channel.presenceState();
           const others = Object.keys(state).filter((id) => id !== userId);
@@ -215,19 +244,52 @@ export function useWebRTCVoice(matchId: string, userId: string) {
             void makeOffer();
           }
         })
-        .subscribe(async (subscribeStatus) => {
+        .subscribe(async (subscribeStatus, err) => {
           if (subscribeStatus === "SUBSCRIBED") {
+            clearSubscribeTimeout();
             await channel.track({ user_id: userId, online_at: new Date().toISOString() });
+          } else if (subscribeStatus === "CHANNEL_ERROR" || subscribeStatus === "TIMED_OUT") {
+            // Most likely cause once realtime authorization is wired up
+            // (see migration adding RLS on realtime.messages): the
+            // caller isn't actually a participant of this match and
+            // was refused. Whatever the cause, don't leave the user
+            // stuck on "waiting" forever with a live mic and no
+            // feedback.
+            clearSubscribeTimeout();
+            setStatus("failed");
+            setError(err?.message || "Couldn't connect to voice chat. You may not have permission to join this match's voice channel.");
+            localStreamRef.current?.getTracks().forEach((track) => track.stop());
+            localStreamRef.current = null;
           }
         });
-    } catch {
+
+      subscribeTimeoutRef.current = setTimeout(() => {
+        setStatus((prev) => {
+          if (prev !== "waiting") return prev;
+          setError("Voice channel didn't respond in time. Please try again.");
+          localStreamRef.current?.getTracks().forEach((track) => track.stop());
+          localStreamRef.current = null;
+          return "failed";
+        });
+      }, SUBSCRIBE_TIMEOUT_MS);
+    } catch (err) {
       setStatus("failed");
-      setError("Microphone access was denied or unavailable.");
+      const name = err instanceof DOMException ? err.name : "";
+      if (name === "NotAllowedError") {
+        setError("Microphone permission was denied. Check your browser's site settings.");
+      } else if (name === "NotFoundError") {
+        setError("No microphone was found on this device.");
+      } else if (name === "NotReadableError") {
+        setError("Your microphone is being used by another app.");
+      } else {
+        setError("Microphone access was denied or unavailable.");
+      }
     }
   }, [matchId, userId, handleSignal, makeOffer]);
 
   const disableMic = useCallback(() => {
     send({ from: userId, kind: "bye" });
+    clearSubscribeTimeout();
     teardownPeerConnection();
     localStreamRef.current?.getTracks().forEach((track) => track.stop());
     localStreamRef.current = null;
@@ -239,6 +301,7 @@ export function useWebRTCVoice(matchId: string, userId: string) {
     }
     setMicOn(false);
     setMuted(false);
+    setPeerMuted(false);
     setStatus("idle");
   }, [send, userId, teardownPeerConnection]);
 
@@ -248,15 +311,21 @@ export function useWebRTCVoice(matchId: string, userId: string) {
       localStreamRef.current?.getAudioTracks().forEach((track) => {
         track.enabled = !next;
       });
+      channelRef.current?.send({
+        type: "broadcast",
+        event: "mute-state",
+        payload: { from: userId, muted: next },
+      });
       return next;
     });
-  }, []);
+  }, [userId]);
 
   // Cleanup on match exit / component unmount - never leave a mic
   // stream open or a peer connection dangling once the player
   // navigates away from the match.
   useEffect(() => {
     return () => {
+      clearSubscribeTimeout();
       teardownPeerConnection();
       localStreamRef.current?.getTracks().forEach((track) => track.stop());
       localStreamRef.current = null;
@@ -269,5 +338,5 @@ export function useWebRTCVoice(matchId: string, userId: string) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  return { status, micOn, muted, error, audioRef, enableMic, disableMic, toggleMute };
+  return { status, micOn, muted, peerMuted, error, audioRef, enableMic, disableMic, toggleMute };
 }

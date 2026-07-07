@@ -9,7 +9,7 @@ interface VoiceChatProps {
 }
 
 export default function VoiceChat({ matchId, userId }: VoiceChatProps) {
-  const { status, micOn, muted, error, audioRef, enableMic, disableMic, toggleMute } =
+  const { status, micOn, muted, peerMuted, error, audioRef, enableMic, disableMic, toggleMute } =
     useWebRTCVoice(matchId, userId);
 
   return (
@@ -21,11 +21,32 @@ export default function VoiceChat({ matchId, userId }: VoiceChatProps) {
         <div className="flex items-center gap-2 text-sm">
           <StatusDot status={status} />
           <span className="font-medium text-white">Voice Chat</span>
-          <span className="text-xs text-[var(--lj-muted)]">{statusLabel(status)}</span>
+          <span className="text-xs text-[var(--lj-muted)]">
+            {statusLabel(status)}
+            {status === "connected" && peerMuted && " · opponent muted"}
+          </span>
         </div>
 
         <div className="flex items-center gap-2">
-          {!micOn ? (
+          {status === "failed" ? (
+            <>
+              <button
+                onClick={enableMic}
+                className="flex items-center gap-1.5 rounded-lg bg-green-600 px-3 py-2 text-xs font-bold text-white hover:bg-green-700"
+              >
+                <Mic size={14} /> Retry
+              </button>
+              {micOn && (
+                <button
+                  onClick={disableMic}
+                  className="flex items-center gap-1.5 rounded-lg border border-red-400/30 px-3 py-2 text-xs font-semibold text-red-400 hover:bg-red-500/10"
+                  title="Give up on voice chat"
+                >
+                  <PhoneOff size={14} />
+                </button>
+              )}
+            </>
+          ) : !micOn ? (
             <button
               onClick={enableMic}
               className="flex items-center gap-1.5 rounded-lg bg-green-600 px-3 py-2 text-xs font-bold text-white hover:bg-green-700"
