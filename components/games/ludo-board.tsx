@@ -71,6 +71,16 @@ const YARD_ORIGIN: Record<LudoColor, [number, number]> = {
 
 const ENTRY_OFFSET: Record<LudoColor, number> = { red: 1, green: 14, yellow: 27, blue: 40 };
 
+// Classic board decoration only (doesn't touch game logic below):
+// the 8 traditional star/safe squares - each color's own entry square,
+// plus one more square 8 steps into its run - and which color owns
+// each of the 4 triangles that meet at the center (matching the arm
+// each color's home column actually runs along, per buildHomeColumns).
+const STAR_ABS = new Set<number>(
+  (Object.keys(ENTRY_OFFSET) as LudoColor[]).flatMap((c) => [ENTRY_OFFSET[c], (ENTRY_OFFSET[c] + 8) % 52])
+);
+const ARM_COLOR = { top: "green", left: "red", right: "yellow", bottom: "blue" } as const;
+
 function tokenPixel(color: LudoColor, relative: number, slot: number): { x: number; y: number } {
   let row: number, col: number;
   if (relative === -1) {
@@ -201,31 +211,92 @@ export default function LudoBoard({ matchId, userId }: LudoBoardProps) {
 
         drawBoard() {
           const g = this.add.graphics();
-          g.fillStyle(0x0f1f3d, 1);
+
+          // Plain white board background (classic paper-board look,
+          // instead of the previous dark theme).
+          g.fillStyle(0xffffff, 1);
           g.fillRect(0, 0, SIZE, SIZE);
 
+          // The four corner yards: a solid color square with an
+          // inset white "tray" holding a 2x2 grid of colored dots
+          // (the four token holes), just like a physical board.
           (Object.keys(YARD_ORIGIN) as LudoColor[]).forEach((color) => {
             const [r, c] = YARD_ORIGIN[color];
-            g.fillStyle(COLOR_HEX[color], 0.25);
-            g.fillRoundedRect(c * CELL - CELL, r * CELL - CELL, CELL * 6, CELL * 6, 8);
-          });
+            const x0 = c * CELL - CELL;
+            const y0 = r * CELL - CELL;
+            const size = CELL * 6;
 
-          g.lineStyle(1, 0x2d7fff, 0.3);
-          OUTER_PATH.forEach(([r, c]) => {
-            g.fillStyle(0x16294f, 1);
-            g.fillRect(c * CELL, r * CELL, CELL, CELL);
-            g.strokeRect(c * CELL, r * CELL, CELL, CELL);
-          });
+            g.fillStyle(COLOR_HEX[color], 1);
+            g.fillRect(x0, y0, size, size);
 
-          (Object.keys(HOME_COLUMNS) as LudoColor[]).forEach((color) => {
-            HOME_COLUMNS[color].forEach(([r, c]) => {
-              g.fillStyle(COLOR_HEX[color], 0.35);
-              g.fillRect(c * CELL, r * CELL, CELL, CELL);
+            const trayMargin = CELL * 0.7;
+            g.fillStyle(0xffffff, 1);
+            g.fillRoundedRect(x0 + trayMargin, y0 + trayMargin, size - trayMargin * 2, size - trayMargin * 2, 14);
+
+            const dotR = CELL * 0.42;
+            [-1, 1].forEach((dy) => {
+              [-1, 1].forEach((dx) => {
+                g.fillStyle(COLOR_HEX[color], 1);
+                g.fillCircle(x0 + size / 2 + dx * CELL, y0 + size / 2 + dy * CELL, dotR);
+                g.lineStyle(2, 0xffffff, 1);
+                g.strokeCircle(x0 + size / 2 + dx * CELL, y0 + size / 2 + dy * CELL, dotR);
+              });
             });
           });
 
-          g.fillStyle(0xffffff, 0.08);
-          g.fillRect(6 * CELL, 6 * CELL, CELL * 3, CELL * 3);
+          // Outer cross-shaped track: plain white squares with a thin
+          // grid line, star squares marked with a small star glyph.
+          OUTER_PATH.forEach(([r, c], abs) => {
+            g.fillStyle(0xffffff, 1);
+            g.fillRect(c * CELL, r * CELL, CELL, CELL);
+            g.lineStyle(1, 0x444444, 0.6);
+            g.strokeRect(c * CELL, r * CELL, CELL, CELL);
+            if (STAR_ABS.has(abs)) {
+              this.add
+                .text(c * CELL + CELL / 2, r * CELL + CELL / 2, "\u2605", {
+                  fontSize: "16px",
+                  color: "#94a3b8",
+                })
+                .setOrigin(0.5);
+            }
+          });
+
+          // Each color's home column, solid-colored all the way in.
+          (Object.keys(HOME_COLUMNS) as LudoColor[]).forEach((color) => {
+            HOME_COLUMNS[color].forEach(([r, c]) => {
+              g.fillStyle(COLOR_HEX[color], 1);
+              g.fillRect(c * CELL, r * CELL, CELL, CELL);
+              g.lineStyle(1, 0xffffff, 0.5);
+              g.strokeRect(c * CELL, r * CELL, CELL, CELL);
+            });
+          });
+
+          // Center pinwheel: four triangles meeting at the board's
+          // center, each colored to match the arm/home-column it caps.
+          const cLeft = 6 * CELL;
+          const cRight = 9 * CELL;
+          const cTop = 6 * CELL;
+          const cBottom = 9 * CELL;
+          const mid = 7.5 * CELL;
+          const triangles: [number, number][][] = [
+            [[cLeft, cTop], [cRight, cTop], [mid, mid]], // top
+            [[cLeft, cTop], [cLeft, cBottom], [mid, mid]], // left
+            [[cRight, cTop], [cRight, cBottom], [mid, mid]], // right
+            [[cLeft, cBottom], [cRight, cBottom], [mid, mid]], // bottom
+          ];
+          const sides: (keyof typeof ARM_COLOR)[] = ["top", "left", "right", "bottom"];
+          triangles.forEach((tri, idx) => {
+            const color = COLOR_HEX[ARM_COLOR[sides[idx]]];
+            g.fillStyle(color, 1);
+            g.beginPath();
+            g.moveTo(tri[0][0], tri[0][1]);
+            g.lineTo(tri[1][0], tri[1][1]);
+            g.lineTo(tri[2][0], tri[2][1]);
+            g.closePath();
+            g.fillPath();
+          });
+          g.lineStyle(2, 0xffffff, 1);
+          g.strokeRect(cLeft, cTop, cRight - cLeft, cBottom - cTop);
         }
 
         renderTokens(s: LudoState, movable: number[], mySeat: number) {
@@ -243,7 +314,7 @@ export default function LudoBoard({ matchId, userId }: LudoBoardProps) {
               const canMove = isMine && movable.includes(tokenIdx);
 
               const circle = this.add.circle(from.x, from.y, CELL * 0.32, COLOR_HEX[seat.color]);
-              circle.setStrokeStyle(2, 0xffffff, canMove ? 1 : 0.4);
+              circle.setStrokeStyle(2, canMove ? 0xffffff : 0x1f2937, canMove ? 1 : 0.6);
               circle.setData("isToken", true);
 
               const label = this.add.text(from.x, from.y, COLOR_LETTER[seat.color], {
@@ -274,7 +345,7 @@ export default function LudoBoard({ matchId, userId }: LudoBoardProps) {
         width: SIZE,
         height: SIZE,
         parent: containerRef.current,
-        backgroundColor: "#0f1f3d",
+        backgroundColor: "#ffffff",
         scene: BoardScene,
         // FIT scales the canvas down to whatever the parent's width
         // actually is (see the aspect-square wrapper div below) while
