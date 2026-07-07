@@ -240,6 +240,7 @@ export default function LudoBoard({ matchId, userId }: LudoBoardProps) {
 
   useEffect(() => {
     let destroyed = false;
+    let resizeObserver: ResizeObserver | null = null;
 
     import("phaser")
       .then((Phaser) => {
@@ -470,6 +471,18 @@ export default function LudoBoard({ matchId, userId }: LudoBoardProps) {
           });
 
           gameRef.current = game;
+
+          // Scale.FIT only measures the parent once, at creation time. If
+          // this container hasn't finished laying out yet at that exact
+          // moment (still 0x0 while the page is settling - very common on
+          // first mount, before a hard refresh gives layout a head start),
+          // the canvas locks in at the wrong size and looks blank forever.
+          // Watch the actual container and force Phaser to re-measure
+          // every time its real size changes.
+          resizeObserver = new ResizeObserver(() => {
+            gameRef.current?.scale.refresh();
+          });
+          resizeObserver.observe(containerRef.current);
         } catch (err) {
           console.error("Ludo board failed to initialize:", err);
           setError("Board failed to load — please refresh the page.");
@@ -482,6 +495,7 @@ export default function LudoBoard({ matchId, userId }: LudoBoardProps) {
 
     return () => {
       destroyed = true;
+      resizeObserver?.disconnect();
       gameRef.current?.destroy(true);
       gameRef.current = null;
     };
