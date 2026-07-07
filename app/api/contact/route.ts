@@ -3,8 +3,8 @@ import { contactSchema } from "@/lib/validations/contact";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 // Rate limit: max 5 submissions per IP per hour, backed by the
-// contact_submissions table (see migration 037) instead of an
-// in-memory Map. A process-local Map resets on every deploy/cold
+// contact_submissions table (see migration 062_contact_submissions.sql)
+// instead of an in-memory Map. A process-local Map resets on every deploy/cold
 // start and is tracked independently by each concurrent serverless
 // instance, so the effective limit was "5 per hour per instance", not
 // per IP. A shared table enforces the real limit regardless of which
@@ -50,10 +50,19 @@ export async function POST(request: Request) {
     // as the old Map-based version incrementing on every check - a
     // failed/duplicate send still consumes one of the 5 slots so a
     // client can't bypass the limit by retrying a failing request.
+    // Also stores the full message content (not just ip/email) so the
+    // admin panel has something to actually review, independent of
+    // whether the Resend email below succeeds.
     const admin = createAdminClient();
     const { error: logError } = await admin
       .from("contact_submissions")
-      .insert({ ip, email: body.email });
+      .insert({
+        ip,
+        name: body.name,
+        email: body.email,
+        subject: body.subject,
+        message: body.message,
+      });
     if (logError) {
       console.error("Contact rate-limit logging failed:", logError);
     }
