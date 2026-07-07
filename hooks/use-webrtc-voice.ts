@@ -171,15 +171,16 @@ export function useWebRTCVoice(matchId: string, userId: string) {
       if (audioRef.current) {
         audioRef.current.srcObject = event.streams[0];
       }
-      // Trade a bit of latency for smoothness: the default playout
-      // buffer is tuned for tens of milliseconds of jitter, which
-      // routine mobile-network jitter blows through, producing the
-      // crackling/glitchy audio. 300ms of buffering is inaudible as
-      // "lag" in a casual voice chat but gives the jitter buffer room
-      // to hide packet loss and reordering instead of glitching.
+      // Trade a bit of latency for smoothness against packet loss -
+      // but keep it modest. Anything past ~30ms of round-trip leakage
+      // from your own speaker into your own mic stops fusing with
+      // your voice and starts being heard as a distinct echo, and a
+      // buffer this large also risks audibly overlapping with fresh
+      // audio (perceived as "chopping"). 150ms is enough to smooth
+      // routine mobile jitter without pushing echo into audible range.
       const receiver = event.receiver as RTCRtpReceiver & { playoutDelayHint?: number };
       if (receiver && "playoutDelayHint" in receiver) {
-        receiver.playoutDelayHint = 0.3;
+        receiver.playoutDelayHint = 0.15;
       }
       clearNegotiationTimer();
       clearIceRestartTimer();
@@ -313,13 +314,40 @@ export function useWebRTCVoice(matchId: string, userId: string) {
       // noise through, and letting the browser pick channel
       // count/sample rate sometimes lands on something Opus resamples
       // badly. Pinning these gives a clean, consistent mono 48kHz feed.
+      //
+      // The googX fields are non-standard Chrome/Chromium extras -
+      // ignored harmlessly by browsers that don't recognize them, but
+      // on Chromium (the large majority of this player base) they push
+      // the AEC specifically harder against speaker-to-mic leakage,
+      // which is what shows up as "hearing your own voice echoed
+      // back". Standard `echoCancellation: true` alone is a good
+      // baseline but doesn't fully eliminate leakage on phone
+      // speakers/cheap mics - these extras close most of that gap.
+      // No echo canceler (browser or otherwise) can remove leakage
+      // from a DIFFERENT physical device's speaker into your mic -
+      // that's a room-acoustics problem, not a software one, and is
+      // the other common cause of this if two people are testing near
+      // each other without headphones.
+      const audioConstraints: MediaTrackConstraints = {
+        echoCancellation: true,
+        noiseSuppression: true,
+        autoGainControl: true,
+        channelCount: 1,
+        sampleRate: 48000,
+      };
       const stream = await navigator.mediaDevices.getUserMedia({
         audio: {
-          echoCancellation: true,
-          noiseSuppression: true,
-          autoGainControl: true,
-          channelCount: 1,
-          sampleRate: 48000,
+          ...audioConstraints,
+          ...({
+            googEchoCancellation: true,
+            googEchoCancellation2: true,
+            googAutoGainControl: true,
+            googAutoGainControl2: true,
+            googNoiseSuppression: true,
+            googNoiseSuppression2: true,
+            googHighpassFilter: true,
+            googTypingNoiseDetection: true,
+          } as MediaTrackConstraints),
         },
         video: false,
       });
