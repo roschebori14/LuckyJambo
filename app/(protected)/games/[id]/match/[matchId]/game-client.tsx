@@ -56,6 +56,9 @@ const MatchActions = dynamic(() => import("@/components/games/match-actions"), {
 const MatchChat = dynamic(() => import("@/components/games/match-chat"), {
   ssr: false,
 });
+const VoiceChat = dynamic(() => import("@/components/games/voice-chat"), {
+  ssr: false,
+});
 
 const INSTANT_SLUGS = ["rock_paper_scissors", "coin_flip", "dice"] as const;
 type InstantSlug = (typeof INSTANT_SLUGS)[number];
@@ -656,6 +659,14 @@ export default function GameClient({
           component. */}
       {!isSpectator && (
         <>
+          {/* Voice chat is scoped to exactly two peers (standard 1:1
+              mesh over WebRTC, signaled via a Supabase Realtime
+              broadcast channel - see hooks/use-webrtc-voice.ts).
+              Deliberately not offered for Ludo, which can have 3-4
+              participants - that needs a real N-way mesh/SFU, a
+              bigger separate piece of work. */}
+          {gameSlug !== "ludo" && <VoiceChat matchId={matchId} userId={userId} />}
+
           <MatchChat matchId={matchId} userId={userId} opponentUsername={opponentUsername} />
 
           {gameSlug === "ludo" ? (
