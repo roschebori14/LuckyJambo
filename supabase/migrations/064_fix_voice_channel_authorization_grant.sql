@@ -1,0 +1,24 @@
+-- Lucky Jambo - Fix voice chat Realtime authorization (regression from 063)
+--
+-- 063 revoked EXECUTE on public._voice_topic_is_authorized() from
+-- public, anon, AND authenticated. The intent was just to stop
+-- anyone calling the helper directly - but the RLS policies on
+-- realtime.messages are declared `to authenticated`, and Postgres
+-- requires the *calling* role to hold EXECUTE on any function
+-- referenced inside a policy's USING/WITH CHECK clause, even though
+-- the function itself is SECURITY DEFINER. SECURITY DEFINER only
+-- elevates privileges *inside* the function body (so it can read
+-- match_participants regardless of the caller's own grants) - it does
+-- not waive the caller's need for EXECUTE on the function itself.
+--
+-- Net effect: every authenticated user, including real match
+-- participants, got denied by Realtime before the participation
+-- check ever ran - surfaced client-side as
+-- "Unauthorized: You do not have permissions to read from this
+-- Channel topic: voice:{matchId}".
+--
+-- Fix: grant EXECUTE back to authenticated. Left revoked for anon/
+-- public - unauthenticated connections should never reach this
+-- function at all (the policies are already `to authenticated` only).
+
+grant execute on function public._voice_topic_is_authorized() to authenticated;

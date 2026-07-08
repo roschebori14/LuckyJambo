@@ -114,6 +114,13 @@ export default async function MatchPlayPage({ params }: PageProps) {
   // which user is viewing.
   const players = participantIds.map((id) => usernameById.get(id) ?? "Player");
 
+  const { data: viewerProfile } = await supabase
+    .from("profiles")
+    .select("role")
+    .eq("id", user.id)
+    .single();
+  const isAdmin = viewerProfile?.role === "admin";
+
   return (
     <div className="mx-auto max-w-lg space-y-4">
       <div className="flex items-center justify-between">
@@ -151,6 +158,7 @@ export default async function MatchPlayPage({ params }: PageProps) {
         opponentUsername={opponentUsername}
         createdAt={match.created_at}
         invitedUsername={invitedUsername}
+        isAdmin={isAdmin}
       />
     </div>
   );

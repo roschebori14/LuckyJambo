@@ -56,6 +56,9 @@ const MatchActions = dynamic(() => import("@/components/games/match-actions"), {
 const MatchChat = dynamic(() => import("@/components/games/match-chat"), {
   ssr: false,
 });
+const AdminMatchHint = dynamic(() => import("@/components/games/admin-match-hint"), {
+  ssr: false,
+});
 const VoiceChat = dynamic(() => import("@/components/games/voice-chat"), {
   ssr: false,
 });
@@ -92,6 +95,7 @@ interface Props {
   opponentUsername?: string | null;
   createdAt: string;
   invitedUsername?: string | null;
+  isAdmin?: boolean;
 }
 
 export default function GameClient({
@@ -108,6 +112,7 @@ export default function GameClient({
   opponentUsername = null,
   createdAt,
   invitedUsername = null,
+  isAdmin = false,
 }: Props) {
   const router = useRouter();
   const { play } = useSound();
@@ -585,6 +590,18 @@ export default function GameClient({
 
   return (
     <>
+      {/* Admin-only live AI move assist. Deliberately excludes any
+          admin who is themselves a participant in this match - an
+          admin's own stake in the outcome makes this the exact unfair
+          advantage the platform refuses to give regular players (see
+          SUPPORT_ASSISTANT_PROMPT), just via the admin panel instead.
+          The API route re-checks both admin status and this
+          participant exclusion server-side regardless of this
+          client-side gate. */}
+      {isAdmin && !isParticipant && status === "active" && (
+        <AdminMatchHint matchId={matchId} />
+      )}
+
       {/* Stake info - meaningless to a spectator, who has no stake in
           this match */}
       {!isSpectator && (
