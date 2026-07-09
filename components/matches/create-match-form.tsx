@@ -21,6 +21,7 @@ export default function CreateMatchForm({ games }: { games: GameOption[] }) {
 
   const selectedGame = games.find((g) => g.slug === gameSlug);
   const isLudo = gameSlug === "ludo";
+  const isPool = gameSlug === "eight-ball-pool";
 
   async function createMatch(e: React.FormEvent) {
     e.preventDefault();
@@ -39,11 +40,16 @@ export default function CreateMatchForm({ games }: { games: GameOption[] }) {
     setLoading(true);
     try {
       // Ludo has its own creation endpoint (player count, seat/color
-      // assignment) - every other game still uses the shared one.
-      const endpoint = isLudo ? "/api/ludo/create" : "/api/matches/create";
+      // assignment); 8-Ball Pool also has its own (shuffles + persists
+      // the real ball rack via seed_pool_rack - see
+      // supabase/migrations/065_eight_ball_pool_fixes.sql). Every other
+      // game still uses the shared one.
+      const endpoint = isLudo ? "/api/ludo/create" : isPool ? "/api/pool/create" : "/api/matches/create";
       const body = isLudo
         ? { stake_amount: stake, max_players: maxPlayers }
-        : { game_slug: gameSlug, stake_amount: stake };
+        : isPool
+          ? { stake_amount: stake }
+          : { game_slug: gameSlug, stake_amount: stake };
 
       const res = await fetch(endpoint, {
         method: "POST",

@@ -50,13 +50,13 @@ const DotsAndBoxesBoard = dynamic(
   () => import("@/components/games/dots-and-boxes-board"),
   { ssr: false },
 );
+const PoolBoard = dynamic(() => import("@/components/games/pool-board"), {
+  ssr: false,
+});
 const MatchActions = dynamic(() => import("@/components/games/match-actions"), {
   ssr: false,
 });
 const MatchChat = dynamic(() => import("@/components/games/match-chat"), {
-  ssr: false,
-});
-const AdminMatchHint = dynamic(() => import("@/components/games/admin-match-hint"), {
   ssr: false,
 });
 const VoiceChat = dynamic(() => import("@/components/games/voice-chat"), {
@@ -95,7 +95,6 @@ interface Props {
   opponentUsername?: string | null;
   createdAt: string;
   invitedUsername?: string | null;
-  isAdmin?: boolean;
 }
 
 export default function GameClient({
@@ -112,7 +111,6 @@ export default function GameClient({
   opponentUsername = null,
   createdAt,
   invitedUsername = null,
-  isAdmin = false,
 }: Props) {
   const router = useRouter();
   const { play } = useSound();
@@ -476,14 +474,27 @@ export default function GameClient({
     setRematching(true);
     setRematchError("");
     try {
-      const res = await fetch("/api/matches/create", {
+      // Pool needs its own creation endpoint - the generic create_match
+      // RPC only seeds an empty placeholder rack (see migration
+      // 065_eight_ball_pool_fixes.sql); /api/pool/create additionally
+      // shuffles and persists the real rack via seed_pool_rack. Same
+      // reasoning as the isLudo branches elsewhere in this file, though
+      // Ludo itself skips rematch entirely (see the completed-state
+      // render below) since it can't carry a fixed 2-player rematch
+      // request the way this button does.
+      const isPool = gameSlug === "eight-ball-pool";
+      const res = await fetch(isPool ? "/api/pool/create" : "/api/matches/create", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          game_slug: gameSlug,
-          stake_amount: stakeAmount,
-          invited_user_id: opponentId ?? undefined,
-        }),
+        body: JSON.stringify(
+          isPool
+            ? { stake_amount: stakeAmount, invited_user_id: opponentId ?? undefined }
+            : {
+                game_slug: gameSlug,
+                stake_amount: stakeAmount,
+                invited_user_id: opponentId ?? undefined,
+              },
+        ),
       });
       const json = await res.json();
       if (!json.success) {
@@ -590,15 +601,6 @@ export default function GameClient({
 
   return (
     <>
-      {/* Admin-only live AI move assist - never shown to regular
-          players. Per RG: admin accounts don't participate in live
-          matches on this platform, so no participant exclusion here.
-          The API route re-checks admin status server-side regardless
-          of this client-side gate. */}
-      {isAdmin && status === "active" && (
-        <AdminMatchHint matchId={matchId} />
-      )}
-
       {/* Stake info - meaningless to a spectator, who has no stake in
           this match */}
       {!isSpectator && (
@@ -661,6 +663,9 @@ export default function GameClient({
         )}
         {gameSlug === "ludo" && (
           <LudoBoard matchId={matchId} userId={userId} />
+        )}
+        {gameSlug === "eight-ball-pool" && (
+          <PoolBoard matchId={matchId} userId={userId} />
         )}
       </div>
 

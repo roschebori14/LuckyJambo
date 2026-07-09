@@ -32,6 +32,7 @@ export default function ChallengeFriendForm({
 
   const selectedGame = games.find((g) => g.slug === gameSlug);
   const selectedFriend = friends.find((f) => f.id === friendId);
+  const isPool = gameSlug === "eight-ball-pool";
 
   // create_match accepts an optional invited friend (see migration
   // 013 / 026): passing it makes this a private challenge that only
@@ -54,10 +55,21 @@ export default function ChallengeFriendForm({
 
     setLoading(true);
     try {
-      const res = await fetch("/api/matches/create", {
+      // 8-Ball Pool needs its own creation endpoint - the generic
+      // create_match RPC only seeds a placeholder rack (balls: []);
+      // /api/pool/create additionally shuffles and persists the real
+      // rack via seed_pool_rack (see
+      // supabase/migrations/065_eight_ball_pool_fixes.sql). It accepts
+      // the same invited_user_id shape as the generic endpoint, so a
+      // pool challenge is still a private, friend-only invite.
+      const res = await fetch(isPool ? "/api/pool/create" : "/api/matches/create", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ game_slug: gameSlug, stake_amount: stake, invited_user_id: friendId }),
+        body: JSON.stringify(
+          isPool
+            ? { stake_amount: stake, invited_user_id: friendId }
+            : { game_slug: gameSlug, stake_amount: stake, invited_user_id: friendId },
+        ),
       });
       const json = await res.json();
       if (!json.success) {

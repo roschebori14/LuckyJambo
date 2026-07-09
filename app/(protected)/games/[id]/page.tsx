@@ -91,16 +91,23 @@ export default function GameLobbyPage({
       // calling it for this slug silently succeeds with an empty
       // game_state ({}) rather than erroring, and the board then
       // crashes trying to read state.seats/state.tokens off that empty
-      // object. Every other game still goes through the shared,
-      // slug-agnostic endpoint.
+      // object. 8-Ball Pool similarly needs its own endpoint: the
+      // generic create_match RPC only seeds a correctly-shaped
+      // *placeholder* rack (balls: []); /api/pool/create additionally
+      // shuffles and persists the real rack via seed_pool_rack (see
+      // supabase/migrations/065_eight_ball_pool_fixes.sql). Every other
+      // game still goes through the shared, slug-agnostic endpoint.
       const isLudo = slug === "ludo";
-      const res = await fetch(isLudo ? "/api/ludo/create" : "/api/matches/create", {
+      const isPool = slug === "eight-ball-pool";
+      const res = await fetch(isLudo ? "/api/ludo/create" : isPool ? "/api/pool/create" : "/api/matches/create", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(
           isLudo
             ? { stake_amount: stake, max_players: maxPlayers }
-            : { game_slug: slug, stake_amount: stake },
+            : isPool
+              ? { stake_amount: stake }
+              : { game_slug: slug, stake_amount: stake },
         ),
       });
       const json = await res.json();

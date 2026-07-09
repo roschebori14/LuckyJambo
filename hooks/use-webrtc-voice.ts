@@ -28,45 +28,11 @@ const ICE_SERVERS: RTCIceServer[] = [
 
 const NEGOTIATION_TIMEOUT_MS = 15000;
 const SUBSCRIBE_TIMEOUT_MS = 10000;
-const ICE_RESTART_GRACE_MS = 3000;
 
 interface SignalPayload {
   from: string;
   kind: "offer" | "answer" | "ice-candidate" | "bye";
   data?: RTCSessionDescriptionInit | RTCIceCandidateInit;
-}
-
-// "Glitchy/crackling" audio on an already-connected call is almost
-// never a broken connection - it's Opus running at its default
-// low/variable bitrate with no forward error correction, so any
-// packet loss (routine on mobile 3G/4G) shows up as audible
-// dropouts. This nudges the SDP to a mono, FEC-enabled, ~32kbps
-// stream, which is plenty for voice and far more resilient to loss.
-// Safe no-op if Opus isn't present for some reason.
-function tuneOpusSdp(sdp: string): string {
-  const rtpmapMatch = sdp.match(/a=rtpmap:(\d+) opus\/48000/i);
-  if (!rtpmapMatch) return sdp;
-  const payloadType = rtpmapMatch[1];
-  const params = "minptime=10;useinbandfec=1;stereo=0;maxaveragebitrate=32000";
-
-  const fmtpRegex = new RegExp(`a=fmtp:${payloadType} (.*?)\r?\n`);
-  if (fmtpRegex.test(sdp)) {
-    return sdp.replace(fmtpRegex, (_match, existing: string) => {
-      // Keep whatever the browser already set (e.g. useinbandfec if
-      // it's already there) and layer ours on top without duplicating.
-      const existingParams = existing.trim();
-      const merged = existingParams
-        ? `${existingParams};${params}`
-        : params;
-      return `a=fmtp:${payloadType} ${merged}\r\n`;
-    });
-  }
-
-  // No fmtp line for Opus yet - add one right after its rtpmap line.
-  return sdp.replace(
-    /a=rtpmap:(\d+) opus\/48000\r?\n/i,
-    (match) => `${match}a=fmtp:${payloadType} ${params}\r\n`
-  );
 }
 
 /**
@@ -99,11 +65,7 @@ export function useWebRTCVoice(matchId: string, userId: string) {
   const peerIdRef = useRef<string | null>(null);
   const negotiationTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const subscribeTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const iceRestartTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const makingOfferRef = useRef(false);
-  // Only the side that made the original offer drives ICE restarts,
-  // so both browsers don't race to restart at once.
-  const isInitiatorRef = useRef(false);
 
   const clearNegotiationTimer = () => {
     if (negotiationTimerRef.current) {
@@ -119,31 +81,16 @@ export function useWebRTCVoice(matchId: string, userId: string) {
     }
   };
 
-  const clearIceRestartTimer = () => {
-    if (iceRestartTimerRef.current) {
-      clearTimeout(iceRestartTimerRef.current);
-      iceRestartTimerRef.current = null;
-    }
-  };
-
   const send = useCallback((payload: SignalPayload) => {
     channelRef.current?.send({ type: "broadcast", event: "signal", payload });
   }, []);
 
-  // Holds the latest makeOffer so createPeerConnection's ICE-restart
-  // handler can call it without a circular useCallback dependency
-  // (makeOffer itself depends on createPeerConnection). Reassigned on
-  // every render, which is cheap and always keeps it current.
-  const makeOfferRef = useRef<((iceRestart?: boolean) => Promise<void>) | null>(null);
-
   const teardownPeerConnection = useCallback(() => {
     clearNegotiationTimer();
-    clearIceRestartTimer();
     if (pcRef.current) {
       pcRef.current.onicecandidate = null;
       pcRef.current.ontrack = null;
       pcRef.current.onconnectionstatechange = null;
-      pcRef.current.oniceconnectionstatechange = null;
       pcRef.current.close();
       pcRef.current = null;
     }
@@ -151,7 +98,6 @@ export function useWebRTCVoice(matchId: string, userId: string) {
       audioRef.current.srcObject = null;
     }
     peerIdRef.current = null;
-    isInitiatorRef.current = false;
   }, []);
 
   const createPeerConnection = useCallback(() => {
@@ -171,19 +117,7 @@ export function useWebRTCVoice(matchId: string, userId: string) {
       if (audioRef.current) {
         audioRef.current.srcObject = event.streams[0];
       }
-      // Trade a bit of latency for smoothness against packet loss -
-      // but keep it modest. Anything past ~30ms of round-trip leakage
-      // from your own speaker into your own mic stops fusing with
-      // your voice and starts being heard as a distinct echo, and a
-      // buffer this large also risks audibly overlapping with fresh
-      // audio (perceived as "chopping"). 150ms is enough to smooth
-      // routine mobile jitter without pushing echo into audible range.
-      const receiver = event.receiver as RTCRtpReceiver & { playoutDelayHint?: number };
-      if (receiver && "playoutDelayHint" in receiver) {
-        receiver.playoutDelayHint = 0.15;
-      }
       clearNegotiationTimer();
-      clearIceRestartTimer();
       setStatus("connected");
     };
 
@@ -193,27 +127,6 @@ export function useWebRTCVoice(matchId: string, userId: string) {
         setError("Voice connection failed - this can happen on some mobile networks.");
       } else if (pc.connectionState === "disconnected" || pc.connectionState === "closed") {
         setStatus((prev) => (prev === "connected" ? "peer-left" : prev));
-      }
-    };
-
-    pc.oniceconnectionstatechange = () => {
-      // "disconnected" is common and often transient on mobile
-      // networks (a few seconds of bad signal, a tower handoff) - it
-      // is NOT the same as the peer actually leaving. Give it a
-      // moment to self-recover before trying an ICE restart, and only
-      // from the side that originally initiated the call so both
-      // browsers don't restart at once.
-      if (pc.iceConnectionState === "disconnected") {
-        clearIceRestartTimer();
-        iceRestartTimerRef.current = setTimeout(() => {
-          const stillBad =
-            pc.iceConnectionState === "disconnected" || pc.iceConnectionState === "failed";
-          if (stillBad && isInitiatorRef.current) {
-            void makeOfferRef.current?.(true);
-          }
-        }, ICE_RESTART_GRACE_MS);
-      } else if (pc.iceConnectionState === "connected" || pc.iceConnectionState === "completed") {
-        clearIceRestartTimer();
       }
     };
 
@@ -254,7 +167,6 @@ export function useWebRTCVoice(matchId: string, userId: string) {
         startNegotiationTimeout();
         await pc.setRemoteDescription(payload.data as RTCSessionDescriptionInit);
         const answer = await pc.createAnswer();
-        answer.sdp = tuneOpusSdp(answer.sdp ?? "");
         await pc.setLocalDescription(answer);
         send({ from: userId, kind: "answer", data: answer });
       } else if (payload.kind === "answer" && payload.data) {
@@ -271,23 +183,20 @@ export function useWebRTCVoice(matchId: string, userId: string) {
     [userId, createPeerConnection, send, startNegotiationTimeout, teardownPeerConnection]
   );
 
-  const makeOffer = useCallback(async (iceRestart = false) => {
+  const makeOffer = useCallback(async () => {
     if (makingOfferRef.current) return;
     makingOfferRef.current = true;
     try {
       const pc = pcRef.current ?? createPeerConnection();
-      isInitiatorRef.current = true;
       setStatus("connecting");
       startNegotiationTimeout();
-      const offer = await pc.createOffer(iceRestart ? { iceRestart: true } : undefined);
-      offer.sdp = tuneOpusSdp(offer.sdp ?? "");
+      const offer = await pc.createOffer();
       await pc.setLocalDescription(offer);
       send({ from: userId, kind: "offer", data: offer });
     } finally {
       makingOfferRef.current = false;
     }
   }, [createPeerConnection, send, startNegotiationTimeout, userId]);
-  makeOfferRef.current = makeOffer;
 
   const enableMic = useCallback(async () => {
     setError("");
@@ -306,51 +215,7 @@ export function useWebRTCVoice(matchId: string, userId: string) {
     peerIdRef.current = null;
 
     try {
-      // Explicit constraints instead of `audio: true` - default
-      // behavior for these varies across mobile Chrome/Safari/WebView
-      // builds, and an unprocessed capture is a big part of "unclear"
-      // audio: no echo cancellation lets the peer's own voice bleed
-      // back in through the speaker, no noise suppression lets ambient
-      // noise through, and letting the browser pick channel
-      // count/sample rate sometimes lands on something Opus resamples
-      // badly. Pinning these gives a clean, consistent mono 48kHz feed.
-      //
-      // The googX fields are non-standard Chrome/Chromium extras -
-      // ignored harmlessly by browsers that don't recognize them, but
-      // on Chromium (the large majority of this player base) they push
-      // the AEC specifically harder against speaker-to-mic leakage,
-      // which is what shows up as "hearing your own voice echoed
-      // back". Standard `echoCancellation: true` alone is a good
-      // baseline but doesn't fully eliminate leakage on phone
-      // speakers/cheap mics - these extras close most of that gap.
-      // No echo canceler (browser or otherwise) can remove leakage
-      // from a DIFFERENT physical device's speaker into your mic -
-      // that's a room-acoustics problem, not a software one, and is
-      // the other common cause of this if two people are testing near
-      // each other without headphones.
-      const audioConstraints: MediaTrackConstraints = {
-        echoCancellation: true,
-        noiseSuppression: true,
-        autoGainControl: true,
-        channelCount: 1,
-        sampleRate: 48000,
-      };
-      const stream = await navigator.mediaDevices.getUserMedia({
-        audio: {
-          ...audioConstraints,
-          ...({
-            googEchoCancellation: true,
-            googEchoCancellation2: true,
-            googAutoGainControl: true,
-            googAutoGainControl2: true,
-            googNoiseSuppression: true,
-            googNoiseSuppression2: true,
-            googHighpassFilter: true,
-            googTypingNoiseDetection: true,
-          } as MediaTrackConstraints),
-        },
-        video: false,
-      });
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
       localStreamRef.current = stream;
       setMicOn(true);
       setMuted(false);
@@ -425,7 +290,6 @@ export function useWebRTCVoice(matchId: string, userId: string) {
   const disableMic = useCallback(() => {
     send({ from: userId, kind: "bye" });
     clearSubscribeTimeout();
-    clearIceRestartTimer();
     teardownPeerConnection();
     localStreamRef.current?.getTracks().forEach((track) => track.stop());
     localStreamRef.current = null;

@@ -187,6 +187,25 @@ export function LudoIcon({ className }: IconProps) {
   );
 }
 
+export function PoolIcon({ className }: IconProps) {
+  return (
+    <svg viewBox="0 0 48 48" fill="none" className={className} aria-hidden="true">
+      {/* Felt table corner + pocket, cropped tight so the icon reads
+          clearly at small badge sizes. */}
+      <rect x="4" y="4" width="40" height="40" rx="5" fill="currentColor" opacity="0.16" />
+      <circle cx="10" cy="10" r="6" fill="currentColor" opacity="0.5" />
+      {/* Cue ball */}
+      <circle cx="18" cy="30" r="7" fill="currentColor" />
+      {/* 8-ball */}
+      <circle cx="33" cy="19" r="7" fill="currentColor" opacity="0.85" />
+      <circle cx="33" cy="19" r="4" fill="var(--lj-navy, #04091a)" />
+      <text x="33" y="22" textAnchor="middle" fontSize="6.5" fontWeight="800" fill="currentColor">8</text>
+      {/* Cue stick */}
+      <path d="M40 40L24 26" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" opacity="0.9" />
+    </svg>
+  );
+}
+
 export const GAME_ICON: Record<string, (props: IconProps) => React.JSX.Element> = {
   chess: ChessIcon,
   draughts: DraughtsIcon,
@@ -200,6 +219,7 @@ export const GAME_ICON: Record<string, (props: IconProps) => React.JSX.Element> 
   "dots-and-boxes": DotsAndBoxesIcon,
   "word-chain": WordChainIcon,
   ludo: LudoIcon,
+  "eight-ball-pool": PoolIcon,
 };
 
 export function GameIcon({ slug, className }: { slug: string; className?: string }) {

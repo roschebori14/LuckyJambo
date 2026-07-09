@@ -10,7 +10,7 @@ const MAX_REQUESTS_PER_WINDOW = 8;
  */
 export async function checkAiRateLimit(
   userId: string,
-  assistantType: "support" | "admin_analyst" | "game_recap" | "recommendations" | "match_hint",
+  assistantType: "support" | "admin_analyst" | "game_recap" | "recommendations",
   messagePreview: string,
 ): Promise<{ allowed: boolean; message?: string }> {
   const supabase = await createClient();

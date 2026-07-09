@@ -29,7 +29,10 @@ export type SoundEffectName =
   | "withdrawal-success"
   | "box-complete" // Dots and Boxes - claiming a box
   | "word-rejected" // Word Chain - invalid/duplicate word (a strike)
-  | "token-capture"; // Ludo - a token gets sent home by an opponent
+  | "token-capture" // Ludo - a token gets sent home by an opponent
+  | "cue-strike" // 8-Ball Pool - cue ball struck at the start of a shot
+  | "ball-pocket" // 8-Ball Pool - a ball drops into a pocket
+  | "foul"; // 8-Ball Pool - a rules foul (scratch, wrong ball first, etc.)
 
 interface EffectDefinition {
   query: string;
@@ -54,6 +57,9 @@ export const SOUND_EFFECTS: Record<SoundEffectName, EffectDefinition> = {
   "box-complete": { query: "pop bubble success short", volume: 0.55 },
   "word-rejected": { query: "error buzz short negative", volume: 0.5 },
   "token-capture": { query: "hit impact thud short game", volume: 0.6 },
+  "cue-strike": { query: "billiards cue ball hit break", volume: 0.6 },
+  "ball-pocket": { query: "billiard ball pocket drop clack", volume: 0.55 },
+  foul: { query: "error buzz short negative", volume: 0.5 },
 };
 
 export const SOUND_EFFECT_NAMES = Object.keys(SOUND_EFFECTS) as SoundEffectName[];
