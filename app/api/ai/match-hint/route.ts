@@ -61,14 +61,12 @@ export async function POST(request: Request) {
     return NextResponse.json({ success: false, message: "Invalid request" }, { status: 400 });
   }
 
-  // Critical: an admin account is not automatically a disinterested
-  // party. If this admin is one of the two people staking money on
-  // this specific match, a hint here is a direct integrity violation
-  // against their opponent - the same "unfair advantage" the platform
-  // refuses to give regular players (see SUPPORT_ASSISTANT_PROMPT),
-  // just laundered through the admin panel. Block it unconditionally,
-  // independent of the rate limit / match-lookup checks below, and
-  // before spending an AI call on it.
+  // Per RG: admin accounts never participate in live matches on this
+  // platform as a matter of policy, so hints are always available to
+  // an admin regardless of match_participants. Nothing in the schema
+  // technically enforces that policy, so this is logged (not blocked)
+  // if it's ever hit, purely so a violation of that assumption would
+  // actually be visible somewhere instead of silent.
   const { data: selfParticipation } = await supabase
     .from("match_participants")
     .select("user_id")
@@ -77,9 +75,8 @@ export async function POST(request: Request) {
     .maybeSingle();
 
   if (selfParticipation) {
-    return NextResponse.json(
-      { success: false, message: "Hints aren't available for matches you're playing in." },
-      { status: 403 },
+    console.warn(
+      `[match-hint] Admin ${user.id} requested a hint on match ${body.matchId}, which they are a participant in. Policy assumption ("admins never play live matches") does not hold here - review this account/match.`,
     );
   }
 

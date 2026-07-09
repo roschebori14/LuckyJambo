@@ -590,15 +590,12 @@ export default function GameClient({
 
   return (
     <>
-      {/* Admin-only live AI move assist. Deliberately excludes any
-          admin who is themselves a participant in this match - an
-          admin's own stake in the outcome makes this the exact unfair
-          advantage the platform refuses to give regular players (see
-          SUPPORT_ASSISTANT_PROMPT), just via the admin panel instead.
-          The API route re-checks both admin status and this
-          participant exclusion server-side regardless of this
-          client-side gate. */}
-      {isAdmin && !isParticipant && status === "active" && (
+      {/* Admin-only live AI move assist - never shown to regular
+          players. Per RG: admin accounts don't participate in live
+          matches on this platform, so no participant exclusion here.
+          The API route re-checks admin status server-side regardless
+          of this client-side gate. */}
+      {isAdmin && status === "active" && (
         <AdminMatchHint matchId={matchId} />
       )}
 
