@@ -82,11 +82,20 @@ export default function PoolBoard({ matchId, userId }: Props) {
   // (registered once, long-lived closures) always see the current value
   // instead of whatever it was when they were created.
   const shootingRef = useRef(false);
+  const boardReadyRef = useRef(false);
 
   const [state, setState] = useState<PoolState | null>(null);
   const [error, setError] = useState("");
   const [foulNotice, setFoulNotice] = useState("");
   const [shooting, setShooting] = useState(false);
+  // False until the Phaser/Matter scene has actually finished mounting
+  // and drawn the table. Loading the physics engine chunk is an async
+  // (network) step separate from the game-state fetch above, so the two
+  // can easily resolve out of order - without this we'd either render
+  // nothing visible during that window (looks broken) or, if state
+  // arrives first, silently miss the initial renderBalls() call once
+  // the scene *does* become ready (see the sync effect below).
+  const [boardReady, setBoardReady] = useState(false);
   const { play } = useSound();
 
   async function loadState() {
@@ -125,6 +134,17 @@ export default function PoolBoard({ matchId, userId }: Props) {
   useEffect(() => {
     let destroyed = false;
     let resizeObserver: ResizeObserver | null = null;
+
+    // The Phaser/Matter bundle is a separate (large-ish) chunk fetched
+    // over the network, independent of the game-state fetch above - on a
+    // slow connection or a genuine chunk-load failure that doesn't
+    // reject cleanly, the board would otherwise sit on "Loading table…"
+    // forever with no way out. Surface an actionable error instead.
+    const stallTimeout = setTimeout(() => {
+      if (!destroyed && !boardReadyRef.current) {
+        setError("Table is taking longer than expected to load — please refresh the page.");
+      }
+    }, 15000);
 
     import("phaser")
       .then((Phaser) => {
@@ -202,6 +222,15 @@ export default function PoolBoard({ matchId, userId }: Props) {
                 (event: MatterJS.IEventCollision<MatterJS.Engine>) =>
                   this.handleCollision(event),
               );
+
+              // Table is drawn and the scene can accept renderBalls() calls
+              // from here on - let the component know so it can drop the
+              // loading overlay and (re)apply the latest known state, in
+              // case it arrived before we got here.
+              boardReadyRef.current = true;
+              clearTimeout(stallTimeout);
+              sessionStorage.removeItem("lj-pool-board-reload-attempted");
+              setBoardReady(true);
             }
 
             // ---- Static table dressing --------------------------------
@@ -714,11 +743,36 @@ export default function PoolBoard({ matchId, userId }: Props) {
       })
       .catch((err) => {
         console.error("Failed to load Phaser:", err);
+
+        // A tab left open across a new deployment will still be holding
+        // the *previous* build's chunk manifest - it tries to fetch a
+        // chunk URL (content-hashed) that no longer exists on the
+        // server once a new deploy has shipped, and the dynamic
+        // import() rejects (webpack's ChunkLoadError, or the browser's
+        // own "Failed to fetch dynamically imported module"). A fresh
+        // navigation fetches the current HTML/manifest and immediately
+        // fixes this, so recover automatically with a single reload
+        // rather than leaving the board stuck - guarded by a
+        // sessionStorage flag so a genuine persistent failure (offline,
+        // real 5xx) doesn't reload-loop the user forever.
+        const isChunkError =
+          err?.name === "ChunkLoadError" ||
+          /loading chunk|failed to fetch dynamically imported module/i.test(
+            String(err?.message ?? ""),
+          );
+        const reloadKey = "lj-pool-board-reload-attempted";
+        if (isChunkError && !sessionStorage.getItem(reloadKey)) {
+          sessionStorage.setItem(reloadKey, "1");
+          window.location.reload();
+          return;
+        }
+
         setError("Board failed to load — please refresh the page.");
       });
 
     return () => {
       destroyed = true;
+      clearTimeout(stallTimeout);
       resizeObserver?.disconnect();
       gameRef.current?.destroy(true);
       gameRef.current = null;
@@ -729,7 +783,7 @@ export default function PoolBoard({ matchId, userId }: Props) {
   // Sync scene with the latest authoritative state.
   // -------------------------------------------------------------------
   useEffect(() => {
-    if (!state || !sceneRef.current) return;
+    if (!state || !boardReady || !sceneRef.current) return;
     if (shootingRef.current) return; // scene owns the table mid-shot
 
     const scene = sceneRef.current as unknown as {
@@ -797,7 +851,7 @@ export default function PoolBoard({ matchId, userId }: Props) {
       }
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [state, userId, matchId]);
+  }, [state, boardReady, userId, matchId]);
 
   if (!state) {
     return (
@@ -851,10 +905,20 @@ export default function PoolBoard({ matchId, userId }: Props) {
       )}
 
       <div
-        className="relative mx-auto w-full overflow-hidden rounded-xl"
+        className="relative mx-auto w-full overflow-hidden rounded-xl bg-black/20 touch-none select-none"
         style={{ maxWidth: 700, aspectRatio: `${CANVAS_W} / ${CANVAS_H}` }}
       >
-        <div ref={containerRef} className="h-full w-full" />
+        {!boardReady && !error && (
+          <div className="absolute inset-0 z-10 flex items-center justify-center text-sm text-[var(--lj-muted)]">
+            Loading table…
+          </div>
+        )}
+        {/* touch-none here too - Phaser appends the canvas as a child of
+            this element, and iOS Safari in particular needs touch-action
+            set on the element the touch actually starts on (the canvas'
+            direct parent), not just an ancestor further up, or a
+            drag-to-aim gesture can still trigger page scroll/bounce. */}
+        <div ref={containerRef} className="h-full w-full touch-none" />
       </div>
 
       {error && <p className="text-xs text-red-400">{error}</p>}
