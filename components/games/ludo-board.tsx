@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import Phaser from "phaser";
 import type { LudoState, LudoColor } from "@/types/ludo";
 import { useSound } from "@/lib/sound/sound-manager";
 import { useMatchRealtime } from "@/hooks/use-match-realtime";
@@ -142,10 +143,17 @@ interface LudoBoardProps {
 
 export default function LudoBoard({ matchId, userId }: LudoBoardProps) {
   const containerRef = useRef<HTMLDivElement>(null);
-  const gameRef = useRef<import("phaser").Game | null>(null);
-  const sceneRef = useRef<import("phaser").Scene | null>(null);
+  const gameRef = useRef<Phaser.Game | null>(null);
+  const sceneRef = useRef<Phaser.Scene | null>(null);
   const { play } = useSound();
   const [state, setState] = useState<LudoState | null>(null);
+  // Flips true once the Phaser scene's create() has actually run. The
+  // token-render effect below depends on this: match state can (and
+  // often does) arrive from the REST fetch before Phaser has finished
+  // booting, and without this flag that effect would silently bail out
+  // (sceneRef.current still null) and never get another chance to run,
+  // since `state` itself wouldn't change again until the next move.
+  const [boardReady, setBoardReady] = useState(false);
   const [error, setError] = useState("");
   const [rolling, setRolling] = useState(false);
   const [rollDisplay, setRollDisplay] = useState<number | null>(null);
@@ -239,270 +247,280 @@ export default function LudoBoard({ matchId, userId }: LudoBoardProps) {
   }, [state?.seats]);
 
   useEffect(() => {
-    let destroyed = false;
+    if (!containerRef.current || gameRef.current) return;
     let resizeObserver: ResizeObserver | null = null;
+    let rafId: number | null = null;
 
-    import("phaser")
-      .then((Phaser) => {
-        if (destroyed || !containerRef.current || gameRef.current) return;
-        try {
-          class BoardScene extends Phaser.Scene {
-            constructor() {
-              super("board");
-            }
-            tokenPositions = new Map<string, { x: number; y: number }>();
+    try {
+      class BoardScene extends Phaser.Scene {
+        constructor() {
+          super("board");
+        }
+        tokenPositions = new Map<string, { x: number; y: number }>();
 
-            create() {
-              sceneRef.current = this;
-              this.drawBoard();
-            }
+        create() {
+          sceneRef.current = this;
+          this.drawBoard();
+          setBoardReady(true);
+        }
 
-            drawBoard() {
-              const g = this.add.graphics();
+        drawBoard() {
+          const g = this.add.graphics();
 
-              // Plain white board background (classic paper-board look,
-              // instead of the previous dark theme).
-              g.fillStyle(0xffffff, 1);
-              g.fillRect(0, 0, SIZE, SIZE);
+          // Plain white board background (classic paper-board look,
+          // instead of the previous dark theme).
+          g.fillStyle(0xffffff, 1);
+          g.fillRect(0, 0, SIZE, SIZE);
 
-              // The four corner yards: a solid color square with an
-              // inset white "tray" holding a 2x2 grid of colored dots
-              // (the four token holes), just like a physical board.
-              (Object.keys(YARD_ORIGIN) as LudoColor[]).forEach((color) => {
-                const [r, c] = YARD_ORIGIN[color];
-                const x0 = c * CELL - CELL;
-                const y0 = r * CELL - CELL;
-                const size = CELL * 6;
+          // The four corner yards: a solid color square with an
+          // inset white "tray" holding a 2x2 grid of colored dots
+          // (the four token holes), just like a physical board.
+          (Object.keys(YARD_ORIGIN) as LudoColor[]).forEach((color) => {
+            const [r, c] = YARD_ORIGIN[color];
+            const x0 = c * CELL - CELL;
+            const y0 = r * CELL - CELL;
+            const size = CELL * 6;
 
+            g.fillStyle(COLOR_HEX[color], 1);
+            g.fillRect(x0, y0, size, size);
+
+            const trayMargin = CELL * 0.7;
+            g.fillStyle(0xffffff, 1);
+            g.fillRoundedRect(
+              x0 + trayMargin,
+              y0 + trayMargin,
+              size - trayMargin * 2,
+              size - trayMargin * 2,
+              14,
+            );
+
+            const dotR = CELL * 0.42;
+            [-1, 1].forEach((dy) => {
+              [-1, 1].forEach((dx) => {
                 g.fillStyle(COLOR_HEX[color], 1);
-                g.fillRect(x0, y0, size, size);
-
-                const trayMargin = CELL * 0.7;
-                g.fillStyle(0xffffff, 1);
-                g.fillRoundedRect(
-                  x0 + trayMargin,
-                  y0 + trayMargin,
-                  size - trayMargin * 2,
-                  size - trayMargin * 2,
-                  14,
+                g.fillCircle(
+                  x0 + size / 2 + dx * CELL,
+                  y0 + size / 2 + dy * CELL,
+                  dotR,
                 );
-
-                const dotR = CELL * 0.42;
-                [-1, 1].forEach((dy) => {
-                  [-1, 1].forEach((dx) => {
-                    g.fillStyle(COLOR_HEX[color], 1);
-                    g.fillCircle(
-                      x0 + size / 2 + dx * CELL,
-                      y0 + size / 2 + dy * CELL,
-                      dotR,
-                    );
-                    g.lineStyle(2, 0xffffff, 1);
-                    g.strokeCircle(
-                      x0 + size / 2 + dx * CELL,
-                      y0 + size / 2 + dy * CELL,
-                      dotR,
-                    );
-                  });
-                });
+                g.lineStyle(2, 0xffffff, 1);
+                g.strokeCircle(
+                  x0 + size / 2 + dx * CELL,
+                  y0 + size / 2 + dy * CELL,
+                  dotR,
+                );
               });
+            });
+          });
 
-              // Outer cross-shaped track: plain white squares with a thin
-              // grid line, star squares marked with a small star glyph.
-              OUTER_PATH.forEach(([r, c], abs) => {
-                g.fillStyle(0xffffff, 1);
-                g.fillRect(c * CELL, r * CELL, CELL, CELL);
-                g.lineStyle(1, 0x444444, 0.6);
-                g.strokeRect(c * CELL, r * CELL, CELL, CELL);
-                if (STAR_ABS.has(abs)) {
-                  this.add
-                    .text(c * CELL + CELL / 2, r * CELL + CELL / 2, "\u2605", {
-                      fontSize: "16px",
-                      color: "#94a3b8",
-                    })
-                    .setOrigin(0.5);
-                }
-              });
-
-              // Each color's home column, solid-colored all the way in.
-              (Object.keys(HOME_COLUMNS) as LudoColor[]).forEach((color) => {
-                HOME_COLUMNS[color].forEach(([r, c]) => {
-                  g.fillStyle(COLOR_HEX[color], 1);
-                  g.fillRect(c * CELL, r * CELL, CELL, CELL);
-                  g.lineStyle(1, 0xffffff, 0.5);
-                  g.strokeRect(c * CELL, r * CELL, CELL, CELL);
-                });
-              });
-
-              // Center pinwheel: four triangles meeting at the board's
-              // center, each colored to match the arm/home-column it caps.
-              const cLeft = 6 * CELL;
-              const cRight = 9 * CELL;
-              const cTop = 6 * CELL;
-              const cBottom = 9 * CELL;
-              const mid = 7.5 * CELL;
-              const triangles: [number, number][][] = [
-                [
-                  [cLeft, cTop],
-                  [cRight, cTop],
-                  [mid, mid],
-                ], // top
-                [
-                  [cLeft, cTop],
-                  [cLeft, cBottom],
-                  [mid, mid],
-                ], // left
-                [
-                  [cRight, cTop],
-                  [cRight, cBottom],
-                  [mid, mid],
-                ], // right
-                [
-                  [cLeft, cBottom],
-                  [cRight, cBottom],
-                  [mid, mid],
-                ], // bottom
-              ];
-              const sides: (keyof typeof ARM_COLOR)[] = [
-                "top",
-                "left",
-                "right",
-                "bottom",
-              ];
-              triangles.forEach((tri, idx) => {
-                const color = COLOR_HEX[ARM_COLOR[sides[idx]]];
-                g.fillStyle(color, 1);
-                g.beginPath();
-                g.moveTo(tri[0][0], tri[0][1]);
-                g.lineTo(tri[1][0], tri[1][1]);
-                g.lineTo(tri[2][0], tri[2][1]);
-                g.closePath();
-                g.fillPath();
-              });
-              g.lineStyle(2, 0xffffff, 1);
-              g.strokeRect(cLeft, cTop, cRight - cLeft, cBottom - cTop);
+          // Outer cross-shaped track: plain white squares with a thin
+          // grid line, star squares marked with a small star glyph.
+          OUTER_PATH.forEach(([r, c], abs) => {
+            g.fillStyle(0xffffff, 1);
+            g.fillRect(c * CELL, r * CELL, CELL, CELL);
+            g.lineStyle(1, 0x444444, 0.6);
+            g.strokeRect(c * CELL, r * CELL, CELL, CELL);
+            if (STAR_ABS.has(abs)) {
+              this.add
+                .text(c * CELL + CELL / 2, r * CELL + CELL / 2, "\u2605", {
+                  fontSize: "16px",
+                  color: "#94a3b8",
+                })
+                .setOrigin(0.5);
             }
+          });
 
-            renderTokens(s: LudoState, movable: number[], mySeat: number) {
-              this.children.list
-                .filter((c) => c.getData?.("isToken"))
-                .forEach((c) => c.destroy());
+          // Each color's home column, solid-colored all the way in.
+          (Object.keys(HOME_COLUMNS) as LudoColor[]).forEach((color) => {
+            HOME_COLUMNS[color].forEach(([r, c]) => {
+              g.fillStyle(COLOR_HEX[color], 1);
+              g.fillRect(c * CELL, r * CELL, CELL, CELL);
+              g.lineStyle(1, 0xffffff, 0.5);
+              g.strokeRect(c * CELL, r * CELL, CELL, CELL);
+            });
+          });
 
-              s.seats.forEach((seat, seatIdx) => {
-                if (!seat) return;
-                s.tokens[seatIdx].forEach((pos, tokenIdx) => {
-                  const key = `${seatIdx}-${tokenIdx}`;
-                  const target = tokenPixel(seat.color, pos, tokenIdx);
-                  const from = this.tokenPositions.get(key) ?? target;
-                  const isMine = seatIdx === mySeat;
-                  const canMove = isMine && movable.includes(tokenIdx);
+          // Center pinwheel: four triangles meeting at the board's
+          // center, each colored to match the arm/home-column it caps.
+          const cLeft = 6 * CELL;
+          const cRight = 9 * CELL;
+          const cTop = 6 * CELL;
+          const cBottom = 9 * CELL;
+          const mid = 7.5 * CELL;
+          const triangles: [number, number][][] = [
+            [
+              [cLeft, cTop],
+              [cRight, cTop],
+              [mid, mid],
+            ], // top
+            [
+              [cLeft, cTop],
+              [cLeft, cBottom],
+              [mid, mid],
+            ], // left
+            [
+              [cRight, cTop],
+              [cRight, cBottom],
+              [mid, mid],
+            ], // right
+            [
+              [cLeft, cBottom],
+              [cRight, cBottom],
+              [mid, mid],
+            ], // bottom
+          ];
+          const sides: (keyof typeof ARM_COLOR)[] = [
+            "top",
+            "left",
+            "right",
+            "bottom",
+          ];
+          triangles.forEach((tri, idx) => {
+            const color = COLOR_HEX[ARM_COLOR[sides[idx]]];
+            g.fillStyle(color, 1);
+            g.beginPath();
+            g.moveTo(tri[0][0], tri[0][1]);
+            g.lineTo(tri[1][0], tri[1][1]);
+            g.lineTo(tri[2][0], tri[2][1]);
+            g.closePath();
+            g.fillPath();
+          });
+          g.lineStyle(2, 0xffffff, 1);
+          g.strokeRect(cLeft, cTop, cRight - cLeft, cBottom - cTop);
+        }
 
-                  const circle = this.add.circle(
-                    from.x,
-                    from.y,
-                    CELL * 0.32,
-                    COLOR_HEX[seat.color],
-                  );
-                  circle.setStrokeStyle(
-                    2,
-                    canMove ? 0xffffff : 0x1f2937,
-                    canMove ? 1 : 0.6,
-                  );
-                  circle.setData("isToken", true);
+        renderTokens(s: LudoState, movable: number[], mySeat: number) {
+          this.children.list
+            .filter((c) => c.getData?.("isToken"))
+            .forEach((c) => c.destroy());
 
-                  const label = this.add
-                    .text(from.x, from.y, COLOR_LETTER[seat.color], {
-                      fontSize: "11px",
-                      fontStyle: "bold",
-                      color: "#0a0e1f",
-                    })
-                    .setOrigin(0.5)
-                    .setData("isToken", true);
+          s.seats.forEach((seat, seatIdx) => {
+            if (!seat) return;
+            s.tokens[seatIdx].forEach((pos, tokenIdx) => {
+              const key = `${seatIdx}-${tokenIdx}`;
+              const target = tokenPixel(seat.color, pos, tokenIdx);
+              const from = this.tokenPositions.get(key) ?? target;
+              const isMine = seatIdx === mySeat;
+              const canMove = isMine && movable.includes(tokenIdx);
 
-                  // Slide from the last known position instead of an
-                  // instant snap, when this token actually moved.
-                  if (from.x !== target.x || from.y !== target.y) {
-                    this.tweens.add({
-                      targets: [circle, label],
-                      x: target.x,
-                      y: target.y,
-                      duration: 300,
-                      ease: "Cubic.Out",
-                    });
-                  }
-                  this.tokenPositions.set(key, target);
+              const circle = this.add.circle(
+                from.x,
+                from.y,
+                CELL * 0.32,
+                COLOR_HEX[seat.color],
+              );
+              circle.setStrokeStyle(
+                2,
+                canMove ? 0xffffff : 0x1f2937,
+                canMove ? 1 : 0.6,
+              );
+              circle.setData("isToken", true);
 
-                  if (canMove) {
-                    circle.setInteractive({ useHandCursor: true });
-                    circle.on("pointerdown", () => this.onTokenTap?.(tokenIdx));
-                    this.tweens.add({
-                      targets: circle,
-                      scale: 1.15,
-                      yoyo: true,
-                      repeat: -1,
-                      duration: 500,
-                    });
-                  }
+              const label = this.add
+                .text(from.x, from.y, COLOR_LETTER[seat.color], {
+                  fontSize: "11px",
+                  fontStyle: "bold",
+                  color: "#0a0e1f",
+                })
+                .setOrigin(0.5)
+                .setData("isToken", true);
+
+              // Slide from the last known position instead of an
+              // instant snap, when this token actually moved.
+              if (from.x !== target.x || from.y !== target.y) {
+                this.tweens.add({
+                  targets: [circle, label],
+                  x: target.x,
+                  y: target.y,
+                  duration: 300,
+                  ease: "Cubic.Out",
                 });
-              });
-            }
+              }
+              this.tokenPositions.set(key, target);
 
-            onTokenTap?: (tokenIndex: number) => void;
-          }
+              if (canMove) {
+                circle.setInteractive({ useHandCursor: true });
+                circle.on("pointerdown", () => this.onTokenTap?.(tokenIdx));
+                this.tweens.add({
+                  targets: circle,
+                  scale: 1.15,
+                  yoyo: true,
+                  repeat: -1,
+                  duration: 500,
+                });
+              }
+            });
+          });
+        }
 
-          const game = new Phaser.Game({
-            type: Phaser.CANVAS,
+        onTokenTap?: (tokenIndex: number) => void;
+        }
+
+        const game = new Phaser.Game({
+          type: Phaser.CANVAS,
+          width: SIZE,
+          height: SIZE,
+          parent: containerRef.current,
+          backgroundColor: "#ffffff",
+          scene: BoardScene,
+          // FIT scales the canvas down to whatever the parent's width
+          // actually is (see the aspect-square wrapper div below) while
+          // keeping every pixel-math constant (CELL, SIZE, tokenPixel)
+          // untouched - the board is still "drawn" at a fixed 450x450
+          // internally, Phaser just displays it smaller on narrow
+          // screens instead of overflowing a ~360-390px phone viewport.
+          scale: {
+            mode: Phaser.Scale.FIT,
+            autoCenter: Phaser.Scale.CENTER_BOTH,
             width: SIZE,
             height: SIZE,
-            parent: containerRef.current,
-            backgroundColor: "#ffffff",
-            scene: BoardScene,
-            // FIT scales the canvas down to whatever the parent's width
-            // actually is (see the aspect-square wrapper div below) while
-            // keeping every pixel-math constant (CELL, SIZE, tokenPixel)
-            // untouched - the board is still "drawn" at a fixed 450x450
-            // internally, Phaser just displays it smaller on narrow
-            // screens instead of overflowing a ~360-390px phone viewport.
-            scale: {
-              mode: Phaser.Scale.FIT,
-              autoCenter: Phaser.Scale.CENTER_BOTH,
-              width: SIZE,
-              height: SIZE,
-            },
-          });
+          },
+        });
 
-          gameRef.current = game;
+        gameRef.current = game;
 
-          // Scale.FIT only measures the parent once, at creation time. If
-          // this container hasn't finished laying out yet at that exact
-          // moment (still 0x0 while the page is settling - very common on
-          // first mount, before a hard refresh gives layout a head start),
-          // the canvas locks in at the wrong size and looks blank forever.
-          // Watch the actual container and force Phaser to re-measure
-          // every time its real size changes.
-          resizeObserver = new ResizeObserver(() => {
+        // Scale.FIT only measures the parent once, at creation time. If
+        // this container hasn't finished laying out yet at that exact
+        // moment (still 0x0 while the page is settling - very common on
+        // first mount, before a hard refresh gives layout a head start),
+        // the canvas locks in at the wrong size and looks blank forever.
+        // Watch the actual container and force Phaser to re-measure
+        // every time its real size changes.
+        resizeObserver = new ResizeObserver(() => {
+          gameRef.current?.scale.refresh();
+        });
+        resizeObserver.observe(containerRef.current);
+
+        // Belt-and-braces for the same 0x0-at-boot problem: don't wait
+        // for an actual resize event to correct it, since a container
+        // that was already the right size at boot time simply never
+        // fires one and the ResizeObserver above would then never
+        // run. A couple of rAF-deferred refreshes cover both cases
+        // (wrong size at boot, or correct size but Phaser mismeasured
+        // it) cheaply, without any risk of racing the observer.
+        rafId = requestAnimationFrame(() => {
+          gameRef.current?.scale.refresh();
+          rafId = requestAnimationFrame(() => {
             gameRef.current?.scale.refresh();
           });
-          resizeObserver.observe(containerRef.current);
-        } catch (err) {
-          console.error("Ludo board failed to initialize:", err);
-          setError("Board failed to load — please refresh the page.");
-        }
-      })
-      .catch((err) => {
-        console.error("Failed to load Phaser:", err);
+        });
+      } catch (err) {
+        console.error("Ludo board failed to initialize:", err);
         setError("Board failed to load — please refresh the page.");
-      });
+      }
 
     return () => {
-      destroyed = true;
+      if (rafId != null) cancelAnimationFrame(rafId);
       resizeObserver?.disconnect();
       gameRef.current?.destroy(true);
       gameRef.current = null;
+      sceneRef.current = null;
+      setBoardReady(false);
     };
   }, []);
 
   useEffect(() => {
-    if (!state || !sceneRef.current) return;
+    if (!state || !boardReady || !sceneRef.current) return;
     const mySeat = state.seats.findIndex((s) => s?.user_id === userId);
     try {
       (
@@ -534,7 +552,7 @@ export default function LudoBoard({ matchId, userId }: LudoBoardProps) {
       }
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [state, userId, matchId, play]);
+  }, [state, boardReady, userId, matchId, play]);
 
   if (!state) {
     return (
