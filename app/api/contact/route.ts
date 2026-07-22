@@ -13,7 +13,21 @@ const RATE_LIMIT = 5;
 const WINDOW_MS = 60 * 60 * 1000;
 
 async function isRateLimited(ip: string): Promise<boolean> {
-  const admin = createAdminClient();
+  let admin;
+  try {
+    admin = createAdminClient();
+  } catch (err) {
+    // createAdminClient() throws synchronously if Supabase admin env vars
+    // (NEXT_PUBLIC_SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY) are missing.
+    // That used to bubble straight past every console.error in this file
+    // and out to the outer catch, so a misconfigured deployment produced
+    // the generic error message with *zero* server log output - nothing
+    // to diagnose from. Log it explicitly and fail open, same policy as
+    // the query-error case below.
+    console.error("Contact rate-limit check failed: could not create Supabase admin client.", err);
+    return false;
+  }
+
   const windowStart = new Date(Date.now() - WINDOW_MS).toISOString();
 
   const { count, error } = await admin
@@ -53,18 +67,27 @@ export async function POST(request: Request) {
     // Also stores the full message content (not just ip/email) so the
     // admin panel has something to actually review, independent of
     // whether the Resend email below succeeds.
-    const admin = createAdminClient();
-    const { error: logError } = await admin
-      .from("contact_submissions")
-      .insert({
-        ip,
-        name: body.name,
-        email: body.email,
-        subject: body.subject,
-        message: body.message,
-      });
-    if (logError) {
-      console.error("Contact rate-limit logging failed:", logError);
+    let admin;
+    try {
+      admin = createAdminClient();
+    } catch (err) {
+      console.error("Contact form: could not create Supabase admin client.", err);
+      admin = null;
+    }
+
+    if (admin) {
+      const { error: logError } = await admin
+        .from("contact_submissions")
+        .insert({
+          ip,
+          name: body.name,
+          email: body.email,
+          subject: body.subject,
+          message: body.message,
+        });
+      if (logError) {
+        console.error("Contact rate-limit logging failed:", logError);
+      }
     }
 
     const apiKey = process.env.RESEND_API_KEY;
@@ -102,6 +125,11 @@ export async function POST(request: Request) {
 
     return NextResponse.json({ success: true });
   } catch (error) {
+    // This used to swallow every error with no console output at all,
+    // which is why a misconfigured deployment (e.g. missing env vars)
+    // showed the generic message to the user but nothing in Vercel's
+    // logs to diagnose it from.
+    console.error("Contact form submission failed:", error);
     const message =
       error instanceof Error && error.name === "ZodError"
         ? "Please check the form for errors and try again."
