@@ -3,6 +3,7 @@ import { ReactNode } from "react";
 import type { Metadata, Viewport } from "next";
 import { Toaster } from "sonner";
 import TawkWidget from "@/components/tawk-widget";
+import CookieConsentBanner from "@/components/cookies/cookie-consent-banner";
 
 // Without this, mobile browsers have no viewport meta tag to go on and
 // fall back to treating the page as a ~980px desktop layout, then
@@ -113,6 +114,7 @@ export default function RootLayout({ children }: RootLayoutProps) {
       <body className="bg-gray-50 text-gray-900">
         {children}
         <TawkWidget />
+        <CookieConsentBanner />
         <Toaster
           position="top-center"
           richColors

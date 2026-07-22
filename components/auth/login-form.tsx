@@ -1,19 +1,33 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { Mail, Lock, LogIn, AlertCircle } from "lucide-react";
+import { getRememberedEmail, setRememberedEmail } from "@/lib/cookies/preferences";
+import { openCookieSettings } from "@/lib/cookies/cookie-consent";
+import { useCookieConsent } from "@/lib/cookies/use-cookie-consent";
 
 export default function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const supabase = createClient();
+  const { functionalAllowed, hydrated } = useCookieConsent();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [rememberMe, setRememberMe] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+
+  // Prefill from a previously-remembered email once we've read cookies client-side.
+  useEffect(() => {
+    const remembered = getRememberedEmail();
+    if (remembered) {
+      setEmail(remembered);
+      setRememberMe(true);
+    }
+  }, []);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -21,6 +35,7 @@ export default function LoginForm() {
     const { error } = await supabase.auth.signInWithPassword({ email, password });
     setLoading(false);
     if (error) { setError(error.message); return; }
+    setRememberedEmail(email, rememberMe);
     // Only follow same-origin, in-app paths - never an absolute/external
     // URL a query param could otherwise smuggle in.
     const redirect = searchParams.get("redirect");
@@ -51,11 +66,29 @@ export default function LoginForm() {
           onChange={e => setPassword(e.target.value)} className="lj-input !pl-11" />
       </div>
 
-      <div className="text-right">
+      <div className="flex items-center justify-between">
+        <label className="flex items-center gap-2 text-xs text-[var(--lj-muted)]">
+          <input
+            type="checkbox"
+            checked={rememberMe}
+            onChange={(e) => setRememberMe(e.target.checked)}
+            className="h-4 w-4 rounded border-[var(--lj-border)] accent-[var(--lj-blue)]"
+          />
+          Remember my email
+        </label>
         <Link href="/forgot-password" className="text-xs text-[var(--lj-blue-2)] hover:text-[var(--lj-cyan)]">
           Forgot password?
         </Link>
       </div>
+      {rememberMe && hydrated && !functionalAllowed && (
+        <p className="-mt-2 text-xs text-[var(--lj-muted)]">
+          Enable functional cookies in{" "}
+          <button type="button" onClick={openCookieSettings} className="text-[var(--lj-blue-2)] hover:underline">
+            Cookie settings
+          </button>{" "}
+          to keep this remembered next time.
+        </p>
+      )}
 
       <button type="submit" disabled={loading} className="lj-btn-primary flex w-full items-center justify-center gap-2">
         {loading ? <span className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" /> : <LogIn size={16} />}

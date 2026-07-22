@@ -3,6 +3,7 @@
 import Script from "next/script";
 import { usePathname } from "next/navigation";
 import { useEffect } from "react";
+import { useCookieConsent } from "@/lib/cookies/use-cookie-consent";
 
 declare global {
   interface Window {
@@ -20,8 +21,11 @@ const TAWK_VISIBLE_PATHS = ["/"];
 
 export default function TawkWidget() {
   const pathname = usePathname();
+  const { functionalAllowed, hydrated } = useCookieConsent();
 
   useEffect(() => {
+    if (!functionalAllowed) return;
+
     const shouldShow = TAWK_VISIBLE_PATHS.includes(pathname);
 
     const applyVisibility = () => {
@@ -41,7 +45,12 @@ export default function TawkWidget() {
       // loading yet - apply visibility as soon as it's ready.
       window.Tawk_API.onLoad = applyVisibility;
     }
-  }, [pathname]);
+  }, [pathname, functionalAllowed]);
+
+  // Tawk sets its own third-party cookies once it loads, so don't inject the
+  // script at all until the visitor has consented to functional cookies (and
+  // wait for the consent cookie to be read client-side first).
+  if (!hydrated || !functionalAllowed) return null;
 
   return (
     <Script

@@ -183,7 +183,19 @@ export default function PrivacyPolicyPage() {
           </section>
 
           <section>
-            <h2>9. Contact Us</h2>
+            <h2>9. Cookies</h2>
+            <p>
+              We use cookies to keep you signed in and, with your permission, to power optional
+              features like live chat support and remembering your login email. See our{" "}
+              <Link href="/legal/cookies" className="text-blue-600 hover:underline">
+                Cookie Policy
+              </Link>{" "}
+              for the full list of cookies we use and how to manage your preferences.
+            </p>
+          </section>
+
+          <section>
+            <h2>10. Contact Us</h2>
             <p>
               If you have questions about this Privacy Policy or how your data is handled, contact
               us at{" "}
