@@ -42,6 +42,10 @@ const WordChainBoard = dynamic(
   () => import("@/components/games/word-chain-board"),
   { ssr: false },
 );
+const WordRushBoard = dynamic(
+  () => import("@/components/games/word-rush-board"),
+  { ssr: false },
+);
 const FourInARowBoard = dynamic(
   () => import("@/components/games/four-in-a-row-board"),
   { ssr: false },
@@ -660,6 +664,9 @@ export default function GameClient({
         )}
         {gameSlug === "word-chain" && (
           <WordChainBoard matchId={matchId} userId={userId} />
+        )}
+        {gameSlug === "word-rush" && (
+          <WordRushBoard matchId={matchId} userId={userId} />
         )}
         {gameSlug === "ludo" && (
           <LudoBoard matchId={matchId} userId={userId} />

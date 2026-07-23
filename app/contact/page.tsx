@@ -39,8 +39,8 @@ export default function ContactPage() {
             Get in touch
           </h1>
           <p className="mt-4 text-lg text-gray-600">
-            Questions about your wallet, a match, or anything else? Our support
-            team is here to help.
+            Questions about your wallet, a match, or anything else? Our support team is here to
+            help.
           </p>
         </div>
 
@@ -54,10 +54,10 @@ export default function ContactPage() {
               <div>
                 <h3 className="font-bold text-gray-900">Email</h3>
                 <a
-                  href="mailto:roschebori14@gmail.com"
+                  href="mailto:support@luckyjambo.com"
                   className="text-sm text-blue-600 hover:underline"
                 >
-                  roschebori14@gmail.com
+                  support@luckyjambo.com
                 </a>
               </div>
             </div>
@@ -69,8 +69,8 @@ export default function ContactPage() {
               <div>
                 <h3 className="font-bold text-gray-900">Live chat</h3>
                 <p className="text-sm text-gray-600">
-                  Use the chat bubble in the bottom-right corner of the homepage
-                  for real-time help.
+                  Use the chat bubble in the bottom-right corner of the homepage for real-time
+                  help.
                 </p>
               </div>
             </div>
@@ -82,8 +82,7 @@ export default function ContactPage() {
               <div>
                 <h3 className="font-bold text-gray-900">Response time</h3>
                 <p className="text-sm text-gray-600">
-                  We typically reply within 24 hours. Withdrawal issues are
-                  prioritized.
+                  We typically reply within 24 hours. Withdrawal issues are prioritized.
                 </p>
               </div>
             </div>

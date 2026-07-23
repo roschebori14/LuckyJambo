@@ -206,6 +206,24 @@ export function PoolIcon({ className }: IconProps) {
   );
 }
 
+export function WordRushIcon({ className }: IconProps) {
+  return (
+    <svg viewBox="0 0 48 48" fill="none" className={className} aria-hidden="true">
+      {/* Three scrambled letter tiles */}
+      <rect x="4" y="18" width="12" height="12" rx="2.5" fill="currentColor" opacity="0.9" transform="rotate(-8 10 24)" />
+      <rect x="18" y="14" width="12" height="12" rx="2.5" fill="currentColor" transform="rotate(6 24 20)" />
+      <rect x="32" y="19" width="12" height="12" rx="2.5" fill="currentColor" opacity="0.75" transform="rotate(-4 38 25)" />
+      <text x="10" y="28.5" textAnchor="middle" fontSize="9" fontWeight="800" fill="var(--lj-navy, #04091a)" transform="rotate(-8 10 24)">W</text>
+      <text x="24" y="24.5" textAnchor="middle" fontSize="9" fontWeight="800" fill="var(--lj-navy, #04091a)" transform="rotate(6 24 20)">R</text>
+      <text x="38" y="29.5" textAnchor="middle" fontSize="9" fontWeight="800" fill="var(--lj-navy, #04091a)" transform="rotate(-4 38 25)">D</text>
+      {/* Small clock badge signaling the shared timer */}
+      <circle cx="38" cy="10" r="7" fill="currentColor" opacity="0.5" />
+      <circle cx="38" cy="10" r="7" stroke="currentColor" strokeWidth="1.6" fill="none" />
+      <path d="M38 6.2V10l2.6 2" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+    </svg>
+  );
+}
+
 export const GAME_ICON: Record<string, (props: IconProps) => React.JSX.Element> = {
   chess: ChessIcon,
   draughts: DraughtsIcon,
@@ -218,6 +236,7 @@ export const GAME_ICON: Record<string, (props: IconProps) => React.JSX.Element> 
   "four-in-a-row": FourInARowIcon,
   "dots-and-boxes": DotsAndBoxesIcon,
   "word-chain": WordChainIcon,
+  "word-rush": WordRushIcon,
   ludo: LudoIcon,
   "eight-ball-pool": PoolIcon,
 };
