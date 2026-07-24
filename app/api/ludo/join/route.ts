@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { getErrorMessage } from "@/lib/utils/error-message";
 import { z } from "zod";
 
 const schema = z.object({ match_id: z.string().uuid() });
@@ -21,7 +22,7 @@ export async function POST(request: Request) {
 
     return NextResponse.json({ success: true, match: data });
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Failed to join match";
+    const message = getErrorMessage(error, "Failed to join match", "POST /api/ludo/join");
     return NextResponse.json({ success: false, message }, { status: 400 });
   }
 }
