@@ -29,9 +29,6 @@ export default function WordRushBoard({ matchId, userId }: Props) {
   const [showManualEntry, setShowManualEntry] = useState(false);
   const [rejection, setRejection] = useState("");
   const [remainingMs, setRemainingMs] = useState<number | null>(null);
-  const foundEndRef = useRef<HTMLDivElement>(null);
-  // Guards against firing the end-of-round report every tick once the
-  // clock hits zero - only report once per round, same idea as
   // word-chain-board's reportedTimeoutFor.
   const reportedEndFor = useRef<string | null>(null);
 
@@ -69,9 +66,7 @@ export default function WordRushBoard({ matchId, userId }: Props) {
     if (row.game_state) setState(row.game_state as WordRushState);
   });
 
-  useEffect(() => {
-    foundEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [state?.a_found_words.length, state?.b_found_words.length]);
+
 
   // Shared round countdown, ticking locally off the server-stamped
   // round_started_at so it survives poll/realtime updates without
@@ -476,17 +471,17 @@ export default function WordRushBoard({ matchId, userId }: Props) {
           </p>
         ) : (
           <div className="flex flex-wrap gap-2">
-            {myFoundWords.map((word, i) => (
+            {[...myFoundWords].reverse().map((word, i) => (
               <span
                 key={i}
-                className="rounded-full bg-blue-500/15 px-3 py-1 text-xs font-semibold text-blue-300"
+                className="inline-flex items-center gap-1.5 rounded-full border border-blue-500/30 bg-gradient-to-r from-blue-500/10 to-blue-400/5 px-3 py-1.5 text-sm font-semibold text-blue-200 shadow-sm transition-all hover:scale-105 hover:bg-blue-500/20"
               >
-                {word} · +{scoreLabel(word)}
+                {word} 
+                <span className="text-[10px] font-bold tracking-wider text-blue-400/80">+{scoreLabel(word)}</span>
               </span>
             ))}
           </div>
         )}
-        <div ref={foundEndRef} />
       </div>
 
       <p className="text-xs text-[var(--lj-muted)]">
