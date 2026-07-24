@@ -49,7 +49,7 @@ export default function WordRushBoard({ matchId, userId }: Props) {
   const [floatingPoints, setFloatingPoints] = useState<{ id: number; points: number; x: number; y: number }[]>([]);
 
   useEffect(() => {
-    if (state && shuffleOrder.length === 0 && state.letters.length > 0) {
+    if (state && shuffleOrder.length === 0 && state.letters && state.letters.length > 0) {
       setShuffleOrder(state.letters.map((_, i) => i));
     }
   }, [state, shuffleOrder.length]);
@@ -210,7 +210,7 @@ export default function WordRushBoard({ matchId, userId }: Props) {
   // ---------------------------------------------------------------
 
   function letterCount() {
-    return state?.letters.length ?? 0;
+    return state?.letters?.length ?? 0;
   }
 
   function bubbleCenter(index: number) {
@@ -287,7 +287,7 @@ export default function WordRushBoard({ matchId, userId }: Props) {
     setDragging(false);
     setLivePoint(null);
     if (state && path.length > 0) {
-      const word = path.map((i) => state.letters[i]).join("");
+      const word = path.map((i) => state.letters?.[i] || "").join("");
       void submitWordValue(word);
     }
     setPath([]);
@@ -311,7 +311,7 @@ export default function WordRushBoard({ matchId, userId }: Props) {
   // is the worst possible failure mode: a silent blank box with no
   // way to tell "broken" from "still loading". Surface it plainly
   // instead of letting the wheel render zero bubbles.
-  if (!state.game_over && state.round_started_at && state.letters.length === 0) {
+  if (!state.game_over && state.round_started_at && state.letters?.length === 0) {
     return (
       <div className="flex flex-col items-center gap-3 rounded-xl border border-red-500/30 bg-red-500/10 p-6 text-center">
         <p className="text-sm font-semibold text-red-300">
@@ -338,11 +338,12 @@ export default function WordRushBoard({ matchId, userId }: Props) {
     ? "Round in progress - find every word you can!"
     : "Waiting for the round to start…";
 
-  function getLongestWord(words: string[]) {
+  function getLongestWord(words: string[] | undefined) {
+    if (!words) return "";
     return words.reduce((longest, current) => (current.length > longest.length ? current : longest), "");
   }
 
-  const myLongest = getLongestWord(myFoundWords || []);
+  const myLongest = getLongestWord(myFoundWords);
   const oppLongest = getLongestWord(mySeat === "A" ? state.b_found_words : state.a_found_words);
 
   const remainingSeconds =
@@ -354,7 +355,7 @@ export default function WordRushBoard({ matchId, userId }: Props) {
     }
   }, [remainingSeconds, state?.game_over, play]);
 
-  const totalSeconds = state.round_seconds;
+  const totalSeconds = state.round_seconds || 80;
   const timerFraction =
     remainingMs !== null ? Math.max(0, remainingMs / (totalSeconds * 1000)) : 1;
   const timerUrgent = remainingSeconds !== null && remainingSeconds <= 10;
@@ -523,7 +524,7 @@ export default function WordRushBoard({ matchId, userId }: Props) {
 
         {shuffleOrder.map((letterIdx, positionIdx) => {
           const { x, y } = bubbleCenter(positionIdx);
-          const letter = state.letters[letterIdx];
+          const letter = state.letters?.[letterIdx] || "";
           const selected = path.includes(letterIdx);
           return (
             <g key={letterIdx} data-letter-index={letterIdx}>
@@ -592,7 +593,7 @@ export default function WordRushBoard({ matchId, userId }: Props) {
 
       {!state.game_over && dragging && path.length > 0 && (
         <p className="text-center text-sm font-bold uppercase tracking-wide text-blue-200">
-          {path.map((i) => state.letters[i]).join("")}
+          {path.map((i) => state.letters?.[i] || "").join("")}
         </p>
       )}
 
