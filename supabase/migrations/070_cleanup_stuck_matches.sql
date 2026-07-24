@@ -19,9 +19,9 @@ begin
     -- Refund the creator
     perform public.apply_wallet_transaction(
       v_match.creator_id, 
-      'refund_draw', 
+      'refund', 
       v_match.stake_amount, 
-      v_match.id, 
+      v_match.id::text, 
       'Refund for cancelled/stuck match'
     );
     
@@ -32,9 +32,9 @@ begin
     loop
       perform public.apply_wallet_transaction(
         v_participant.user_id, 
-        'refund_draw', 
+        'refund', 
         v_match.stake_amount, 
-        v_match.id, 
+        v_match.id::text, 
         'Refund for cancelled/stuck match'
       );
     end loop;

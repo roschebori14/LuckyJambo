@@ -132,6 +132,20 @@ export default function WordRushBoard({ matchId, userId }: Props) {
       });
   }, [remainingMs, state, matchId]);
 
+  const remainingSeconds =
+    remainingMs !== null ? Math.ceil(remainingMs / 1000) : null;
+
+  useEffect(() => {
+    if (
+      remainingSeconds !== null &&
+      remainingSeconds <= 10 &&
+      remainingSeconds > 0 &&
+      !state?.game_over
+    ) {
+      play("button-tap");
+    }
+  }, [remainingSeconds, state?.game_over, play]);
+
   const mySeat = state ? (state.a_player_id === userId ? "A" : "B") : null;
   const won = !!state && state.winner === mySeat;
   const myScore = mySeat === "A" ? state?.a_score : state?.b_score;
@@ -345,15 +359,6 @@ export default function WordRushBoard({ matchId, userId }: Props) {
 
   const myLongest = getLongestWord(myFoundWords);
   const oppLongest = getLongestWord(mySeat === "A" ? state.b_found_words : state.a_found_words);
-
-  const remainingSeconds =
-    remainingMs !== null ? Math.ceil(remainingMs / 1000) : null;
-
-  useEffect(() => {
-    if (remainingSeconds !== null && remainingSeconds <= 10 && remainingSeconds > 0 && !state?.game_over) {
-      play("button-tap");
-    }
-  }, [remainingSeconds, state?.game_over, play]);
 
   const totalSeconds = state.round_seconds || 80;
   const timerFraction =
