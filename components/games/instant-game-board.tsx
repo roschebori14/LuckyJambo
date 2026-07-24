@@ -171,17 +171,43 @@ export default function InstantGameBoard({ matchId, gameType }: Props) {
         <Confetti fire={!!result.you_won} />
         {gameType === "dice_duel" && result.my_roll && result.opp_roll && (
           <div className="flex justify-center items-center gap-8 mb-6 mt-2">
-            <div className="flex flex-col items-center gap-2">
+            <style>{`
+              .dice-cube { 
+                position: relative; width: 60px; height: 60px; 
+                transform-style: preserve-3d; transition: transform 1s ease-out;
+              }
+              .dice-face {
+                position: absolute; width: 60px; height: 60px;
+                background: linear-gradient(135deg, #1f2937, #111827);
+                border: 2px solid #374151; border-radius: 12px;
+                display: grid; grid-template-columns: repeat(3, 1fr);
+                grid-template-rows: repeat(3, 1fr); padding: 6px;
+                box-shadow: inset 0 0 15px rgba(0,0,0,0.5);
+              }
+              .dice-dot { width: 10px; height: 10px; border-radius: 50%; background: #60a5fa; box-shadow: 0 0 8px #60a5fa; justify-self: center; align-self: center; }
+              .opp-dice .dice-dot { background: #f87171; box-shadow: 0 0 8px #f87171; }
+              .front  { transform: rotateY(0deg) translateZ(30px); }
+              .back   { transform: rotateY(180deg) translateZ(30px); }
+              .right  { transform: rotateY(90deg) translateZ(30px); }
+              .left   { transform: rotateY(-90deg) translateZ(30px); }
+              .top    { transform: rotateX(90deg) translateZ(30px); }
+              .bottom { transform: rotateX(-90deg) translateZ(30px); }
+            `}</style>
+            <div className="flex flex-col items-center gap-4">
               <span className="text-xs font-bold text-[var(--lj-muted)] uppercase tracking-wider">You Rolled</span>
-              <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-blue-500 to-blue-700 shadow-[0_0_20px_rgba(59,130,246,0.5)] border-2 border-blue-400 flex items-center justify-center">
-                <span className="text-3xl font-black text-white">{result.my_roll}</span>
+              <div style={{ perspective: "600px" }}>
+                <div className="dice-cube" style={{ transform: getDiceTransform(result.my_roll) }}>
+                  <DiceFaces />
+                </div>
               </div>
             </div>
-            <div className="text-xl font-bold text-white/30">VS</div>
-            <div className="flex flex-col items-center gap-2">
+            <div className="text-xl font-bold text-white/30 pt-6">VS</div>
+            <div className="flex flex-col items-center gap-4">
               <span className="text-xs font-bold text-[var(--lj-muted)] uppercase tracking-wider">They Rolled</span>
-              <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-red-500 to-red-700 shadow-[0_0_20px_rgba(239,68,68,0.5)] border-2 border-red-400 flex items-center justify-center">
-                <span className="text-3xl font-black text-white">{result.opp_roll}</span>
+              <div style={{ perspective: "600px" }}>
+                <div className="dice-cube opp-dice" style={{ transform: getDiceTransform(result.opp_roll) }}>
+                  <DiceFaces />
+                </div>
               </div>
             </div>
           </div>
@@ -226,18 +252,18 @@ export default function InstantGameBoard({ matchId, gameType }: Props) {
         <div className="text-center flex flex-col items-center">
           <style>{`
             .dice-container { perspective: 800px; }
-            .dice-cube { 
+            .dice-cube-large { 
               position: relative; width: 80px; height: 80px; 
               transform-style: preserve-3d; transition: transform 1s ease-out;
             }
-            .dice-cube.rolling {
+            .dice-cube-large.rolling {
               animation: spinDice 0.6s infinite linear;
             }
             @keyframes spinDice {
               0% { transform: rotateX(0deg) rotateY(0deg) rotateZ(0deg); }
               100% { transform: rotateX(360deg) rotateY(720deg) rotateZ(360deg); }
             }
-            .dice-face {
+            .dice-face-large {
               position: absolute; width: 80px; height: 80px;
               background: linear-gradient(135deg, #1f2937, #111827);
               border: 2px solid #374151; border-radius: 12px;
@@ -245,50 +271,18 @@ export default function InstantGameBoard({ matchId, gameType }: Props) {
               grid-template-rows: repeat(3, 1fr); padding: 8px;
               box-shadow: inset 0 0 15px rgba(0,0,0,0.5);
             }
-            .dice-dot { width: 12px; height: 12px; border-radius: 50%; background: #60a5fa; box-shadow: 0 0 8px #60a5fa; justify-self: center; align-self: center; }
-            .front  { transform: rotateY(0deg) translateZ(40px); }
-            .back   { transform: rotateY(180deg) translateZ(40px); }
-            .right  { transform: rotateY(90deg) translateZ(40px); }
-            .left   { transform: rotateY(-90deg) translateZ(40px); }
-            .top    { transform: rotateX(90deg) translateZ(40px); }
-            .bottom { transform: rotateX(-90deg) translateZ(40px); }
+            .dice-dot-large { width: 12px; height: 12px; border-radius: 50%; background: #60a5fa; box-shadow: 0 0 8px #60a5fa; justify-self: center; align-self: center; }
+            .front-large  { transform: rotateY(0deg) translateZ(40px); }
+            .back-large   { transform: rotateY(180deg) translateZ(40px); }
+            .right-large  { transform: rotateY(90deg) translateZ(40px); }
+            .left-large   { transform: rotateY(-90deg) translateZ(40px); }
+            .top-large    { transform: rotateX(90deg) translateZ(40px); }
+            .bottom-large { transform: rotateX(-90deg) translateZ(40px); }
           `}</style>
           
           <div className="dice-container mb-8 h-24 flex items-center justify-center">
-            <div className={`dice-cube ${loading || submitted ? 'rolling' : ''}`} style={{ transform: !loading && !submitted ? 'rotateX(-20deg) rotateY(25deg)' : '' }}>
-              <div className="dice-face front">
-                <div className="dice-dot" style={{ gridColumn: 2, gridRow: 2 }}></div>
-              </div>
-              <div className="dice-face back">
-                <div className="dice-dot" style={{ gridColumn: 1, gridRow: 1 }}></div>
-                <div className="dice-dot" style={{ gridColumn: 3, gridRow: 3 }}></div>
-              </div>
-              <div className="dice-face right">
-                <div className="dice-dot" style={{ gridColumn: 1, gridRow: 1 }}></div>
-                <div className="dice-dot" style={{ gridColumn: 2, gridRow: 2 }}></div>
-                <div className="dice-dot" style={{ gridColumn: 3, gridRow: 3 }}></div>
-              </div>
-              <div className="dice-face left">
-                <div className="dice-dot" style={{ gridColumn: 1, gridRow: 1 }}></div>
-                <div className="dice-dot" style={{ gridColumn: 3, gridRow: 1 }}></div>
-                <div className="dice-dot" style={{ gridColumn: 1, gridRow: 3 }}></div>
-                <div className="dice-dot" style={{ gridColumn: 3, gridRow: 3 }}></div>
-              </div>
-              <div className="dice-face top">
-                <div className="dice-dot" style={{ gridColumn: 1, gridRow: 1 }}></div>
-                <div className="dice-dot" style={{ gridColumn: 3, gridRow: 1 }}></div>
-                <div className="dice-dot" style={{ gridColumn: 2, gridRow: 2 }}></div>
-                <div className="dice-dot" style={{ gridColumn: 1, gridRow: 3 }}></div>
-                <div className="dice-dot" style={{ gridColumn: 3, gridRow: 3 }}></div>
-              </div>
-              <div className="dice-face bottom">
-                <div className="dice-dot" style={{ gridColumn: 1, gridRow: 1 }}></div>
-                <div className="dice-dot" style={{ gridColumn: 3, gridRow: 1 }}></div>
-                <div className="dice-dot" style={{ gridColumn: 1, gridRow: 2 }}></div>
-                <div className="dice-dot" style={{ gridColumn: 3, gridRow: 2 }}></div>
-                <div className="dice-dot" style={{ gridColumn: 1, gridRow: 3 }}></div>
-                <div className="dice-dot" style={{ gridColumn: 3, gridRow: 3 }}></div>
-              </div>
+            <div className={`dice-cube-large ${loading || submitted ? 'rolling' : ''}`} style={{ transform: !loading && !submitted ? 'rotateX(-20deg) rotateY(25deg)' : '' }}>
+              <DiceFacesLarge />
             </div>
           </div>
           

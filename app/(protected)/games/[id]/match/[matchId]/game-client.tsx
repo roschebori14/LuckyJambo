@@ -487,11 +487,14 @@ export default function GameClient({
       // render below) since it can't carry a fixed 2-player rematch
       // request the way this button does.
       const isPool = gameSlug === "eight-ball-pool";
-      const res = await fetch(isPool ? "/api/pool/create" : "/api/matches/create", {
+      const isWordRush = gameSlug === "word-rush";
+      const endpoint = isPool ? "/api/pool/create" : isWordRush ? "/api/word-rush/create" : "/api/matches/create";
+      
+      const res = await fetch(endpoint, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(
-          isPool
+          (isPool || isWordRush)
             ? { stake_amount: stakeAmount, invited_user_id: opponentId ?? undefined }
             : {
                 game_slug: gameSlug,

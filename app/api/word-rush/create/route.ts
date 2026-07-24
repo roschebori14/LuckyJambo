@@ -3,7 +3,10 @@ import { createClient } from "@/lib/supabase/server";
 import { createInitialState } from "@/lib/games/word-rush/engine";
 import { z } from "zod";
 
-const schema = z.object({ stake_amount: z.number().positive() });
+const schema = z.object({
+  stake_amount: z.number().positive(),
+  invited_user_id: z.string().uuid().optional(),
+});
 
 export async function POST(request: Request) {
   try {
@@ -22,6 +25,7 @@ export async function POST(request: Request) {
     const { data: match, error } = await supabase.rpc("create_match", {
       p_game_slug: "word-rush",
       p_stake_amount: validated.stake_amount,
+      p_invited_user_id: validated.invited_user_id ?? null,
     });
 
     if (error) throw error;
