@@ -448,17 +448,60 @@ export default function WordRushBoard({ matchId, userId }: Props) {
       <svg
         ref={wheelRef}
         viewBox={`0 0 ${WHEEL_VIEWBOX} ${WHEEL_VIEWBOX}`}
-        className="w-full max-w-[320px] touch-none select-none"
+        className="w-full max-w-[340px] touch-none select-none"
         onPointerDown={handleWheelPointerDown}
         onPointerMove={handleWheelPointerMove}
         onPointerUp={handleWheelPointerUp}
         onPointerCancel={handleWheelPointerUp}
+        style={{ filter: "drop-shadow(0 10px 30px rgba(0,0,0,0.3))" }}
       >
-        {/* Trail connecting already-selected bubbles, plus one live
-            segment out to the current pointer position while
-            dragging - this is the part that actually reads as
-            "connecting the letters" rather than just highlighting
-            them one at a time. */}
+        <defs>
+          <radialGradient id="boardGlow" cx="50%" cy="50%" r="50%">
+            <stop offset="0%" stopColor="rgba(37, 99, 235, 0.15)" />
+            <stop offset="100%" stopColor="rgba(0, 0, 0, 0)" />
+          </radialGradient>
+          <radialGradient id="bubbleNormal" cx="30%" cy="30%" r="70%">
+            <stop offset="0%" stopColor="#374151" />
+            <stop offset="100%" stopColor="#111827" />
+          </radialGradient>
+          <radialGradient id="bubbleSelected" cx="30%" cy="30%" r="70%">
+            <stop offset="0%" stopColor="#60a5fa" />
+            <stop offset="100%" stopColor="#1d4ed8" />
+          </radialGradient>
+          <filter id="neonGlow">
+            <feGaussianBlur stdDeviation="4" result="coloredBlur"/>
+            <feMerge>
+              <feMergeNode in="coloredBlur"/>
+              <feMergeNode in="SourceGraphic"/>
+            </feMerge>
+          </filter>
+          <filter id="dropShadow" x="-20%" y="-20%" width="140%" height="140%">
+            <feDropShadow dx="0" dy="4" stdDeviation="4" floodOpacity="0.4" />
+          </filter>
+        </defs>
+
+        {/* Background glow and decorative rings */}
+        <circle cx={WHEEL_CENTER} cy={WHEEL_CENTER} r={WHEEL_RADIUS + BUBBLE_R} fill="url(#boardGlow)" />
+        
+        <circle 
+          cx={WHEEL_CENTER} 
+          cy={WHEEL_CENTER} 
+          r={WHEEL_RADIUS + BUBBLE_R + 12} 
+          fill="none" 
+          stroke="url(#bubbleNormal)" 
+          strokeWidth={6} 
+          filter="url(#dropShadow)"
+        />
+        <circle 
+          cx={WHEEL_CENTER} 
+          cy={WHEEL_CENTER} 
+          r={WHEEL_RADIUS + BUBBLE_R + 12} 
+          fill="none" 
+          stroke="rgba(255,255,255,0.05)" 
+          strokeWidth={1} 
+        />
+
+        {/* Trail connecting already-selected bubbles */}
         {(path.length > 0 || livePoint) && (
           <polyline
             points={[
@@ -469,10 +512,12 @@ export default function WordRushBoard({ matchId, userId }: Props) {
               ...(livePoint ? [`${livePoint.x},${livePoint.y}`] : []),
             ].join(" ")}
             fill="none"
-            stroke="rgba(96,165,250,0.85)"
-            strokeWidth={6}
+            stroke="#60a5fa"
+            strokeWidth={10}
             strokeLinecap="round"
             strokeLinejoin="round"
+            filter="url(#neonGlow)"
+            className="opacity-80"
           />
         )}
 
@@ -486,10 +531,11 @@ export default function WordRushBoard({ matchId, userId }: Props) {
                 cx={x}
                 cy={y}
                 r={BUBBLE_R}
-                fill={selected ? "rgba(37,99,235,0.9)" : "rgba(59,130,246,0.15)"}
-                stroke={selected ? "rgba(191,219,254,0.9)" : "rgba(59,130,246,0.35)"}
-                strokeWidth={2}
-                className="transition-all duration-300 ease-out"
+                fill={selected ? "url(#bubbleSelected)" : "url(#bubbleNormal)"}
+                stroke={selected ? "#bfdbfe" : "rgba(255,255,255,0.1)"}
+                strokeWidth={selected ? 2 : 1}
+                filter="url(#dropShadow)"
+                className="transition-all duration-200 ease-out"
               />
               <text
                 x={x}
@@ -497,9 +543,13 @@ export default function WordRushBoard({ matchId, userId }: Props) {
                 textAnchor="middle"
                 dominantBaseline="central"
                 fontSize={20}
-                fontWeight={700}
-                fill={selected ? "#ffffff" : "#bfdbfe"}
-                style={{ textTransform: "uppercase", pointerEvents: "none" }}
+                fontWeight={800}
+                fill={selected ? "#ffffff" : "#d1d5db"}
+                style={{ 
+                  textTransform: "uppercase", 
+                  pointerEvents: "none",
+                  textShadow: "0px 2px 4px rgba(0,0,0,0.6)"
+                }}
               >
                 {letter}
               </text>
@@ -514,9 +564,10 @@ export default function WordRushBoard({ matchId, userId }: Props) {
             y={fp.y}
             textAnchor="middle"
             fill="#4ade80"
-            fontSize={28}
-            fontWeight={800}
-            className="animate-float-up pointer-events-none drop-shadow-md"
+            fontSize={32}
+            fontWeight={900}
+            className="animate-float-up pointer-events-none"
+            style={{ textShadow: "0 0 15px rgba(74, 222, 128, 0.6), 0 4px 6px rgba(0,0,0,0.5)" }}
           >
             +{fp.points}
           </text>
