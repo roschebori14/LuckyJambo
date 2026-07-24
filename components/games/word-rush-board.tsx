@@ -15,10 +15,10 @@ interface Props {
 // pixels, so the SVG scales responsively while every position
 // calculation (bubble centers, pointer hit-testing) stays in one
 // consistent unit system regardless of the rendered size on screen.
-const WHEEL_VIEWBOX = 300;
-const WHEEL_CENTER = 150;
-const WHEEL_RADIUS = 112;
-const BUBBLE_R = 26;
+const WHEEL_VIEWBOX = 330;
+const WHEEL_CENTER = 165;
+const WHEEL_RADIUS = 130;
+const BUBBLE_R = 23;
 
 export default function WordRushBoard({ matchId, userId }: Props) {
   const { play } = useSound();
@@ -462,7 +462,7 @@ export default function WordRushBoard({ matchId, userId }: Props) {
                 y={y}
                 textAnchor="middle"
                 dominantBaseline="central"
-                fontSize={22}
+                fontSize={20}
                 fontWeight={700}
                 fill={selected ? "#ffffff" : "#bfdbfe"}
                 style={{ textTransform: "uppercase", pointerEvents: "none" }}
