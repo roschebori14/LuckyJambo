@@ -269,6 +269,31 @@ export default function WordRushBoard({ matchId, userId }: Props) {
 
   if (!state) return <p className="text-center text-[var(--lj-muted)]">Failed to load game state.</p>;
 
+  // Defensive: this should be structurally impossible after
+  // 068_fix_word_rush_join_race.sql (join_match now refuses to
+  // activate a word-rush match before its letters are seeded), but if
+  // it ever happens anyway - a still-undiscovered edge case, a match
+  // created before that fix, direct DB tampering - showing nothing
+  // is the worst possible failure mode: a silent blank box with no
+  // way to tell "broken" from "still loading". Surface it plainly
+  // instead of letting the wheel render zero bubbles.
+  if (!state.game_over && state.round_started_at && state.letters.length === 0) {
+    return (
+      <div className="flex flex-col items-center gap-3 rounded-xl border border-red-500/30 bg-red-500/10 p-6 text-center">
+        <p className="text-sm font-semibold text-red-300">
+          This match's letters didn't load correctly.
+        </p>
+        <p className="text-xs text-[var(--lj-muted)]">
+          This is a server-side issue, not something wrong with your
+          connection - refreshing won't fix it. Please forfeit this
+          match and start a new one; your stake will be handled
+          according to the forfeit rules.
+        </p>
+      </div>
+    );
+  }
+
+
   const statusText = state.game_over
     ? state.winner === null
       ? "🤝 It's a draw."
