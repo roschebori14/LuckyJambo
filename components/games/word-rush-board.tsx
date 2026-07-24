@@ -45,6 +45,26 @@ export default function WordRushBoard({ matchId, userId }: Props) {
   const [livePoint, setLivePoint] = useState<{ x: number; y: number } | null>(null);
   const wheelRef = useRef<SVGSVGElement>(null);
 
+  const [shuffleOrder, setShuffleOrder] = useState<number[]>([]);
+  const [floatingPoints, setFloatingPoints] = useState<{ id: number; points: number; x: number; y: number }[]>([]);
+
+  useEffect(() => {
+    if (state && shuffleOrder.length === 0 && state.letters.length > 0) {
+      setShuffleOrder(state.letters.map((_, i) => i));
+    }
+  }, [state, shuffleOrder.length]);
+
+  function handleShuffle() {
+    setShuffleOrder((prev) => {
+      const next = [...prev];
+      for (let i = next.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [next[i], next[j]] = [next[j], next[i]];
+      }
+      return next;
+    });
+  }
+
   const fetchState = useCallback(async () => {
     const res = await fetch(`/api/word-rush/state?match_id=${matchId}`);
     const json = await res.json();
@@ -143,6 +163,15 @@ export default function WordRushBoard({ matchId, userId }: Props) {
         if (json.word_accepted) {
           play("move");
           setInput("");
+          const pointsEarned = scoreLabel(word);
+          setFloatingPoints((prev) => [
+            ...prev,
+            { id: Date.now(), points: pointsEarned, x: WHEEL_CENTER, y: WHEEL_CENTER - 40 },
+          ]);
+          // clean up animation element after it completes
+          setTimeout(() => {
+            setFloatingPoints((prev) => prev.filter((fp) => Date.now() - fp.id < 900));
+          }, 1000);
         } else {
           setRejection(json.reason ?? "That word wasn't accepted");
           // Not clearing the input - a near-miss (typo, wrong letter)
@@ -299,6 +328,13 @@ export default function WordRushBoard({ matchId, userId }: Props) {
     ? "Round in progress - find every word you can!"
     : "Waiting for the round to start…";
 
+  function getLongestWord(words: string[]) {
+    return words.reduce((longest, current) => (current.length > longest.length ? current : longest), "");
+  }
+
+  const myLongest = getLongestWord(myFoundWords || []);
+  const oppLongest = getLongestWord(mySeat === "A" ? state.b_found_words : state.a_found_words);
+
   const remainingSeconds =
     remainingMs !== null ? Math.ceil(remainingMs / 1000) : null;
   const totalSeconds = state.round_seconds;
@@ -307,7 +343,15 @@ export default function WordRushBoard({ matchId, userId }: Props) {
   const timerUrgent = remainingSeconds !== null && remainingSeconds <= 10;
 
   return (
-    <div className="flex flex-col items-center gap-4 w-full">
+    <div className={`flex flex-col items-center gap-4 w-full p-2 transition-all duration-1000 ${timerUrgent ? "shadow-[inset_0_0_60px_rgba(239,68,68,0.15)] rounded-3xl" : ""}`}>
+      <style>{`
+        @keyframes floatUpAndFade {
+          0% { transform: translateY(0) scale(1); opacity: 1; }
+          100% { transform: translateY(-40px) scale(1.4); opacity: 0; }
+        }
+        .animate-float-up { animation: floatUpAndFade 1s ease-out forwards; }
+      `}</style>
+      
       {/* Status */}
       <div
         className={`w-full rounded-xl px-4 py-3 text-center text-sm font-semibold ${
@@ -317,10 +361,18 @@ export default function WordRushBoard({ matchId, userId }: Props) {
               : won
               ? "bg-green-500/10 text-green-300"
               : "bg-red-500/10 text-red-300"
+            : timerUrgent
+            ? "bg-red-500/20 text-red-300 animate-pulse"
             : "bg-blue-500/10 text-blue-300"
         }`}
       >
-        {statusText}
+        <div>{statusText}</div>
+        {state.game_over && (
+          <div className="mt-3 flex justify-center gap-6 text-xs border-t border-white/10 pt-2">
+             <div className="text-blue-300">Your longest: <span className="font-bold text-white">{myLongest || "None"}</span></div>
+             <div className="text-red-300">Opponent's longest: <span className="font-bold text-white">{oppLongest || "None"}</span></div>
+          </div>
+        )}
       </div>
 
       {/* Shared round countdown - identical for both players since
@@ -390,11 +442,12 @@ export default function WordRushBoard({ matchId, userId }: Props) {
           />
         )}
 
-        {state.letters.map((letter, i) => {
-          const { x, y } = bubbleCenter(i);
-          const selected = path.includes(i);
+        {shuffleOrder.map((letterIdx, positionIdx) => {
+          const { x, y } = bubbleCenter(positionIdx);
+          const letter = state.letters[letterIdx];
+          const selected = path.includes(letterIdx);
           return (
-            <g key={i} data-letter-index={i}>
+            <g key={letterIdx} data-letter-index={letterIdx}>
               <circle
                 cx={x}
                 cy={y}
@@ -402,6 +455,7 @@ export default function WordRushBoard({ matchId, userId }: Props) {
                 fill={selected ? "rgba(37,99,235,0.9)" : "rgba(59,130,246,0.15)"}
                 stroke={selected ? "rgba(191,219,254,0.9)" : "rgba(59,130,246,0.35)"}
                 strokeWidth={2}
+                className="transition-all duration-300 ease-out"
               />
               <text
                 x={x}
@@ -418,7 +472,38 @@ export default function WordRushBoard({ matchId, userId }: Props) {
             </g>
           );
         })}
+
+        {floatingPoints.map((fp) => (
+          <text
+            key={fp.id}
+            x={fp.x}
+            y={fp.y}
+            textAnchor="middle"
+            fill="#4ade80"
+            fontSize={28}
+            fontWeight={800}
+            className="animate-float-up pointer-events-none drop-shadow-md"
+          >
+            +{fp.points}
+          </text>
+        ))}
       </svg>
+
+      {!state.game_over && (
+        <button
+          onClick={handleShuffle}
+          className="flex items-center gap-2 rounded-full bg-white/10 px-4 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-white/20 active:scale-95"
+        >
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <polyline points="16 3 21 3 21 8"></polyline>
+            <line x1="4" y1="20" x2="21" y2="3"></line>
+            <polyline points="21 16 21 21 16 21"></polyline>
+            <line x1="15" y1="15" x2="21" y2="21"></line>
+            <line x1="4" y1="4" x2="9" y2="9"></line>
+          </svg>
+          Shuffle Letters
+        </button>
+      )}
 
       {!state.game_over && dragging && path.length > 0 && (
         <p className="text-center text-sm font-bold uppercase tracking-wide text-blue-200">
