@@ -11,12 +11,22 @@ interface Props {
   userId: string;
 }
 
+// Shared coordinate space for the letter wheel - viewBox units, not
+// pixels, so the SVG scales responsively while every position
+// calculation (bubble centers, pointer hit-testing) stays in one
+// consistent unit system regardless of the rendered size on screen.
+const WHEEL_VIEWBOX = 300;
+const WHEEL_CENTER = 150;
+const WHEEL_RADIUS = 112;
+const BUBBLE_R = 26;
+
 export default function WordRushBoard({ matchId, userId }: Props) {
   const { play } = useSound();
   const [state, setState] = useState<WordRushState | null>(null);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [input, setInput] = useState("");
+  const [showManualEntry, setShowManualEntry] = useState(false);
   const [rejection, setRejection] = useState("");
   const [remainingMs, setRemainingMs] = useState<number | null>(null);
   const foundEndRef = useRef<HTMLDivElement>(null);
@@ -24,6 +34,19 @@ export default function WordRushBoard({ matchId, userId }: Props) {
   // clock hits zero - only report once per round, same idea as
   // word-chain-board's reportedTimeoutFor.
   const reportedEndFor = useRef<string | null>(null);
+
+  // Letter-wheel drag state. `path` holds letter-array indices (not
+  // letters themselves) in selection order, since the same letter can
+  // appear as multiple separate bubbles and each needs to be
+  // selectable independently. The engine's canFormFromLetters is a
+  // plain multiset check with no adjacency requirement, so unlike a
+  // true Boggle/Word Hunt board there's no "must be a neighboring
+  // bubble" constraint to enforce here - any bubble can follow any
+  // other, which keeps the hit-testing simple.
+  const [path, setPath] = useState<number[]>([]);
+  const [dragging, setDragging] = useState(false);
+  const [livePoint, setLivePoint] = useState<{ x: number; y: number } | null>(null);
+  const wheelRef = useRef<SVGSVGElement>(null);
 
   const fetchState = useCallback(async () => {
     const res = await fetch(`/api/word-rush/state?match_id=${matchId}`);
@@ -106,10 +129,9 @@ export default function WordRushBoard({ matchId, userId }: Props) {
       : null,
   );
 
-  async function submitWord(e: React.FormEvent) {
-    e.preventDefault();
+  async function submitWordValue(rawWord: string) {
     if (!state || state.game_over || submitting) return;
-    const word = input.trim();
+    const word = rawWord.trim();
     if (!word) return;
 
     setSubmitting(true);
@@ -139,6 +161,102 @@ export default function WordRushBoard({ matchId, userId }: Props) {
     } finally {
       setSubmitting(false);
     }
+  }
+
+  function handleManualSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    void submitWordValue(input);
+  }
+
+  // ---------------------------------------------------------------
+  // Letter wheel drag handling. All of down/move/up are handled on
+  // the SVG root via pointer capture, rather than per-bubble handlers,
+  // so a drag that briefly leaves a bubble's exact hitbox (very easy
+  // to do on a small phone screen) doesn't drop the gesture - capture
+  // keeps every subsequent event routed here regardless of where the
+  // pointer physically is.
+  // ---------------------------------------------------------------
+
+  function letterCount() {
+    return state?.letters.length ?? 0;
+  }
+
+  function bubbleCenter(index: number) {
+    const total = Math.max(letterCount(), 1);
+    const angle = (index / total) * Math.PI * 2 - Math.PI / 2;
+    return {
+      x: WHEEL_CENTER + WHEEL_RADIUS * Math.cos(angle),
+      y: WHEEL_CENTER + WHEEL_RADIUS * Math.sin(angle),
+    };
+  }
+
+  // Converts a client-coordinate pointer event into the wheel SVG's
+  // own 0-300 viewBox space, so the trailing line lines up with the
+  // bubbles regardless of how much the SVG has been scaled down by
+  // its responsive container.
+  function toViewBoxPoint(clientX: number, clientY: number) {
+    const svg = wheelRef.current;
+    if (!svg) return null;
+    const rect = svg.getBoundingClientRect();
+    if (rect.width === 0 || rect.height === 0) return null;
+    return {
+      x: ((clientX - rect.left) / rect.width) * WHEEL_VIEWBOX,
+      y: ((clientY - rect.top) / rect.height) * WHEEL_VIEWBOX,
+    };
+  }
+
+  function indexAtPoint(clientX: number, clientY: number): number | null {
+    const el = document.elementFromPoint(clientX, clientY);
+    const bubble = el?.closest("[data-letter-index]");
+    if (!bubble) return null;
+    const idx = Number(bubble.getAttribute("data-letter-index"));
+    return Number.isNaN(idx) ? null : idx;
+  }
+
+  function handleWheelPointerDown(e: React.PointerEvent<SVGSVGElement>) {
+    if (!state || state.game_over || submitting || !state.round_started_at) return;
+    const idx = indexAtPoint(e.clientX, e.clientY);
+    if (idx === null) return;
+    e.currentTarget.setPointerCapture(e.pointerId);
+    setDragging(true);
+    setPath([idx]);
+    setRejection("");
+    const point = toViewBoxPoint(e.clientX, e.clientY);
+    if (point) setLivePoint(point);
+  }
+
+  function handleWheelPointerMove(e: React.PointerEvent<SVGSVGElement>) {
+    if (!dragging) return;
+    const point = toViewBoxPoint(e.clientX, e.clientY);
+    if (point) setLivePoint(point);
+
+    const idx = indexAtPoint(e.clientX, e.clientY);
+    if (idx === null) return;
+
+    setPath((prev) => {
+      if (prev.length === 0) return [idx];
+      const last = prev[prev.length - 1];
+      if (idx === last) return prev;
+      // Dragging back over the previous bubble backtracks by one,
+      // the standard connect-the-letters convention for correcting a
+      // slip without having to release and restart.
+      if (prev.length >= 2 && idx === prev[prev.length - 2]) {
+        return prev.slice(0, -1);
+      }
+      if (prev.includes(idx)) return prev;
+      return [...prev, idx];
+    });
+  }
+
+  function handleWheelPointerUp() {
+    if (!dragging) return;
+    setDragging(false);
+    setLivePoint(null);
+    if (state && path.length > 0) {
+      const word = path.map((i) => state.letters[i]).join("");
+      void submitWordValue(word);
+    }
+    setPath([]);
   }
 
   if (loading) {
@@ -216,24 +334,94 @@ export default function WordRushBoard({ matchId, userId }: Props) {
         <ScoreBadge label="Opponent" score={opponentScore ?? 0} align="right" />
       </div>
 
-      {/* Scramble */}
-      <div className="grid w-full grid-cols-7 gap-2 rounded-xl border border-[var(--lj-border)] bg-white/5 p-3">
-        {state.letters.map((letter, i) => (
-          <div
-            key={i}
-            className="flex aspect-square items-center justify-center rounded-lg bg-blue-500/15 text-lg font-bold uppercase text-blue-200"
-          >
-            {letter}
-          </div>
-        ))}
-      </div>
+      {/* Letter wheel - drag/swipe across bubbles to spell a word,
+          release to submit. Any bubble can follow any other (the
+          engine has no spatial-adjacency rule, just "can these
+          letters spell this word"), so this is closer to a
+          connect-the-dots gesture than a true Boggle-style board. */}
+      <svg
+        ref={wheelRef}
+        viewBox={`0 0 ${WHEEL_VIEWBOX} ${WHEEL_VIEWBOX}`}
+        className="w-full max-w-[320px] touch-none select-none"
+        onPointerDown={handleWheelPointerDown}
+        onPointerMove={handleWheelPointerMove}
+        onPointerUp={handleWheelPointerUp}
+        onPointerCancel={handleWheelPointerUp}
+      >
+        {/* Trail connecting already-selected bubbles, plus one live
+            segment out to the current pointer position while
+            dragging - this is the part that actually reads as
+            "connecting the letters" rather than just highlighting
+            them one at a time. */}
+        {(path.length > 0 || livePoint) && (
+          <polyline
+            points={[
+              ...path.map((i) => {
+                const c = bubbleCenter(i);
+                return `${c.x},${c.y}`;
+              }),
+              ...(livePoint ? [`${livePoint.x},${livePoint.y}`] : []),
+            ].join(" ")}
+            fill="none"
+            stroke="rgba(96,165,250,0.85)"
+            strokeWidth={6}
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+        )}
+
+        {state.letters.map((letter, i) => {
+          const { x, y } = bubbleCenter(i);
+          const selected = path.includes(i);
+          return (
+            <g key={i} data-letter-index={i}>
+              <circle
+                cx={x}
+                cy={y}
+                r={BUBBLE_R}
+                fill={selected ? "rgba(37,99,235,0.9)" : "rgba(59,130,246,0.15)"}
+                stroke={selected ? "rgba(191,219,254,0.9)" : "rgba(59,130,246,0.35)"}
+                strokeWidth={2}
+              />
+              <text
+                x={x}
+                y={y}
+                textAnchor="middle"
+                dominantBaseline="central"
+                fontSize={22}
+                fontWeight={700}
+                fill={selected ? "#ffffff" : "#bfdbfe"}
+                style={{ textTransform: "uppercase", pointerEvents: "none" }}
+              >
+                {letter}
+              </text>
+            </g>
+          );
+        })}
+      </svg>
+
+      {!state.game_over && dragging && path.length > 0 && (
+        <p className="text-center text-sm font-bold uppercase tracking-wide text-blue-200">
+          {path.map((i) => state.letters[i]).join("")}
+        </p>
+      )}
 
       {rejection && (
         <p className="w-full text-center text-xs text-red-400">{rejection}</p>
       )}
 
       {!state.game_over && (
-        <form onSubmit={submitWord} className="flex w-full items-center gap-2">
+        <button
+          type="button"
+          onClick={() => setShowManualEntry((v) => !v)}
+          className="text-xs font-medium text-[var(--lj-muted)] underline underline-offset-2"
+        >
+          {showManualEntry ? "Hide keyboard entry" : "Prefer typing? Enter a word instead"}
+        </button>
+      )}
+
+      {!state.game_over && showManualEntry && (
+        <form onSubmit={handleManualSubmit} className="flex w-full items-center gap-2">
           <input
             type="text"
             value={input}
