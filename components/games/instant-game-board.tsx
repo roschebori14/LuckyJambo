@@ -320,3 +320,97 @@ export default function InstantGameBoard({ matchId, gameType }: Props) {
     </div>
   );
 }
+
+// Determine the rotation to show a specific face
+// 1=front, 2=back, 3=right, 4=left, 5=top, 6=bottom
+function getDiceTransform(roll: number) {
+  switch(roll) {
+    case 1: return "rotateX(0deg) rotateY(0deg)";
+    case 2: return "rotateX(0deg) rotateY(180deg)";
+    case 3: return "rotateX(0deg) rotateY(-90deg)";
+    case 4: return "rotateX(0deg) rotateY(90deg)";
+    case 5: return "rotateX(-90deg) rotateY(0deg)";
+    case 6: return "rotateX(90deg) rotateY(0deg)";
+    default: return "rotateX(0deg) rotateY(0deg)";
+  }
+}
+
+function DiceFaces() {
+  return (
+    <>
+      <div className="dice-face front">
+        <div className="dice-dot" style={{ gridColumn: 2, gridRow: 2 }}></div>
+      </div>
+      <div className="dice-face back">
+        <div className="dice-dot" style={{ gridColumn: 1, gridRow: 1 }}></div>
+        <div className="dice-dot" style={{ gridColumn: 3, gridRow: 3 }}></div>
+      </div>
+      <div className="dice-face right">
+        <div className="dice-dot" style={{ gridColumn: 1, gridRow: 1 }}></div>
+        <div className="dice-dot" style={{ gridColumn: 2, gridRow: 2 }}></div>
+        <div className="dice-dot" style={{ gridColumn: 3, gridRow: 3 }}></div>
+      </div>
+      <div className="dice-face left">
+        <div className="dice-dot" style={{ gridColumn: 1, gridRow: 1 }}></div>
+        <div className="dice-dot" style={{ gridColumn: 3, gridRow: 1 }}></div>
+        <div className="dice-dot" style={{ gridColumn: 1, gridRow: 3 }}></div>
+        <div className="dice-dot" style={{ gridColumn: 3, gridRow: 3 }}></div>
+      </div>
+      <div className="dice-face top">
+        <div className="dice-dot" style={{ gridColumn: 1, gridRow: 1 }}></div>
+        <div className="dice-dot" style={{ gridColumn: 3, gridRow: 1 }}></div>
+        <div className="dice-dot" style={{ gridColumn: 2, gridRow: 2 }}></div>
+        <div className="dice-dot" style={{ gridColumn: 1, gridRow: 3 }}></div>
+        <div className="dice-dot" style={{ gridColumn: 3, gridRow: 3 }}></div>
+      </div>
+      <div className="dice-face bottom">
+        <div className="dice-dot" style={{ gridColumn: 1, gridRow: 1 }}></div>
+        <div className="dice-dot" style={{ gridColumn: 3, gridRow: 1 }}></div>
+        <div className="dice-dot" style={{ gridColumn: 1, gridRow: 2 }}></div>
+        <div className="dice-dot" style={{ gridColumn: 3, gridRow: 2 }}></div>
+        <div className="dice-dot" style={{ gridColumn: 1, gridRow: 3 }}></div>
+        <div className="dice-dot" style={{ gridColumn: 3, gridRow: 3 }}></div>
+      </div>
+    </>
+  );
+}
+
+function DiceFacesLarge() {
+  return (
+    <>
+      <div className="dice-face-large front-large">
+        <div className="dice-dot-large" style={{ gridColumn: 2, gridRow: 2 }}></div>
+      </div>
+      <div className="dice-face-large back-large">
+        <div className="dice-dot-large" style={{ gridColumn: 1, gridRow: 1 }}></div>
+        <div className="dice-dot-large" style={{ gridColumn: 3, gridRow: 3 }}></div>
+      </div>
+      <div className="dice-face-large right-large">
+        <div className="dice-dot-large" style={{ gridColumn: 1, gridRow: 1 }}></div>
+        <div className="dice-dot-large" style={{ gridColumn: 2, gridRow: 2 }}></div>
+        <div className="dice-dot-large" style={{ gridColumn: 3, gridRow: 3 }}></div>
+      </div>
+      <div className="dice-face-large left-large">
+        <div className="dice-dot-large" style={{ gridColumn: 1, gridRow: 1 }}></div>
+        <div className="dice-dot-large" style={{ gridColumn: 3, gridRow: 1 }}></div>
+        <div className="dice-dot-large" style={{ gridColumn: 1, gridRow: 3 }}></div>
+        <div className="dice-dot-large" style={{ gridColumn: 3, gridRow: 3 }}></div>
+      </div>
+      <div className="dice-face-large top-large">
+        <div className="dice-dot-large" style={{ gridColumn: 1, gridRow: 1 }}></div>
+        <div className="dice-dot-large" style={{ gridColumn: 3, gridRow: 1 }}></div>
+        <div className="dice-dot-large" style={{ gridColumn: 2, gridRow: 2 }}></div>
+        <div className="dice-dot-large" style={{ gridColumn: 1, gridRow: 3 }}></div>
+        <div className="dice-dot-large" style={{ gridColumn: 3, gridRow: 3 }}></div>
+      </div>
+      <div className="dice-face-large bottom-large">
+        <div className="dice-dot-large" style={{ gridColumn: 1, gridRow: 1 }}></div>
+        <div className="dice-dot-large" style={{ gridColumn: 3, gridRow: 1 }}></div>
+        <div className="dice-dot-large" style={{ gridColumn: 1, gridRow: 2 }}></div>
+        <div className="dice-dot-large" style={{ gridColumn: 3, gridRow: 2 }}></div>
+        <div className="dice-dot-large" style={{ gridColumn: 1, gridRow: 3 }}></div>
+        <div className="dice-dot-large" style={{ gridColumn: 3, gridRow: 3 }}></div>
+      </div>
+    </>
+  );
+}
