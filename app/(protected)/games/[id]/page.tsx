@@ -99,16 +99,26 @@ export default function GameLobbyPage({
       // game still goes through the shared, slug-agnostic endpoint.
       const isLudo = slug === "ludo";
       const isPool = slug === "eight-ball-pool";
-      const res = await fetch(isLudo ? "/api/ludo/create" : isPool ? "/api/pool/create" : "/api/matches/create", {
+      const isWordRush = slug === "word-rush";
+      
+      const endpoint = isLudo 
+        ? "/api/ludo/create" 
+        : isPool 
+          ? "/api/pool/create" 
+          : isWordRush
+            ? "/api/word-rush/create"
+            : "/api/matches/create";
+
+      const bodyData = isLudo
+        ? { stake_amount: stake, max_players: maxPlayers }
+        : (isPool || isWordRush)
+          ? { stake_amount: stake }
+          : { game_slug: slug, stake_amount: stake };
+
+      const res = await fetch(endpoint, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(
-          isLudo
-            ? { stake_amount: stake, max_players: maxPlayers }
-            : isPool
-              ? { stake_amount: stake }
-              : { game_slug: slug, stake_amount: stake },
-        ),
+        body: JSON.stringify(bodyData),
       });
       const json = await res.json();
       if (json.success) {
