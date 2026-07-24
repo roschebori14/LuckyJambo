@@ -227,19 +227,25 @@ export default function WordRushBoard({ matchId, userId }: Props) {
     return state?.letters?.length ?? 0;
   }
 
-  function bubbleCenter(index: number) {
+  function bubbleCenterAtWheelPosition(positionIdx: number) {
     const total = Math.max(letterCount(), 1);
-    const angle = (index / total) * Math.PI * 2 - Math.PI / 2;
+    const angle = (positionIdx / total) * Math.PI * 2 - Math.PI / 2;
     return {
       x: WHEEL_CENTER + WHEEL_RADIUS * Math.cos(angle),
       y: WHEEL_CENTER + WHEEL_RADIUS * Math.sin(angle),
     };
   }
 
+  // Map a letter-array index to its current on-screen wheel slot
+  // (shuffleOrder can permute visual positions independently of indices).
+  function bubbleCenterForLetter(letterIdx: number) {
+    const positionIdx = shuffleOrder.indexOf(letterIdx);
+    return bubbleCenterAtWheelPosition(positionIdx >= 0 ? positionIdx : letterIdx);
+  }
+
   // Converts a client-coordinate pointer event into the wheel SVG's
-  // own 0-300 viewBox space, so the trailing line lines up with the
-  // bubbles regardless of how much the SVG has been scaled down by
-  // its responsive container.
+  // viewBox space so the trailing line lines up with the bubbles
+  // regardless of responsive scaling.
   function toViewBoxPoint(clientX: number, clientY: number) {
     const svg = wheelRef.current;
     if (!svg) return null;
@@ -251,12 +257,31 @@ export default function WordRushBoard({ matchId, userId }: Props) {
     };
   }
 
+  // Geometric hit-test in viewBox space. elementFromPoint breaks once
+  // pointer capture is on the SVG root, and path/polyline drawing must
+  // use wheel positions rather than raw letter indices.
   function indexAtPoint(clientX: number, clientY: number): number | null {
-    const el = document.elementFromPoint(clientX, clientY);
-    const bubble = el?.closest("[data-letter-index]");
-    if (!bubble) return null;
-    const idx = Number(bubble.getAttribute("data-letter-index"));
-    return Number.isNaN(idx) ? null : idx;
+    const point = toViewBoxPoint(clientX, clientY);
+    if (!point) return null;
+
+    const hitRadius = BUBBLE_R + 8;
+    const hitRadiusSq = hitRadius * hitRadius;
+    let bestIdx: number | null = null;
+    let bestDistSq = hitRadiusSq;
+
+    for (let positionIdx = 0; positionIdx < shuffleOrder.length; positionIdx++) {
+      const letterIdx = shuffleOrder[positionIdx];
+      const c = bubbleCenterAtWheelPosition(positionIdx);
+      const dx = point.x - c.x;
+      const dy = point.y - c.y;
+      const distSq = dx * dx + dy * dy;
+      if (distSq <= bestDistSq) {
+        bestDistSq = distSq;
+        bestIdx = letterIdx;
+      }
+    }
+
+    return bestIdx;
   }
 
   function handleWheelPointerDown(e: React.PointerEvent<SVGSVGElement>) {
@@ -511,8 +536,8 @@ export default function WordRushBoard({ matchId, userId }: Props) {
         {(path.length > 0 || livePoint) && (
           <polyline
             points={[
-              ...path.map((i) => {
-                const c = bubbleCenter(i);
+              ...path.map((letterIdx) => {
+                const c = bubbleCenterForLetter(letterIdx);
                 return `${c.x},${c.y}`;
               }),
               ...(livePoint ? [`${livePoint.x},${livePoint.y}`] : []),
@@ -528,7 +553,7 @@ export default function WordRushBoard({ matchId, userId }: Props) {
         )}
 
         {shuffleOrder.map((letterIdx, positionIdx) => {
-          const { x, y } = bubbleCenter(positionIdx);
+          const { x, y } = bubbleCenterAtWheelPosition(positionIdx);
           const letter = state.letters?.[letterIdx] || "";
           const selected = path.includes(letterIdx);
           return (
