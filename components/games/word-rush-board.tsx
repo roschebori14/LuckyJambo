@@ -161,9 +161,15 @@ export default function WordRushBoard({ matchId, userId }: Props) {
       if (json.success) {
         setState(json.state);
         if (json.word_accepted) {
-          play("move");
-          setInput("");
           const pointsEarned = scoreLabel(word);
+          if (pointsEarned >= 800) {
+            play("match-win");
+            if (typeof navigator !== "undefined" && navigator.vibrate) navigator.vibrate([50, 50, 50, 50, 100]);
+          } else {
+            play("move");
+            if (typeof navigator !== "undefined" && navigator.vibrate) navigator.vibrate([30, 50, 30]);
+          }
+          setInput("");
           setFloatingPoints((prev) => [
             ...prev,
             { id: Date.now(), points: pointsEarned, x: WHEEL_CENTER, y: WHEEL_CENTER - 40 },
@@ -173,6 +179,8 @@ export default function WordRushBoard({ matchId, userId }: Props) {
             setFloatingPoints((prev) => prev.filter((fp) => Date.now() - fp.id < 900));
           }, 1000);
         } else {
+          play("word-rejected");
+          if (typeof navigator !== "undefined" && navigator.vibrate) navigator.vibrate([20, 40, 20]);
           setRejection(json.reason ?? "That word wasn't accepted");
           // Not clearing the input - a near-miss (typo, wrong letter)
           // is worth letting them edit rather than retype, and a miss
@@ -265,9 +273,11 @@ export default function WordRushBoard({ matchId, userId }: Props) {
       // the standard connect-the-letters convention for correcting a
       // slip without having to release and restart.
       if (prev.length >= 2 && idx === prev[prev.length - 2]) {
+        if (typeof navigator !== "undefined" && navigator.vibrate) navigator.vibrate(10);
         return prev.slice(0, -1);
       }
       if (prev.includes(idx)) return prev;
+      if (typeof navigator !== "undefined" && navigator.vibrate) navigator.vibrate(15);
       return [...prev, idx];
     });
   }
@@ -337,6 +347,13 @@ export default function WordRushBoard({ matchId, userId }: Props) {
 
   const remainingSeconds =
     remainingMs !== null ? Math.ceil(remainingMs / 1000) : null;
+
+  useEffect(() => {
+    if (remainingSeconds !== null && remainingSeconds <= 10 && remainingSeconds > 0 && !state?.game_over) {
+      play("button-tap");
+    }
+  }, [remainingSeconds, state?.game_over, play]);
+
   const totalSeconds = state.round_seconds;
   const timerFraction =
     remainingMs !== null ? Math.max(0, remainingMs / (totalSeconds * 1000)) : 1;
@@ -398,12 +415,29 @@ export default function WordRushBoard({ matchId, userId }: Props) {
         </div>
       )}
 
-      {/* Scores - both visible live, but only your own found-words
-          list is ever shown (see below) so you can't see what the
-          opponent has already claimed. */}
-      <div className="flex w-full items-center justify-between text-xs">
-        <ScoreBadge label="You" score={myScore ?? 0} />
-        <ScoreBadge label="Opponent" score={opponentScore ?? 0} align="right" />
+      {/* Tug-of-War Score Bar */}
+      <div className="w-full flex flex-col gap-1.5 mt-2">
+        <div className="flex w-full items-end justify-between text-xs px-1">
+          <div className="flex flex-col items-start">
+            <span className="font-semibold text-blue-300">You</span>
+            <span className="text-xl font-bold tabular-nums text-white leading-none">{myScore ?? 0}</span>
+          </div>
+          <div className="flex flex-col items-end">
+            <span className="font-semibold text-red-300">Opponent</span>
+            <span className="text-xl font-bold tabular-nums text-white leading-none">{opponentScore ?? 0}</span>
+          </div>
+        </div>
+        <div className="h-3 w-full overflow-hidden rounded-full bg-white/5 flex border border-white/10 relative">
+          <div 
+            className="h-full bg-gradient-to-r from-blue-600 to-blue-400 transition-all duration-700 ease-out" 
+            style={{ width: `${(myScore ?? 0) + (opponentScore ?? 0) === 0 ? 50 : ((myScore ?? 0) / ((myScore ?? 0) + (opponentScore ?? 0))) * 100}%` }} 
+          />
+          <div 
+            className="h-full bg-gradient-to-l from-red-600 to-red-400 transition-all duration-700 ease-out" 
+            style={{ width: `${(myScore ?? 0) + (opponentScore ?? 0) === 0 ? 50 : ((opponentScore ?? 0) / ((myScore ?? 0) + (opponentScore ?? 0))) * 100}%` }} 
+          />
+          <div className="absolute left-1/2 top-0 h-full w-[2px] bg-white/20 -translate-x-1/2"></div>
+        </div>
       </div>
 
       {/* Letter wheel - drag/swipe across bubbles to spell a word,
