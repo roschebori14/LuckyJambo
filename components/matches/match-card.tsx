@@ -7,6 +7,7 @@ import { Eye, PlayCircle, Coins, Users, Zap } from "lucide-react";
 import { GameIcon } from "@/components/games/game-icons";
 import { getGameMeta } from "@/components/games/game-meta";
 import { timeAgo } from "@/lib/utils/time-ago";
+import { joinMatchRequest } from "@/lib/matchmaking/join-match";
 
 interface MatchCardProps {
   id: string;
@@ -61,12 +62,7 @@ export default function MatchCard({
     setError("");
     try {
       const endpoint = gameSlug === "ludo" ? "/api/ludo/join" : "/api/matches/join";
-      const res = await fetch(endpoint, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ match_id: id }),
-      });
-      const json = await res.json();
+      const json = await joinMatchRequest(endpoint, id);
       if (!json.success) {
         setError(json.message ?? "Could not join match");
         return;

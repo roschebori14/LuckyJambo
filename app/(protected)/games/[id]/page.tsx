@@ -5,6 +5,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { Gamepad2 } from "lucide-react";
 import { useMatchesLobbyRealtime } from "@/hooks/use-matches-lobby-realtime";
+import { joinMatchRequest } from "@/lib/matchmaking/join-match";
 
 interface Match {
   id: string;
@@ -143,12 +144,10 @@ export default function GameLobbyPage({
       // since a 3-4 player Ludo match can still be waiting on more
       // seats after this join.
       const isLudo = slug === "ludo";
-      const res = await fetch(isLudo ? "/api/ludo/join" : "/api/matches/join", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ match_id: matchId }),
-      });
-      const json = await res.json();
+      const json = await joinMatchRequest(
+        isLudo ? "/api/ludo/join" : "/api/matches/join",
+        matchId,
+      );
       if (json.success) {
         window.location.href = `/games/${slug}/match/${matchId}`;
       } else {

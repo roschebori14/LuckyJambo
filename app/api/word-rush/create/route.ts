@@ -22,32 +22,19 @@ export async function POST(request: Request) {
     const body = await request.json();
     const validated = schema.parse(body);
 
-    const { data: match, error } = await supabase.rpc("create_match", {
-      p_game_slug: "word-rush",
+    // create_word_rush_match (073_word_rush_join_fix.sql) runs
+    // create_match + letter seed in one transaction so the match is
+    // never joinable with an empty letters[] placeholder (the race
+    // 068 guarded against, caused by the old two-step create flow).
+    const initialState = createInitialState(user.id);
+
+    const { data: match, error } = await supabase.rpc("create_word_rush_match", {
       p_stake_amount: validated.stake_amount,
+      p_state: initialState,
       p_invited_user_id: validated.invited_user_id ?? null,
     });
 
     if (error) throw error;
-
-    // create_match seeds a placeholder game_state (empty letters) -
-    // the actual random scramble is only ever decided here, once, in
-    // TS (see lib/games/word-rush/engine.ts's generateScramble). This
-    // used to be persisted with a raw
-    // `supabase.from("matches").update(...)` from the player's own
-    // session, which silently wrote 0 rows (no RLS UPDATE policy on
-    // `matches` - see migration 067_word_rush_fixes.sql for the full
-    // story, same gap 065 already hit for eight-ball-pool's rack).
-    // seed_word_rush_letters is a security-definer RPC scoped
-    // narrowly to "the creator, before anyone's joined, for a
-    // word-rush match", so it can actually persist this.
-    const initialState = createInitialState(user.id);
-
-    const { error: seedError } = await supabase.rpc("seed_word_rush_letters", {
-      p_match_id: match.id,
-      p_state: initialState,
-    });
-    if (seedError) throw seedError;
 
     return NextResponse.json({ success: true, match: { ...match, game_state: initialState } });
   } catch (error) {
