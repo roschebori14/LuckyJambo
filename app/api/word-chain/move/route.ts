@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { applySubmitWord, WordChainRulesError } from "@/lib/games/word-chain/engine";
+import { applyPendingTimeout } from "@/lib/games/word-chain/timeout";
 import type { WordChainState } from "@/types/word-chain";
 import { z } from "zod";
 
@@ -30,17 +31,20 @@ export async function POST(request: Request) {
       return NextResponse.json({ success: false, message: "Match not active" }, { status: 400 });
     }
 
-    const state = match.game_state as WordChainState;
+    let state = match.game_state as WordChainState;
 
-    // applySubmitWord (lib/games/word-chain/engine.ts) does the
-    // dictionary/letter/repeat check and runs the validated result
-    // through WordChainGame's actual boardgame.io move - this route
-    // just shuttles state in and the result out. Note the distinction:
-    // a thrown WordChainRulesError means the *request* was illegal
-    // (not your turn, game already over) - a 400. An accepted-but-
-    // wrong word is not thrown; it's a normal 200 with
-    // word_accepted: false, because the submission itself was valid,
-    // the word just wasn't.
+    // Apply any pending timeout before evaluating the word submission.
+    const afterTimeout = await applyPendingTimeout(supabase, validated.match_id, state);
+    if (afterTimeout) {
+      return NextResponse.json({
+        success: true,
+        state: afterTimeout,
+        word_accepted: false,
+        reason: "Time's up — strike added. Try again!",
+        timed_out: true,
+      });
+    }
+
     let outcome;
     try {
       outcome = applySubmitWord(state, user.id, validated.word);
@@ -51,12 +55,6 @@ export async function POST(request: Request) {
       throw err;
     }
 
-    // Persistence + settlement happen atomically in the DB via a
-    // SECURITY DEFINER RPC, same reasoning as every other game: no RLS
-    // UPDATE policy on `matches`, so a player's own session can't
-    // rewrite the chain or winner directly. p_expected_chain re-checks
-    // the chain hasn't changed since this player last read it
-    // (optimistic concurrency).
     const { data: rpcData, error: rpcError } = await supabase.rpc("apply_word_chain_move_result", {
       p_match_id: validated.match_id,
       p_expected_chain: state.chain,

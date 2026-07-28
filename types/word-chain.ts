@@ -10,13 +10,10 @@ export interface WordChainState {
 
   current_turn: WordChainSeat;
 
-  // Each wrong/duplicate/too-short attempt costs the acting player a
-  // strike on their own turn (the turn does NOT pass - they get to try
-  // again). Reaching max_strikes ends the match immediately in the
-  // opponent's favor. This is the only way the match ends besides the
-  // shared resign/forfeit flow every game already has - see
-  // docs/phase-10-notes.md for why (no timers, needed a decisive
-  // condition without them).
+  // Each wrong/duplicate/too-short attempt or turn timeout costs the
+  // acting player a strike on their own turn (the turn does NOT pass -
+  // they get to try again with a fresh clock). Reaching max_strikes
+  // ends the match immediately in the opponent's favor.
   strikes_a: number;
   strikes_b: number;
   max_strikes: number;
@@ -46,4 +43,11 @@ export interface WordChainMoveResult {
   state: WordChainState;
   word_accepted: boolean;
   reason?: string;
+  timed_out?: boolean;
+}
+
+export interface WordChainStateResponse {
+  success: true;
+  state: WordChainState;
+  server_time: string;
 }

@@ -94,10 +94,10 @@ export function applySubmitWord(
   const turnStartedAt = Date.parse(state.turn_started_at);
   if (
     Number.isFinite(turnStartedAt) &&
-    Date.now() - turnStartedAt > state.turn_seconds * 1000
+    Date.now() >= turnStartedAt + state.turn_seconds * 1000
   ) {
     throw new WordChainRulesError(
-      "Your turn timed out - refresh to see the result",
+      "Your turn timed out — refresh to see the result",
     );
   }
 
