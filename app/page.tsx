@@ -106,7 +106,8 @@ export default function HomePage() {
         <div className="mx-auto max-w-4xl text-center">
           <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-[var(--lj-border)] bg-white/5 px-4 py-1.5 text-xs font-semibold uppercase tracking-wider text-[var(--lj-cyan)]">
             <Zap size={12} />
-            Built for Cameroon &middot; MTN &amp; Orange Money
+            Cameroon based platform &middot; Payment through MTN MOMO &amp;
+            Orange Money
           </div>
           <h1
             className="mx-auto text-5xl leading-[1.05] font-bold tracking-tight text-white sm:text-7xl"
@@ -148,9 +149,18 @@ export default function HomePage() {
               How a match settles
             </p>
             <div className="flex flex-col items-center gap-4 sm:flex-row sm:justify-between">
-              <StakeStep label="Two stakes" value="1,000 XAF" sub="each player" />
+              <StakeStep
+                label="Two stakes"
+                value="1,000 XAF"
+                sub="each player"
+              />
               <Connector />
-              <StakeStep label="Pot" value="2,000 XAF" sub="winner takes it" accent />
+              <StakeStep
+                label="Pot"
+                value="2,000 XAF"
+                sub="winner takes it"
+                accent
+              />
               <Connector />
               <StakeStep
                 label="Platform fee"
@@ -173,10 +183,22 @@ export default function HomePage() {
       {/* Why here / mechanics strip */}
       <section className="border-y border-[var(--lj-border)] bg-white/[0.02] px-6 py-14">
         <div className="mx-auto grid max-w-6xl grid-cols-2 gap-8 sm:grid-cols-4">
-          <Fact icon={<Smartphone size={20} />} label="Fapshi-powered deposits & withdrawals" />
-          <Fact icon={<Lock size={20} />} label="Every payout server-verified before crediting" />
-          <Fact icon={<Percent size={20} />} label="Flat 5% platform fee, always" />
-          <Fact icon={<Users size={20} />} label="Real opponents, real-time matches" />
+          <Fact
+            icon={<Smartphone size={20} />}
+            label="Fapshi-powered deposits & withdrawals"
+          />
+          <Fact
+            icon={<Lock size={20} />}
+            label="Every payout server-verified before crediting"
+          />
+          <Fact
+            icon={<Percent size={20} />}
+            label="Flat 5% platform fee, always"
+          />
+          <Fact
+            icon={<Users size={20} />}
+            label="Real opponents, real-time matches"
+          />
         </div>
       </section>
 
@@ -194,8 +216,8 @@ export default function HomePage() {
               Deep strategy or instant action — your call
             </h2>
             <p className="mt-4 text-[var(--lj-muted)]">
-              Fourteen games, one wallet. Turn-based games play out at your
-              own pace; Instant games settle in seconds.
+              Fourteen games, one wallet. Turn-based games play out at your own
+              pace; Instant games settle in seconds.
             </p>
           </div>
 
@@ -220,7 +242,11 @@ export default function HomePage() {
                       : "bg-[var(--lj-blue)]/25 text-[var(--lj-cyan)]"
                   }`}
                 >
-                  {game.type === "Instant" ? <Zap size={8} /> : <Trophy size={8} />}
+                  {game.type === "Instant" ? (
+                    <Zap size={8} />
+                  ) : (
+                    <Trophy size={8} />
+                  )}
                   {game.type}
                 </span>
                 <h3 className="text-lg font-bold text-white">{game.name}</h3>
@@ -281,16 +307,39 @@ export default function HomePage() {
       <footer className="border-t border-[var(--lj-border)] px-6 py-12">
         <div className="mx-auto flex max-w-7xl flex-col items-center justify-between gap-4 md:flex-row">
           <div className="flex items-center gap-2">
-            <Image src="/images/logo.png" alt="Lucky Jambo" width={28} height={28} className="rounded-lg" />
-            <span className="font-bold tracking-tight text-white">Lucky Jambo</span>
+            <Image
+              src="/images/logo.png"
+              alt="Lucky Jambo"
+              width={28}
+              height={28}
+              className="rounded-lg"
+            />
+            <span className="font-bold tracking-tight text-white">
+              Lucky Jambo
+            </span>
           </div>
           <p className="text-sm text-[var(--lj-muted)]">
             © {new Date().getFullYear()} Lucky Jambo. All rights reserved.
           </p>
           <div className="flex gap-6 text-sm text-[var(--lj-muted)]">
-            <Link href="/legal/terms" className="transition-colors hover:text-white">Terms</Link>
-            <Link href="/legal/privacy" className="transition-colors hover:text-white">Privacy</Link>
-            <Link href="/contact" className="transition-colors hover:text-white">Contact</Link>
+            <Link
+              href="/legal/terms"
+              className="transition-colors hover:text-white"
+            >
+              Terms
+            </Link>
+            <Link
+              href="/legal/privacy"
+              className="transition-colors hover:text-white"
+            >
+              Privacy
+            </Link>
+            <Link
+              href="/contact"
+              className="transition-colors hover:text-white"
+            >
+              Contact
+            </Link>
           </div>
         </div>
       </footer>
@@ -320,7 +369,11 @@ function StakeStep({
       </p>
       <p
         className={`mt-1 flex items-center gap-1 text-xl font-bold sm:text-2xl ${
-          success ? "text-[var(--lj-success)]" : accent ? "text-white" : "text-white"
+          success
+            ? "text-[var(--lj-success)]"
+            : accent
+              ? "text-white"
+              : "text-white"
         }`}
         style={{ fontFamily: "var(--font-display)" }}
       >
