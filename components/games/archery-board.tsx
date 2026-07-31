@@ -44,16 +44,12 @@ export default function ArcheryBoard({ matchId, userId }: Props) {
     fetchState();
   }, [matchId]);
 
-  useMatchRealtime({
-    matchId,
-    onStateChange: (newState: ArcheryState) => {
-      // If we're shooting, ignore updates (optimistic update wins).
-      if (shootingRef.current) return;
-      setState(newState);
-      
-      // Animate opponent shot if it just arrived
-      // We could check if a new shot was added to the opponent's array
-    },
+  useMatchRealtime(matchId, (row) => {
+    // If we're shooting, ignore updates (optimistic update wins).
+    if (shootingRef.current) return;
+    if (row.game_state) {
+      setState(row.game_state as ArcheryState);
+    }
   });
 
   useEffect(() => {
