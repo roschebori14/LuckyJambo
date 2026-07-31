@@ -32,7 +32,8 @@ export type SoundEffectName =
   | "token-capture" // Ludo - a token gets sent home by an opponent
   | "cue-strike" // 8-Ball Pool - cue ball struck at the start of a shot
   | "ball-pocket" // 8-Ball Pool - a ball drops into a pocket
-  | "foul"; // 8-Ball Pool - a rules foul (scratch, wrong ball first, etc.)
+  | "foul" // 8-Ball Pool - a rules foul (scratch, wrong ball first, etc.)
+  | "archery-hit"; // Archery - arrow hitting the target
 
 interface EffectDefinition {
   query: string;
@@ -60,6 +61,7 @@ export const SOUND_EFFECTS: Record<SoundEffectName, EffectDefinition> = {
   "cue-strike": { query: "billiards cue ball hit break", volume: 0.6 },
   "ball-pocket": { query: "billiard ball pocket drop clack", volume: 0.55 },
   foul: { query: "error buzz short negative", volume: 0.5 },
+  "archery-hit": { query: "arrow hit wood target thud", volume: 0.6 },
 };
 
 export const SOUND_EFFECT_NAMES = Object.keys(SOUND_EFFECTS) as SoundEffectName[];

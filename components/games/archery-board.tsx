@@ -205,7 +205,7 @@ export default function ArcheryBoard({ matchId, userId }: Props) {
         duration: flightDuration,
         ease: 'Power2',
         onComplete: async () => {
-          play("wood_hit"); // placeholder sound
+          play("archery-hit");
           
           // submit shot
           const shot: ArcheryShot = {
