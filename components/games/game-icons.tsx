@@ -224,6 +224,26 @@ export function WordRushIcon({ className }: IconProps) {
   );
 }
 
+export function ArcheryIcon({ className }: IconProps) {
+  return (
+    <svg viewBox="0 0 48 48" fill="none" className={className} aria-hidden="true">
+      {/* Target board rings */}
+      <circle cx="24" cy="24" r="18" fill="currentColor" opacity="0.1" />
+      <circle cx="24" cy="24" r="14" fill="none" stroke="currentColor" strokeWidth="2" opacity="0.3" />
+      <circle cx="24" cy="24" r="9" fill="currentColor" opacity="0.4" />
+      <circle cx="24" cy="24" r="4" fill="currentColor" />
+      
+      {/* Arrow */}
+      <path d="M38 38L25 25" stroke="var(--lj-navy, #04091a)" strokeWidth="4" strokeLinecap="round" />
+      <path d="M37 37L26 26" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+      
+      {/* Fletching */}
+      <path d="M38 34l-4 4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+      <path d="M34 38l4-4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+    </svg>
+  );
+}
+
 export const GAME_ICON: Record<string, (props: IconProps) => React.JSX.Element> = {
   chess: ChessIcon,
   draughts: DraughtsIcon,
@@ -239,6 +259,7 @@ export const GAME_ICON: Record<string, (props: IconProps) => React.JSX.Element> 
   "word-rush": WordRushIcon,
   ludo: LudoIcon,
   "eight-ball-pool": PoolIcon,
+  archery: ArcheryIcon,
 };
 
 export function GameIcon({ slug, className }: { slug: string; className?: string }) {
