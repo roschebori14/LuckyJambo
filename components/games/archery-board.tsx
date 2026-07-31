@@ -33,10 +33,10 @@ export default function ArcheryBoard({ matchId, userId }: Props) {
   useEffect(() => {
     async function fetchState() {
       try {
-        const res = await fetch(`/api/matches/${matchId}`);
+        const res = await fetch(`/api/matches/status?id=${matchId}`);
         const data = await res.json();
-        if (!res.ok) throw new Error(data.error);
-        if (data.game_state) setState(data.game_state as ArcheryState);
+        if (!res.ok) throw new Error(data.message || "Failed to fetch state");
+        if (data.match?.game_state) setState(data.match.game_state as ArcheryState);
       } catch (err: any) {
         setError(err.message);
       }
