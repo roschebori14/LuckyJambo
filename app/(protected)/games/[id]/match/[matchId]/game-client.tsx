@@ -57,6 +57,9 @@ const DotsAndBoxesBoard = dynamic(
 const PoolBoard = dynamic(() => import("@/components/games/pool-board"), {
   ssr: false,
 });
+const ArcheryBoard = dynamic(() => import("@/components/games/archery-board"), {
+  ssr: false,
+});
 const MatchActions = dynamic(() => import("@/components/games/match-actions"), {
   ssr: false,
 });
@@ -676,6 +679,9 @@ export default function GameClient({
         )}
         {gameSlug === "eight-ball-pool" && (
           <PoolBoard matchId={matchId} userId={userId} />
+        )}
+        {gameSlug === "archery" && (
+          <ArcheryBoard matchId={matchId} userId={userId} />
         )}
       </div>
 

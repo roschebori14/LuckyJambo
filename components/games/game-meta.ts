@@ -17,6 +17,7 @@ export const GAME_META: Record<string, { type: "Instant" | "Turn-based"; bg: str
   "ludo":              { type: "Turn-based", bg: "bg-rose-950" },
   "eight-ball-pool":   { type: "Turn-based", bg: "bg-emerald-900" },
   "word-rush":         { type: "Instant",    bg: "bg-cyan-950" },
+  archery:             { type: "Turn-based", bg: "bg-green-950" },
 };
 
 export function getGameMeta(slug: string) {
