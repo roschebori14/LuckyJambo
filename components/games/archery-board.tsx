@@ -10,6 +10,213 @@ import { useSound } from "@/lib/sound/sound-manager";
 
 const FOCAL_LENGTH = 1000;
 
+// ---------------------------------------------------------------------
+// Pure presentation helpers. Nothing below reads or writes game state,
+// scoring, physics, or network calls - they only build/reposition
+// Phaser display objects. buildArrowGraphics() is deliberately the
+// ONE place an arrow's look is defined, and is used for the in-flight
+// arrow, the foreground nocked arrow, and planted past-shot arrows, so
+// "the flying arrow looks identical to the aiming arrow" holds by
+// construction instead of by keeping three drawings in sync by hand.
+//
+// Local coordinate convention (unrotated): rear/nock at negative y,
+// head/tip at positive y. This matches the original primitive arrow's
+// layout exactly, which matters because the in-flight arrow's rotation
+// (`arrowGroup.rotation = -yaw` in the update loop) was tuned against
+// that layout - changing it would visually mis-point the arrow in
+// flight even though the physics/yaw math itself is untouched.
+// ---------------------------------------------------------------------
+
+function buildArrowGraphics(
+  scene: Phaser.Scene,
+  opts: { length?: number; thickness?: number; fletchColor?: number } = {}
+): Phaser.GameObjects.Container {
+  const length = opts.length ?? 120;
+  const thickness = opts.thickness ?? 5;
+  const fletchColor = opts.fletchColor ?? 0xf2f2f2;
+  const fletchDark = Phaser.Display.Color.ValueToColor(fletchColor).clone().darken(20).color;
+
+  const container = scene.add.container(0, 0);
+
+  const nockY = -length * 0.5;
+  const shaftTopY = -length * 0.4;
+  const shaftBottomY = length * 0.32;
+  const headTipY = length * 0.5;
+
+  // Soft contact shadow for a touch of grounded depth.
+  const shadow = scene.add.graphics();
+  shadow.fillStyle(0x000000, 0.16);
+  shadow.fillEllipse(2, 4, thickness * 2.4, length * 0.85);
+  container.add(shadow);
+
+  // Wooden shaft: warm gradient + a couple of thin grain lines +
+  // one bright highlight strip, instead of a flat brown rectangle.
+  const shaft = scene.add.graphics();
+  shaft.fillGradientStyle(0xd9a866, 0x8a5a2e, 0xc9955a, 0x6e4522, 1);
+  shaft.fillRoundedRect(-thickness / 2, shaftTopY, thickness, shaftBottomY - shaftTopY, thickness / 2.2);
+  shaft.lineStyle(0.8, 0x5c3a1a, 0.35);
+  for (let i = -1; i <= 1; i++) {
+    const gx = (i * thickness) / 3;
+    shaft.beginPath();
+    shaft.moveTo(gx, shaftTopY + 2);
+    shaft.lineTo(gx + i * 1.5, shaftBottomY - 2);
+    shaft.strokePath();
+  }
+  shaft.lineStyle(0.75, 0xf5e2bf, 0.45);
+  shaft.beginPath();
+  shaft.moveTo(-thickness * 0.16, shaftTopY + 2);
+  shaft.lineTo(-thickness * 0.16, shaftBottomY - 2);
+  shaft.strokePath();
+  container.add(shaft);
+
+  // Nock: dark notch at the very rear.
+  const nock = scene.add.graphics();
+  nock.fillStyle(0x2b2b2b, 1);
+  nock.fillRoundedRect(-thickness * 0.55, nockY, thickness * 1.1, length * 0.08, 2);
+  nock.lineStyle(1, 0x000000, 0.6);
+  nock.beginPath();
+  nock.moveTo(0, nockY);
+  nock.lineTo(0, nockY + length * 0.04);
+  nock.strokePath();
+  container.add(nock);
+
+  // Feather fletching: three feathers fanned around the shaft (two
+  // slim side feathers + one larger center one) instead of one flat
+  // triangle, for a soft, layered plume silhouette.
+  const fletchLen = length * 0.22;
+  const fletchY0 = shaftTopY - fletchLen * 0.1;
+  const drawFeather = (offsetX: number, skew: number, scale: number, alpha: number) => {
+    const g = scene.add.graphics();
+    g.fillGradientStyle(fletchColor, fletchDark, fletchColor, fletchDark, alpha);
+    g.beginPath();
+    g.moveTo(offsetX, fletchY0);
+    g.lineTo(offsetX + skew * scale, fletchY0 + fletchLen * scale * 0.35);
+    g.lineTo(offsetX + skew * 0.3 * scale, fletchY0 + fletchLen * scale);
+    g.lineTo(offsetX, fletchY0 + fletchLen * scale * 0.85);
+    g.closePath();
+    g.fillPath();
+    g.lineStyle(0.75, 0x9a9a9a, 0.45);
+    g.strokePath();
+    container.add(g);
+  };
+  drawFeather(-thickness * 0.4, -9, 0.85, 0.7);
+  drawFeather(thickness * 0.4, 9, 0.85, 0.7);
+  drawFeather(0, 0, 1, 0.95);
+
+  // Metallic arrowhead: elongated diamond with a gradient silver fill
+  // and a thin bright edge to read as reflective metal.
+  const head = scene.add.graphics();
+  head.fillGradientStyle(0xf2f2f2, 0x8f8f8f, 0xd6d6d6, 0x6e6e6e, 1);
+  head.beginPath();
+  head.moveTo(0, headTipY);
+  head.lineTo(thickness * 1.25, shaftBottomY + length * 0.04);
+  head.lineTo(0, shaftBottomY - 2);
+  head.lineTo(-thickness * 1.25, shaftBottomY + length * 0.04);
+  head.closePath();
+  head.fillPath();
+  head.lineStyle(1, 0x4a4a4a, 0.5);
+  head.strokePath();
+  head.lineStyle(1, 0xffffff, 0.55);
+  head.beginPath();
+  head.moveTo(0, headTipY - 2);
+  head.lineTo(0, shaftBottomY + 1);
+  head.strokePath();
+  container.add(head);
+
+  return container;
+}
+
+function bezierPoints(
+  p0: { x: number; y: number },
+  p1: { x: number; y: number },
+  p2: { x: number; y: number },
+  segments = 16
+) {
+  const pts: { x: number; y: number }[] = [];
+  for (let i = 0; i <= segments; i++) {
+    const t = i / segments;
+    const mt = 1 - t;
+    pts.push({
+      x: mt * mt * p0.x + 2 * mt * t * p1.x + t * t * p2.x,
+      y: mt * mt * p0.y + 2 * mt * t * p1.y + t * t * p2.y,
+    });
+  }
+  return pts;
+}
+
+function rotatePoint(p: { x: number; y: number }, deg: number) {
+  const rad = Phaser.Math.DegToRad(deg);
+  return {
+    x: p.x * Math.cos(rad) - p.y * Math.sin(rad),
+    y: p.x * Math.sin(rad) + p.y * Math.cos(rad),
+  };
+}
+
+/**
+ * Curved recurve-style bow, riser + wrapped grip + two bezier limbs.
+ * Returns the tip points already rotated into the container's own
+ * (unrotated) space so callers can draw a bowstring between them
+ * without re-deriving the limb curve math.
+ */
+function buildBow(scene: Phaser.Scene, w: number, h: number, riserAngle: number) {
+  const bowGroup = scene.add.container(w, h);
+  bowGroup.setScrollFactor(0);
+  bowGroup.setDepth(900);
+
+  const riserH = h * 1.7;
+  const gripW = w * 0.09;
+
+  const rig = scene.add.container(0, 0);
+  rig.setAngle(riserAngle);
+  bowGroup.add(rig);
+
+  // Riser / grip: wood gradient plus wrapped-grip stripes.
+  const riser = scene.add.graphics();
+  riser.fillGradientStyle(0x8a5a34, 0x4a2c17, 0x8a5a34, 0x4a2c17, 1);
+  riser.fillRoundedRect(-gripW / 2, -riserH * 0.22, gripW, riserH * 0.44, gripW * 0.3);
+  riser.lineStyle(2, 0x2e1c0f, 0.5);
+  for (let i = -3; i <= 3; i++) {
+    const y = (i * (riserH * 0.44)) / 7;
+    riser.beginPath();
+    riser.moveTo(-gripW / 2, y);
+    riser.lineTo(gripW / 2, y + gripW * 0.35);
+    riser.strokePath();
+  }
+  rig.add(riser);
+
+  const limbTopStart = { x: 0, y: -riserH * 0.2 };
+  const limbTopCtrl = { x: -gripW * 2.2, y: -riserH * 0.62 };
+  const limbTopEnd = { x: -gripW * 1.3, y: -riserH * 0.98 };
+  const limbBotStart = { x: 0, y: riserH * 0.2 };
+  const limbBotCtrl = { x: -gripW * 2.2, y: riserH * 0.62 };
+  const limbBotEnd = { x: -gripW * 1.3, y: riserH * 0.98 };
+
+  const topPts = bezierPoints(limbTopStart, limbTopCtrl, limbTopEnd);
+  const botPts = bezierPoints(limbBotStart, limbBotCtrl, limbBotEnd);
+
+  const limbs = scene.add.graphics();
+  const drawLimb = (pts: { x: number; y: number }[]) => {
+    limbs.lineStyle(gripW * 0.5, 0x6b4226, 1);
+    limbs.beginPath();
+    limbs.moveTo(pts[0].x, pts[0].y);
+    pts.forEach((p) => limbs.lineTo(p.x, p.y));
+    limbs.strokePath();
+    limbs.lineStyle(gripW * 0.18, 0xa87a4a, 0.55);
+    limbs.beginPath();
+    limbs.moveTo(pts[0].x - 1, pts[0].y - 1);
+    pts.forEach((p) => limbs.lineTo(p.x - 1, p.y - 1));
+    limbs.strokePath();
+  };
+  drawLimb(topPts);
+  drawLimb(botPts);
+  rig.add(limbs);
+
+  const tipTop = rotatePoint(topPts[topPts.length - 1], riserAngle);
+  const tipBot = rotatePoint(botPts[botPts.length - 1], riserAngle);
+
+  return { bowGroup, tipTop, tipBot };
+}
+
 export default function ArcheryBoard({ matchId, userId }: { matchId: string; userId: string }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const gameRef = useRef<Phaser.Game | null>(null);
@@ -123,8 +330,16 @@ export default function ArcheryBoard({ matchId, userId }: { matchId: string; use
           const HORIZON_FRAC_Y = 0.51;
 
           const project = (x: number, y: number, z: number) => {
-            const camX = this.registry.get("cameraX");
-            const camY = this.registry.get("cameraY");
+            // Tiny idle sway/breathing (Priority 5) layered on top of
+            // the real camera position at render time only - it never
+            // touches the cameraX/Y registry values that the aim
+            // preview, flight lerp, and shake logic all read/write, so
+            // it can't drift the actual aim or trajectory math.
+            const t = this.time.now * 0.001;
+            const swayX = Math.sin(t * 0.6) * 1.6;
+            const swayY = Math.sin(t * 0.9) * 1.1;
+            const camX = this.registry.get("cameraX") + swayX;
+            const camY = this.registry.get("cameraY") + swayY;
             const camZ = this.registry.get("cameraZ");
             const originX = this.registry.get("originX") ?? cx;
             const originY = this.registry.get("originY") ?? cy;
@@ -250,10 +465,8 @@ export default function ArcheryBoard({ matchId, userId }: { matchId: string; use
           // where the target sits.
           const arrowGroup = this.add.container(0, 0);
           this.registry.set("arrowGroup", arrowGroup);
-          const shaft = this.add.rectangle(0, -30, 6, 80, 0x3d3d3d);
-          const fletching = this.add.triangle(0, -60, 0, -20, 14, 10, -14, 10, initialMyColor);
-          const tip = this.add.triangle(0, 15, 0, 15, 8, -12, -8, -12, 0xc0c0c0);
-          arrowGroup.add([shaft, fletching, tip]);
+          const realisticArrow = buildArrowGraphics(this, { length: 130, thickness: 6, fletchColor: initialMyColor });
+          arrowGroup.add(realisticArrow);
           arrowGroup.visible = false;
           this.registry.set("arrowColor", initialMyColor);
 
@@ -266,53 +479,48 @@ export default function ArcheryBoard({ matchId, userId }: { matchId: string; use
           // can never end up drifting toward the target the way the
           // old single shared arrow did. It's swapped out for the
           // real 3D arrowGroup only for the brief in-flight animation.
-          const bowGroup = this.add.container(w, h);
-          bowGroup.setScrollFactor(0);
-          bowGroup.setDepth(900);
-          const riserH = h * 2.2;
-          const riserW = w * 0.5;
           const RISER_ANGLE = -8;
-          const riser = this.add.rectangle(0, 0, riserW, riserH, 0x6b4226);
-          riser.setStrokeStyle(2, 0x4a2c17, 0.8);
-          riser.setAngle(RISER_ANGLE);
-          const riserHighlight = this.add.rectangle(-riserW * 0.22, 0, riserW * 0.22, riserH * 0.96, 0x8a5a34);
-          riserHighlight.setAngle(RISER_ANGLE);
-          // Nock (fletching) position measured from the reference
+          const { bowGroup, tipTop, tipBot } = buildBow(this, w, h, RISER_ANGLE);
+
+          // Nock (fletching) rest position measured from the reference
           // photo at ~70% width / ~62% height, tip at ~64% width /
           // ~54% height - both expressed relative to the bottom-right
-          // anchor so they scale with any canvas size.
-          const nockX = -w * 0.3;
-          const nockY = -h * 0.38;
-          const bowShaft = this.add.rectangle(nockX * 0.5, nockY * 0.5, 10, Math.abs(nockY) * 1.1, 0x4a4a4a);
-          bowShaft.setAngle(RISER_ANGLE);
-          const bowFletch = this.add.triangle(
-            nockX,
-            nockY,
-            0,
-            -18,
-            18,
-            14,
-            -18,
-            14,
-            0xf2f2f2
-          );
-          bowFletch.setStrokeStyle(1, 0xcccccc, 0.8);
-          bowFletch.setAngle(RISER_ANGLE);
-          const bowTip = this.add.triangle(
-            nockX * 1.2,
-            nockY * 1.2,
-            0,
-            18,
-            9,
-            -14,
-            -9,
-            -14,
-            0xd9d9d9
-          );
-          bowTip.setStrokeStyle(1, 0x9a9a9a, 0.9);
-          bowTip.setAngle(RISER_ANGLE);
-          bowGroup.add([riser, riserHighlight, bowShaft, bowFletch, bowTip]);
+          // anchor so they scale with any canvas size. This stays a
+          // real buildArrowGraphics() instance (Priority 3/4: same
+          // arrow, always fully nocked, never a separate cheaper prop).
+          const nockRestX = -w * 0.3;
+          const nockRestY = -h * 0.38;
+          const nockLeanAngle = 164; // empirically tuned: local +y (head) points up-and-slightly-left, matching the reference's lean
+
+          const nockedArrow = buildArrowGraphics(this, {
+            length: w * 0.42,
+            thickness: 6,
+            fletchColor: initialMyColor,
+          });
+          nockedArrow.setPosition(nockRestX, nockRestY);
+          nockedArrow.setAngle(nockLeanAngle);
+          bowGroup.add(nockedArrow);
+
+          const bowString = this.add.graphics();
+          bowGroup.addAt(bowString, bowGroup.list.indexOf(nockedArrow)); // string drawn just behind the nocked arrow
+
+          const redrawBowString = (nockX: number, nockY: number) => {
+            bowString.clear();
+            bowString.lineStyle(1.5, 0xe8e4da, 0.85);
+            bowString.beginPath();
+            bowString.moveTo(tipTop.x, tipTop.y);
+            bowString.lineTo(nockX, nockY - 4);
+            bowString.lineTo(tipBot.x, tipBot.y);
+            bowString.strokePath();
+          };
+          redrawBowString(nockRestX, nockRestY);
+
           this.registry.set("bowGroup", bowGroup);
+          this.registry.set("nockedArrow", nockedArrow);
+          this.registry.set("nockRestX", nockRestX);
+          this.registry.set("nockRestY", nockRestY);
+          this.registry.set("nockLeanAngle", nockLeanAngle);
+          this.registry.set("redrawBowString", redrawBowString);
 
           // Aim reticle - a persistent marker at the predicted impact
           // point, distinct from the trajectory dots. Every reference
@@ -582,10 +790,13 @@ export default function ArcheryBoard({ matchId, userId }: { matchId: string; use
       const color = isA ? 0xef4444 : 0x22d3ee;
       const group = scene.add.container(shot.finalX, -shot.finalY);
       group.name = "past-arrow";
-      const shadow = scene.add.circle(0, 0, 15, 0x000000, 0.4);
-      const shaft = scene.add.rectangle(0, 20, 6, 40, 0x3d3d3d);
-      const fletching = scene.add.triangle(0, 40, 0, -10, 15, 10, -15, 10, color);
-      group.add([shadow, shaft, fletching]);
+      const shadow = scene.add.ellipse(2, 4, 26, 12, 0x000000, 0.35);
+      // Planted embedded-in-target look: head buried (rotated to
+      // point straight in), only the rear third of the shaft and the
+      // fletching visible above the surface.
+      const arrow = buildArrowGraphics(scene, { length: 70, thickness: 5, fletchColor: color });
+      arrow.setPosition(0, -8);
+      group.add([shadow, arrow]);
       targetGroup.add(group);
     };
 
@@ -609,6 +820,18 @@ export default function ArcheryBoard({ matchId, userId }: { matchId: string; use
       if (arrowGroup) arrowGroup.visible = false;
       const bowGroup = scene.registry.get("bowGroup") as Phaser.GameObjects.Container | undefined;
       if (bowGroup) bowGroup.visible = true;
+      const nockedArrow = scene.registry.get("nockedArrow") as Phaser.GameObjects.Container | undefined;
+      const nockRestX = scene.registry.get("nockRestX");
+      const nockRestY = scene.registry.get("nockRestY");
+      const nockLeanAngle = scene.registry.get("nockLeanAngle");
+      const redrawBowString = scene.registry.get("redrawBowString") as
+        | ((x: number, y: number) => void)
+        | undefined;
+      if (nockedArrow && nockRestX !== undefined) {
+        nockedArrow.setPosition(nockRestX, nockRestY);
+        nockedArrow.setAngle(nockLeanAngle);
+      }
+      if (redrawBowString) redrawBowString(nockRestX, nockRestY);
       scene.registry.set("trajectory", []);
       scene.registry.set("reticleTarget", null);
       const reticle = scene.registry.get("reticle") as Phaser.GameObjects.Container | undefined;
@@ -686,6 +909,27 @@ export default function ArcheryBoard({ matchId, userId }: { matchId: string; use
         yaw: aimAngleX,
       });
 
+      // Foreground bow: slide the nocked arrow (and the string it's
+      // attached to) backward along the draw as power charges, and
+      // let it drift slightly with the aim drag - purely cosmetic,
+      // reads directly off the same pullPower/aimAngle locals the
+      // preview/shot use, never a separate source of truth.
+      const nockedArrow = scene.registry.get("nockedArrow") as Phaser.GameObjects.Container | undefined;
+      const nockRestX = scene.registry.get("nockRestX");
+      const nockRestY = scene.registry.get("nockRestY");
+      const nockLeanAngle = scene.registry.get("nockLeanAngle");
+      const redrawBowString = scene.registry.get("redrawBowString") as
+        | ((x: number, y: number) => void)
+        | undefined;
+      if (nockedArrow && nockRestX !== undefined) {
+        const drawT = pullPower / MAX_POWER;
+        const nx = nockRestX + drawT * 26 + aimAngleX * 40;
+        const ny = nockRestY + drawT * 22 + aimAngleY * 20;
+        nockedArrow.setPosition(nx, ny);
+        nockedArrow.setAngle(nockLeanAngle - aimAngleX * 25);
+        if (redrawBowString) redrawBowString(nx, ny);
+      }
+
       updatePreview();
 
       const meter = scene.registry.get("powerMeter");
@@ -738,6 +982,13 @@ export default function ArcheryBoard({ matchId, userId }: { matchId: string; use
         meter.pct.visible = false;
       }
       scene.cameras.main.shake(90, 0.0015 + (pullPower / MAX_POWER) * 0.0025);
+
+      // Small recoil kick (Priority 5): a quick pullback right at
+      // release that the per-frame forward lerp below immediately
+      // starts smoothing back out, reading as "shot released, camera
+      // settles forward" rather than an instant cut.
+      const camZAtRelease = scene.registry.get("cameraZ");
+      scene.registry.set("cameraZ", camZAtRelease - 14);
 
       // Precompute the whole flight once (identical math the server
       // will use), then play it back over a fixed real-time duration
