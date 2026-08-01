@@ -211,8 +211,8 @@ export default function ArcheryBoard({ matchId, userId }: { matchId: string; use
           const bowGroup = this.add.container(w, h);
           bowGroup.setScrollFactor(0);
           bowGroup.setDepth(900);
-          const riserH = h * 0.9;
-          const riserW = w * 0.08;
+          const riserH = h * 2.2;
+          const riserW = w * 0.5;
           const RISER_ANGLE = -8;
           const riser = this.add.rectangle(0, 0, riserW, riserH, 0x6b4226);
           riser.setStrokeStyle(2, 0x4a2c17, 0.8);
