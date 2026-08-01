@@ -113,7 +113,7 @@ export default function ArcheryBoard({ matchId, userId }: { matchId: string; use
           // than the ground lines painted in the photo, which was the
           // original bug (target rendered high and off-center from
           // the path).
-          const HORIZON_FRAC_X = 0.65;
+          const HORIZON_FRAC_X = 0.5;
           const HORIZON_FRAC_Y = 0.5;
 
           const project = (x: number, y: number, z: number) => {
@@ -158,18 +158,22 @@ export default function ArcheryBoard({ matchId, userId }: { matchId: string; use
           const targetGroup = this.add.container(0, 0);
           this.registry.set("targetGroup", targetGroup);
 
-          const legLeft = this.add.rectangle(-60, -100, 15, 250, 0x5c4033);
-          const legRight = this.add.rectangle(60, -100, 15, 250, 0x5c4033);
+          const legLeft = this.add.rectangle(-45, -60, 10, 220, 0x3d2b1f);
+          legLeft.setAngle(-8);
+          const legRight = this.add.rectangle(45, -60, 10, 220, 0x3d2b1f);
+          legRight.setAngle(8);
           targetGroup.add([legLeft, legRight]);
 
           const boardSize = TARGET_RADIUS * 2 + 60;
-          const backboard = this.add.rectangle(0, 0, boardSize, boardSize, 0xdeb887);
-          backboard.setStrokeStyle(4, 0x8b4513);
+          const backboard = this.add.rectangle(0, 0, boardSize, boardSize, 0xf7f5f0);
+          backboard.setStrokeStyle(3, 0xcfcac0);
           targetGroup.add(backboard);
 
+          // Classic 5-color, 10-ring target face: white, black, blue,
+          // red, gold - outermost to center, two rings per color.
           const colors = [
             0xffffff, 0xffffff, 0x2d3436, 0x2d3436, 0x0984e3, 0x0984e3, 0xd63031, 0xd63031,
-            0xfdccb6, 0xf9ca24,
+            0xf9ca24, 0xf9ca24,
           ];
           for (let i = 0; i < 10; i++) {
             const radius = TARGET_RADIUS - i * RING_WIDTH;
@@ -208,28 +212,48 @@ export default function ArcheryBoard({ matchId, userId }: { matchId: string; use
           bowGroup.setScrollFactor(0);
           bowGroup.setDepth(900);
           const riserH = h * 0.9;
-          const riser = this.add.rectangle(0, 0, 34, riserH, 0x6b4226);
+          const riserW = w * 0.08;
+          const RISER_ANGLE = -8;
+          const riser = this.add.rectangle(0, 0, riserW, riserH, 0x6b4226);
           riser.setStrokeStyle(2, 0x4a2c17, 0.8);
-          riser.setAngle(-14);
-          const riserHighlight = this.add.rectangle(-8, 0, 8, riserH * 0.96, 0x8a5a34);
-          riserHighlight.setAngle(-14);
-          const nockX = -w * 0.18;
-          const nockY = -h * 0.28;
+          riser.setAngle(RISER_ANGLE);
+          const riserHighlight = this.add.rectangle(-riserW * 0.22, 0, riserW * 0.22, riserH * 0.96, 0x8a5a34);
+          riserHighlight.setAngle(RISER_ANGLE);
+          // Nock (fletching) position measured from the reference
+          // photo at ~70% width / ~62% height, tip at ~64% width /
+          // ~54% height - both expressed relative to the bottom-right
+          // anchor so they scale with any canvas size.
+          const nockX = -w * 0.3;
+          const nockY = -h * 0.38;
           const bowShaft = this.add.rectangle(nockX * 0.5, nockY * 0.5, 10, Math.abs(nockY) * 1.1, 0x4a4a4a);
-          bowShaft.setAngle(-14);
+          bowShaft.setAngle(RISER_ANGLE);
           const bowFletch = this.add.triangle(
             nockX,
             nockY,
             0,
-            -16,
-            16,
-            12,
-            -16,
-            12,
-            0xe5e5e5
+            -18,
+            18,
+            14,
+            -18,
+            14,
+            0xf2f2f2
           );
-          bowFletch.setAngle(-14);
-          bowGroup.add([riser, riserHighlight, bowShaft, bowFletch]);
+          bowFletch.setStrokeStyle(1, 0xcccccc, 0.8);
+          bowFletch.setAngle(RISER_ANGLE);
+          const bowTip = this.add.triangle(
+            nockX * 1.2,
+            nockY * 1.2,
+            0,
+            18,
+            9,
+            -14,
+            -9,
+            -14,
+            0xd9d9d9
+          );
+          bowTip.setStrokeStyle(1, 0x9a9a9a, 0.9);
+          bowTip.setAngle(RISER_ANGLE);
+          bowGroup.add([riser, riserHighlight, bowShaft, bowFletch, bowTip]);
           this.registry.set("bowGroup", bowGroup);
 
           // Aim reticle - a persistent marker at the predicted impact
@@ -310,6 +334,59 @@ export default function ArcheryBoard({ matchId, userId }: { matchId: string; use
             pct: meterPct,
             top: meterTop,
             height: meterHeight,
+          });
+
+          // Wind indicator - screen-space HUD panel drawn directly on
+          // the canvas above the target, matching the reference: a
+          // dark semi-transparent box with a red border, "WIND:"
+          // label in white, the value in red, and a small compass
+          // circle showing which way it's blowing.
+          const windBoxW = w * 0.3;
+          const windBoxH = h * 0.085;
+          const windBoxX = cx;
+          const windBoxY = h * 0.34;
+
+          const windBg = this.add.rectangle(windBoxX, windBoxY, windBoxW, windBoxH, 0x000000, 0.45);
+          windBg.setStrokeStyle(2, 0xef4444, 0.9);
+          windBg.setScrollFactor(0);
+          windBg.setDepth(950);
+
+          const windLabel = this.add
+            .text(windBoxX - windBoxW * 0.26, windBoxY, "WIND:", {
+              fontSize: "16px",
+              fontFamily: "Inter, sans-serif",
+              fontStyle: "800",
+              color: "#ffffff",
+            })
+            .setOrigin(0.5);
+          windLabel.setScrollFactor(0);
+          windLabel.setDepth(951);
+
+          const windValue = this.add
+            .text(windBoxX - windBoxW * 0.03, windBoxY, "0.0", {
+              fontSize: "16px",
+              fontFamily: "Inter, sans-serif",
+              fontStyle: "900",
+              color: "#ef4444",
+            })
+            .setOrigin(0.5);
+          windValue.setScrollFactor(0);
+          windValue.setDepth(951);
+
+          const windIcon = this.add.container(windBoxX + windBoxW * 0.33, windBoxY);
+          const windIconRing = this.add.circle(0, 0, 10, 0x000000, 0);
+          windIconRing.setStrokeStyle(2, 0xef4444, 0.9);
+          const windIconArrow = this.add.triangle(0, -6, 0, -4, 3, 4, -3, 4, 0xef4444);
+          windIcon.add([windIconRing, windIconArrow]);
+          windIcon.setScrollFactor(0);
+          windIcon.setDepth(951);
+
+          this.registry.set("windHud", {
+            bg: windBg,
+            label: windLabel,
+            value: windValue,
+            icon: windIcon,
+            iconArrow: windIconArrow,
           });
 
           setBoardReady(true);
@@ -419,6 +496,18 @@ export default function ArcheryBoard({ matchId, userId }: { matchId: string; use
     if (!boardReady || !sceneRef.current || !state) return;
     sceneRef.current.registry.set("targetZ", targetZFor(state.target_dist));
   }, [boardReady, state?.target_dist]);
+
+  // Sync wind into the on-canvas HUD whenever it changes
+  useEffect(() => {
+    if (!boardReady || !sceneRef.current || !state) return;
+    const scene = sceneRef.current;
+    const windHud = scene.registry.get("windHud");
+    if (!windHud) return;
+    const speed = Math.abs(state.wind_x);
+    windHud.value.setText(speed.toFixed(1));
+    const angle = state.wind_x > 0 ? 90 : state.wind_x < 0 ? -90 : 0;
+    windHud.iconArrow.setRotation(Phaser.Math.DegToRad(angle));
+  }, [boardReady, state?.wind_x]);
 
   // Render past shots
   useEffect(() => {
@@ -671,14 +760,6 @@ export default function ArcheryBoard({ matchId, userId }: { matchId: string; use
   if (!state)
     return <div className="p-4 font-medium text-[var(--lj-muted)]">Loading Archery Range...</div>;
 
-  const windSpeed = Math.abs(state.wind_x);
-  const windSeverity = windSpeed < 0.8 ? "calm" : windSpeed < 1.5 ? "breezy" : "strong";
-  const windStyles = {
-    calm: "bg-white/5 border-[var(--lj-border)] text-[var(--lj-muted)]",
-    breezy: "bg-[var(--lj-gold)]/10 border-[var(--lj-gold)]/30 text-[var(--lj-gold)]",
-    strong: "bg-red-500/10 border-red-500/30 text-red-400",
-  }[windSeverity];
-
   return (
     <div className="flex min-h-screen w-full flex-col items-center gap-0 bg-[var(--lj-navy)] pt-4">
       {/* HUD - matches the platform's dark navy/gold system used
@@ -700,18 +781,9 @@ export default function ArcheryBoard({ matchId, userId }: { matchId: string; use
           <span className="mb-1 text-[10px] font-bold uppercase tracking-widest text-[var(--lj-muted)]">
             Arrow {state.round} / 3
           </span>
-          <div className="flex flex-col items-center justify-center gap-1">
-            <span className="text-[10px] font-semibold uppercase text-[var(--lj-muted)]">Wind</span>
-            <div className={`flex items-center gap-1.5 rounded-full border px-3 py-1.5 shadow-inner ${windStyles}`}>
-              <span className="text-sm font-bold">
-                {state.wind_x > 0 ? "\u2192" : state.wind_x < 0 ? "\u2190" : "\u2013"}
-              </span>
-              <span className="text-xs font-bold">{windSpeed.toFixed(1)} m/s</span>
-            </div>
-            <span className="mt-0.5 text-[10px] font-semibold text-[var(--lj-muted)]">
-              {Math.round(state.target_dist * 20)}yd
-            </span>
-          </div>
+          <span className="mt-0.5 text-[10px] font-semibold text-[var(--lj-muted)]">
+            {Math.round(state.target_dist * 20)}yd
+          </span>
         </div>
 
         <div className="flex flex-1 flex-col items-center">
