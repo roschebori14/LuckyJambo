@@ -135,24 +135,20 @@ export default function ArcheryBoard({ matchId, userId }: { matchId: string; use
           this.registry.set("project", project);
 
           // Background - bg.jpg is a tall/narrow photo (roughly 0.56
-          // width:height) but the play area is 3:4 (0.75). Math.max
-          // (cover) against that mismatch was cropping the vast
-          // majority of the image's height off the top and bottom,
-          // which is why the target/arrow (positioned against the
-          // full-frame horizon) ended up floating above and beside
-          // the ground path actually visible in the crop. Math.min
-          // (contain) keeps the whole horizon inside the visible
-          // frame so the drawn target and the photo's path line up.
+          // width:height) while the play area is 3:4 (0.75). "Contain"
+          // avoided cropping but left black bars on the sides, which
+          // doesn't match the reference (full-bleed background, no
+          // bars). Go back to "cover" (fills the frame, some crop),
+          // but - unlike the original bug - recompute the horizon
+          // origin against THIS actual crop, so the drawn target
+          // still lands on the photo's real vanishing point instead
+          // of floating.
           const bgImg = this.add.image(cx, cy, "bg");
-          const baseScale = Math.min(w / bgImg.width, h / bgImg.height);
+          const baseScale = Math.max(w / bgImg.width, h / bgImg.height);
           bgImg.setScale(baseScale);
           this.registry.set("bgImg", bgImg);
           this.registry.set("bgBaseScale", baseScale);
 
-          // Convert the photo's horizon point into this frame's
-          // screen pixels now that we know the real crop, and use
-          // that as the projection origin instead of raw screen
-          // center.
           const bgLeft = cx - (bgImg.width * baseScale) / 2;
           const bgTop = cy - (bgImg.height * baseScale) / 2;
           this.registry.set("originX", bgLeft + bgImg.width * baseScale * HORIZON_FRAC_X);
@@ -186,14 +182,55 @@ export default function ArcheryBoard({ matchId, userId }: { matchId: string; use
           const targetShadow = this.add.ellipse(0, 200, 150, 30, 0x000000, 0.3);
           targetGroup.add(targetShadow);
 
-          // Arrow (in flight / aiming)
+          // Arrow (in flight) - only ever shown while a shot is
+          // actually airborne. Projected through the same 3D camera
+          // as the target, so its flight path visually agrees with
+          // where the target sits.
           const arrowGroup = this.add.container(0, 0);
           this.registry.set("arrowGroup", arrowGroup);
           const shaft = this.add.rectangle(0, -30, 6, 80, 0x3d3d3d);
           const fletching = this.add.triangle(0, -60, 0, -20, 14, 10, -14, 10, initialMyColor);
           const tip = this.add.triangle(0, 15, 0, 15, 8, -12, -8, -12, 0xc0c0c0);
           arrowGroup.add([shaft, fletching, tip]);
+          arrowGroup.visible = false;
           this.registry.set("arrowColor", initialMyColor);
+
+          // Foreground bow+arrow - a fixed, screen-space "you are
+          // holding this bow" overlay pinned to the bottom-right
+          // corner, matching the reference framing (a large riser
+          // edge-of-frame with a nocked arrow pointing up-left at the
+          // target). This is deliberately NOT run through the 3D
+          // project() - it's a HUD element, not a world object, so it
+          // can never end up drifting toward the target the way the
+          // old single shared arrow did. It's swapped out for the
+          // real 3D arrowGroup only for the brief in-flight animation.
+          const bowGroup = this.add.container(w, h);
+          bowGroup.setScrollFactor(0);
+          bowGroup.setDepth(900);
+          const riserH = h * 0.9;
+          const riser = this.add.rectangle(0, 0, 34, riserH, 0x6b4226);
+          riser.setStrokeStyle(2, 0x4a2c17, 0.8);
+          riser.setAngle(-14);
+          const riserHighlight = this.add.rectangle(-8, 0, 8, riserH * 0.96, 0x8a5a34);
+          riserHighlight.setAngle(-14);
+          const nockX = -w * 0.18;
+          const nockY = -h * 0.28;
+          const bowShaft = this.add.rectangle(nockX * 0.5, nockY * 0.5, 10, Math.abs(nockY) * 1.1, 0x4a4a4a);
+          bowShaft.setAngle(-14);
+          const bowFletch = this.add.triangle(
+            nockX,
+            nockY,
+            0,
+            -16,
+            16,
+            12,
+            -16,
+            12,
+            0xe5e5e5
+          );
+          bowFletch.setAngle(-14);
+          bowGroup.add([riser, riserHighlight, bowShaft, bowFletch]);
+          this.registry.set("bowGroup", bowGroup);
 
           // Aim reticle - a persistent marker at the predicted impact
           // point, distinct from the trajectory dots. Every reference
@@ -292,7 +329,7 @@ export default function ArcheryBoard({ matchId, userId }: { matchId: string; use
 
           const camZ = this.registry.get("cameraZ");
           const camX = this.registry.get("cameraX");
-          const baseScale = this.registry.get("bgBaseScale") ?? Math.min(w / bgImg.width, h / bgImg.height);
+          const baseScale = this.registry.get("bgBaseScale") ?? Math.max(w / bgImg.width, h / bgImg.height);
           bgImg.setScale(baseScale * (1 + camZ * 0.0001));
           bgImg.setPosition(cx - camX * 0.05, cy + camZ * 0.02);
 
@@ -338,6 +375,9 @@ export default function ArcheryBoard({ matchId, userId }: { matchId: string; use
           } else {
             dots.forEach((dot: Phaser.GameObjects.Arc) => (dot.visible = false));
           }
+
+          const bowGroup = this.registry.get("bowGroup");
+          if (bowGroup) bowGroup.setPosition(w, h);
 
           const reticle = this.registry.get("reticle") as Phaser.GameObjects.Container;
           const reticleTarget = this.registry.get("reticleTarget");
@@ -415,7 +455,11 @@ export default function ArcheryBoard({ matchId, userId }: { matchId: string; use
       scene.registry.set("cameraZ", 0);
       scene.registry.set("cameraX", 0);
       scene.registry.set("cameraY", -120);
-      scene.registry.set("arrowData", { active: true, x: 0, y: -100, z: 50, yaw: 0, pitch: 0 });
+      scene.registry.set("arrowData", { active: false, x: 0, y: -100, z: 50, yaw: 0, pitch: 0 });
+      const arrowGroup = scene.registry.get("arrowGroup") as Phaser.GameObjects.Container | undefined;
+      if (arrowGroup) arrowGroup.visible = false;
+      const bowGroup = scene.registry.get("bowGroup") as Phaser.GameObjects.Container | undefined;
+      if (bowGroup) bowGroup.visible = true;
       scene.registry.set("trajectory", []);
       scene.registry.set("reticleTarget", null);
       const reticle = scene.registry.get("reticle") as Phaser.GameObjects.Container | undefined;
@@ -531,6 +575,11 @@ export default function ArcheryBoard({ matchId, userId }: { matchId: string; use
 
       setShooting(true);
       play("move");
+
+      const bowGroup = scene.registry.get("bowGroup") as Phaser.GameObjects.Container | undefined;
+      if (bowGroup) bowGroup.visible = false;
+      const arrowGroup = scene.registry.get("arrowGroup") as Phaser.GameObjects.Container | undefined;
+      if (arrowGroup) arrowGroup.visible = true;
 
       const meter = scene.registry.get("powerMeter");
       if (meter) {
