@@ -113,8 +113,14 @@ export default function ArcheryBoard({ matchId, userId }: { matchId: string; use
           // than the ground lines painted in the photo, which was the
           // original bug (target rendered high and off-center from
           // the path).
-          const HORIZON_FRAC_X = 0.5;
-          const HORIZON_FRAC_Y = 0.5;
+          // Measured directly from the production bg.jpg: the lane
+          // lines converge at the archway at roughly (42%, 51%) of
+          // the source image, not image-center. This is the real
+          // horizon/vanishing point this photo has, so the target
+          // needs to sit there or it visibly floats off the painted
+          // path instead of sitting on it.
+          const HORIZON_FRAC_X = 0.42;
+          const HORIZON_FRAC_Y = 0.51;
 
           const project = (x: number, y: number, z: number) => {
             const camX = this.registry.get("cameraX");
@@ -343,7 +349,7 @@ export default function ArcheryBoard({ matchId, userId }: { matchId: string; use
           // circle showing which way it's blowing.
           const windBoxW = w * 0.3;
           const windBoxH = h * 0.085;
-          const windBoxX = cx;
+          const windBoxX = this.registry.get("originX") ?? cx;
           const windBoxY = h * 0.34;
 
           const windBg = this.add.rectangle(windBoxX, windBoxY, windBoxW, windBoxH, 0x000000, 0.45);
@@ -351,25 +357,27 @@ export default function ArcheryBoard({ matchId, userId }: { matchId: string; use
           windBg.setScrollFactor(0);
           windBg.setDepth(950);
 
+          const windSplitX = windBoxX - windBoxW * 0.06;
+
           const windLabel = this.add
-            .text(windBoxX - windBoxW * 0.26, windBoxY, "WIND:", {
+            .text(windSplitX - 6, windBoxY, "WIND:", {
               fontSize: "16px",
               fontFamily: "Inter, sans-serif",
               fontStyle: "800",
               color: "#ffffff",
             })
-            .setOrigin(0.5);
+            .setOrigin(1, 0.5);
           windLabel.setScrollFactor(0);
           windLabel.setDepth(951);
 
           const windValue = this.add
-            .text(windBoxX - windBoxW * 0.03, windBoxY, "0.0", {
+            .text(windSplitX + 6, windBoxY, "0.0", {
               fontSize: "16px",
               fontFamily: "Inter, sans-serif",
               fontStyle: "900",
               color: "#ef4444",
             })
-            .setOrigin(0.5);
+            .setOrigin(0, 0.5);
           windValue.setScrollFactor(0);
           windValue.setDepth(951);
 
