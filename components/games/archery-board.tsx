@@ -8,7 +8,7 @@ import { simulateTrajectory, targetZFor, MAX_POWER, MIN_RELEASE_POWER } from "@/
 import { useMatchRealtime } from "@/hooks/use-match-realtime";
 import { useSound } from "@/lib/sound/sound-manager";
 
-const FOCAL_LENGTH = 500;
+const FOCAL_LENGTH = 1000;
 
 export default function ArcheryBoard({ matchId, userId }: { matchId: string; userId: string }) {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -103,7 +103,7 @@ export default function ArcheryBoard({ matchId, userId }: { matchId: string; use
 
           this.registry.set("cameraZ", 0);
           this.registry.set("cameraX", 0);
-          this.registry.set("cameraY", -120);
+          this.registry.set("cameraY", -20);
 
           // bg.jpg's ground path converges to a vanishing point at
           // roughly (65%, 50%) of the image, not image-center - the
@@ -543,7 +543,7 @@ export default function ArcheryBoard({ matchId, userId }: { matchId: string; use
     const resetArrow = () => {
       scene.registry.set("cameraZ", 0);
       scene.registry.set("cameraX", 0);
-      scene.registry.set("cameraY", -120);
+      scene.registry.set("cameraY", -20);
       scene.registry.set("arrowData", { active: false, x: 0, y: -100, z: 50, yaw: 0, pitch: 0 });
       const arrowGroup = scene.registry.get("arrowGroup") as Phaser.GameObjects.Container | undefined;
       if (arrowGroup) arrowGroup.visible = false;
