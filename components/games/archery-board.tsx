@@ -181,6 +181,37 @@ export default function ArcheryBoard({ matchId, userId }: { matchId: string, use
             scoreText.visible = false;
             this.registry.set('scoreText', scoreText);
 
+            // 6. Power meter (screen-space, bottom-right - archery games
+            // live or die on this being visible: every reference game
+            // (Archery King, Bowman, Archery Elite) shows a fill/gauge
+            // the instant you start pulling back, so you know how hard
+            // you're about to shoot before you commit to releasing.
+            const meterX = w - 34;
+            const meterTop = h * 0.32;
+            const meterHeight = h * 0.4;
+            const meterTrack = this.add.rectangle(meterX, meterTop + meterHeight / 2, 14, meterHeight, 0x000000, 0.35);
+            meterTrack.setStrokeStyle(2, 0xffffff, 0.5);
+            const meterFill = this.add.rectangle(meterX, meterTop + meterHeight, 10, 0, 0x2ecc71, 0.95);
+            meterFill.setOrigin(0.5, 1);
+            const meterLabel = this.add.text(meterX, meterTop - 22, "PWR", {
+              fontSize: "12px",
+              fontFamily: "Inter, sans-serif",
+              fontStyle: "800",
+              color: "#ffffff",
+              stroke: "#000000",
+              strokeThickness: 3,
+            }).setOrigin(0.5);
+            const meterPct = this.add.text(meterX, meterTop + meterHeight + 16, "", {
+              fontSize: "13px",
+              fontFamily: "Inter, sans-serif",
+              fontStyle: "900",
+              color: "#ffffff",
+              stroke: "#000000",
+              strokeThickness: 3,
+            }).setOrigin(0.5, 0);
+            [meterTrack, meterFill, meterLabel, meterPct].forEach((o) => { o.visible = false; o.setScrollFactor(0); o.setDepth(1000); });
+            this.registry.set('powerMeter', { track: meterTrack, fill: meterFill, label: meterLabel, pct: meterPct, top: meterTop, height: meterHeight });
+
             setBoardReady(true);
           },
           update: function(this: import("phaser").Scene) {
@@ -320,6 +351,15 @@ export default function ArcheryBoard({ matchId, userId }: { matchId: string, use
             pitch: 0
         });
         scene.registry.set('trajectory', []);
+
+        const meter = scene.registry.get('powerMeter');
+        if (meter) {
+          meter.track.visible = false;
+          meter.fill.visible = false;
+          meter.label.visible = false;
+          meter.pct.visible = false;
+          meter.fill.height = 0;
+        }
     };
     resetArrow();
 
@@ -359,6 +399,14 @@ export default function ArcheryBoard({ matchId, userId }: { matchId: string, use
       isAiming = true;
       startPointerX = pointer.x;
       startPointerY = pointer.y;
+
+      const meter = scene.registry.get('powerMeter');
+      if (meter) {
+        meter.track.visible = true;
+        meter.fill.visible = true;
+        meter.label.visible = true;
+        meter.pct.visible = true;
+      }
     };
     
     const onPointerMove = (pointer: import("phaser").Input.Pointer) => {
@@ -384,6 +432,17 @@ export default function ArcheryBoard({ matchId, userId }: { matchId: string, use
       });
       
       calculateTrajectory(pullPower, aimAngleX, aimAngleY);
+
+      // Live power feedback - the one thing every reference archery
+      // game (Archery King, Bowman, Archery Elite) leads with, and the
+      // thing this screen was missing entirely before.
+      const meter = scene.registry.get('powerMeter');
+      if (meter) {
+        const pct = Math.round((pullPower / 60) * 100);
+        meter.fill.height = (pct / 100) * meter.height;
+        meter.fill.fillColor = pct > 85 ? 0xe74c3c : pct > 55 ? 0xf1c40f : 0x2ecc71;
+        meter.pct.setText(`${pct}%`);
+      }
     };
     
     const onPointerUp = async (pointer: import("phaser").Input.Pointer) => {
@@ -398,6 +457,17 @@ export default function ArcheryBoard({ matchId, userId }: { matchId: string, use
       
       setShooting(true);
       play("move"); 
+
+      const meter = scene.registry.get('powerMeter');
+      if (meter) {
+        meter.track.visible = false;
+        meter.fill.visible = false;
+        meter.label.visible = false;
+        meter.pct.visible = false;
+      }
+      // Release recoil - a quick, small punch of camera shake sells the
+      // moment the string lets go, scaled with how hard you pulled.
+      scene.cameras.main.shake(90, 0.0015 + (pullPower / 60) * 0.0025);
       
       let x = scene.registry.get('arrowData').x;
       let y = scene.registry.get('arrowData').y;
@@ -433,6 +503,7 @@ export default function ArcheryBoard({ matchId, userId }: { matchId: string, use
               if (z >= TARGET_Z) {
                   flightTimer.remove();
                   play("archery-hit");
+                  scene.cameras.main.shake(60, 0.0018);
                   
                   // Calculate hit
                   const hitLocalX = x;
@@ -447,23 +518,21 @@ export default function ArcheryBoard({ matchId, userId }: { matchId: string, use
                   }
                   
                   const scoreText = scene.registry.get('scoreText') as import("phaser").GameObjects.Text;
-                  if (calculatedScore > 0) {
-                      scoreText.setText(`+${calculatedScore}`);
-                      scoreText.setColor(calculatedScore >= 9 ? '#f1c40f' : '#ffffff');
-                      scoreText.setPosition(scene.scale.width / 2, scene.scale.height / 2 - 100);
-                      scoreText.visible = true;
-                      scoreText.setAlpha(1);
-                      scoreText.setScale(0.5);
-                      
-                      scene.tweens.add({
-                          targets: scoreText,
-                          y: scoreText.y - 150,
-                          alpha: 0,
-                          scale: 1.5,
-                          duration: 1500,
-                          ease: 'Cubic.easeOut',
-                      });
-                  }
+                  scoreText.setText(calculatedScore > 0 ? `+${calculatedScore}` : "MISS");
+                  scoreText.setColor(calculatedScore >= 9 ? '#f1c40f' : calculatedScore > 0 ? '#ffffff' : '#e74c3c');
+                  scoreText.setPosition(scene.scale.width / 2, scene.scale.height / 2 - 100);
+                  scoreText.visible = true;
+                  scoreText.setAlpha(1);
+                  scoreText.setScale(0.5);
+
+                  scene.tweens.add({
+                      targets: scoreText,
+                      y: scoreText.y - 150,
+                      alpha: 0,
+                      scale: 1.5,
+                      duration: 1500,
+                      ease: 'Cubic.easeOut',
+                  });
                   
                   // Submit
                   scene.time.delayedCall(1800, () => {
@@ -538,17 +607,31 @@ export default function ArcheryBoard({ matchId, userId }: { matchId: string, use
         <div className="flex flex-col items-center justify-center px-4 flex-none border-x border-gray-100">
             <span className="text-[10px] text-gray-400 font-bold uppercase tracking-widest mb-1">Set {state.round}</span>
             
-            {/* Wind Indicator (GamePigeon Style) */}
+            {/* Wind Indicator - color-coded by severity, same convention
+                every reference archery game uses (calm/breezy/strong)
+                so players can tell at a glance whether it's worth
+                compensating for, not just read a raw number. */}
             <div className="flex flex-col items-center justify-center gap-1">
                 <span className="text-[10px] text-gray-500 font-semibold uppercase">Wind</span>
-                <div className="flex items-center gap-1.5 bg-gray-100 px-3 py-1.5 rounded-full border border-gray-200 shadow-inner">
-                    <span className="text-sm font-bold text-gray-700">
-                        {state.wind_x > 0 ? "→" : state.wind_x < 0 ? "←" : "-"}
-                    </span>
-                    <span className="text-xs font-bold text-gray-800">
-                        {Math.abs(state.wind_x).toFixed(1)} m/s
-                    </span>
-                </div>
+                {(() => {
+                  const speed = Math.abs(state.wind_x);
+                  const severity = speed < 0.8 ? "calm" : speed < 1.5 ? "breezy" : "strong";
+                  const styles = {
+                    calm: "bg-gray-100 border-gray-200 text-gray-700",
+                    breezy: "bg-amber-50 border-amber-200 text-amber-700",
+                    strong: "bg-red-50 border-red-200 text-red-700",
+                  }[severity];
+                  return (
+                    <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full border shadow-inner ${styles}`}>
+                        <span className="text-sm font-bold">
+                            {state.wind_x > 0 ? "→" : state.wind_x < 0 ? "←" : "-"}
+                        </span>
+                        <span className="text-xs font-bold">
+                            {speed.toFixed(1)} m/s
+                        </span>
+                    </div>
+                  );
+                })()}
             </div>
         </div>
 
@@ -562,17 +645,19 @@ export default function ArcheryBoard({ matchId, userId }: { matchId: string, use
         </div>
       </div>
       
-      {/* Game Canvas Container */}
+      {/* Game Canvas Container - aspect-ratio based (not a fixed px
+          height) so it scales to fit short mobile viewports instead of
+          pushing the shoot area off-screen. */}
       <div 
          ref={containerRef} 
-         className="relative w-full max-w-[600px] h-[650px] shadow-sm bg-black"
+         className="relative w-full max-w-[600px] aspect-[3/4] max-h-[68vh] shadow-sm bg-black"
       />
       
       {/* Instructions Overlay */}
       <div className="w-full max-w-[600px] bg-white py-4 shadow-[0_-4px_15px_rgba(0,0,0,0.05)] z-10">
         <p className="text-[15px] font-semibold text-gray-600 text-center">
             {isMyTurn ? (
-                shooting ? "Arrow is flying..." : "Drag anywhere to aim, pull back to shoot!"
+                shooting ? "Arrow is flying..." : "Pull back to charge power, drag to aim, release to shoot"
             ) : (
                 state.game_over ? "Game Over" : "Waiting for opponent..."
             )}
