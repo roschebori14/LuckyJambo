@@ -1,25 +1,28 @@
 export type ArcheryPhase = "aiming" | "shooting" | "game_over";
 
-/**
- * What the client actually has agency over: the raw aim gesture. This
- * is all that ever gets sent to the server - never a landing position
- * or a score. Those are derived, not reported (see lib/games/archery/
- * physics.ts and engine.ts's applyShot).
- */
+/** What the client sends when releasing a shot - aim only. The server
+ *  (lib/games/archery/engine.ts + physics.ts) is the sole authority
+ *  on where that aim actually lands; the client never reports a
+ *  position or score for its own shot. */
 export interface ArcheryShotInput {
-  angleX: number; // horizontal aim, from left/right drag
-  angleY: number; // vertical aim, from up/down drag
-  power: number;  // 0 to MAX_POWER (see physics.ts), from pull-back distance
+  angleX: number;
+  angleY: number;
+  power: number; // 0 to MAX_POWER (physics.ts), not a 0-1 fraction
 }
 
-/** A fully-resolved shot, as stored in match history. */
-export interface ArcheryShot extends ArcheryShotInput {
+/** A resolved, already-scored shot as stored in game_state - the
+ *  server's own record of what happened, not something a client ever
+ *  constructs directly. */
+export interface ArcheryShot {
   playerId: string;
-  windX: number;       // the wind that was in effect for this shot
-  targetDist: number;  // the distance multiplier that was in effect
-  finalX: number;      // server-computed landing position, relative to target center
+  angleX: number;
+  angleY: number;
+  power: number;
+  windX: number;      // the wind this shot was actually resolved against
+  targetDist: number;  // the distance this shot was actually resolved against
+  finalX: number;      // landing position relative to target center (0,0)
   finalY: number;
-  score: number;        // server-computed
+  score: number;
 }
 
 export interface ArcheryState {
@@ -27,31 +30,30 @@ export interface ArcheryState {
   a_player_id: string;
   b_player_id: string | null;
   current_turn: "A" | "B";
-  
-  // Game progresses in rounds. A round consists of both players shooting once.
-  // Game typically lasts 3 rounds.
-  round: number; 
-  
+
+  // Game progresses in rounds. A round consists of both players
+  // shooting once. Game lasts 3 rounds (see engine.ts's applyShot).
+  round: number;
+
   // Accumulated scores
   a_score: number;
   b_score: number;
-  
+
   // History of shots
   a_shots: ArcheryShot[];
   b_shots: ArcheryShot[];
-  
-  // Wind for the current round - horizontal only (a vertical component
-  // isn't something a player can read or compensate for, so it was
-  // never actually fair; every reference archery game uses a single
-  // horizontal crosswind value for exactly this reason).
+
+  // Wind for the current round - a single horizontal crosswind value.
+  // There's deliberately no vertical wind component: archery games in
+  // this genre (Archery King, GamePigeon Archery) only ever show a
+  // single crosswind indicator, and a Y-axis wind has no intuitive
+  // on-screen representation a player could actually aim against.
   wind_x: number;
-  
-  // Distance multiplier for the current round (1.0 = base distance).
-  // Escalates round to round, same as Archery King moving the target
-  // back after each shot - this makes later rounds meaningfully harder
-  // instead of every round playing identically.
+
+  // Distance scalar for the current round (physics.ts's targetZFor
+  // multiplies TARGET_Z_BASE by this).
   target_dist: number;
 
-  winner: string | null;
+  winner: "A" | "B" | null;
   game_over: boolean;
 }

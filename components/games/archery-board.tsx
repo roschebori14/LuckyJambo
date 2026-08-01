@@ -164,13 +164,37 @@ export default function ArcheryBoard({ matchId, userId }: { matchId: string; use
           const targetGroup = this.add.container(0, 0);
           this.registry.set("targetGroup", targetGroup);
 
-          const legLeft = this.add.rectangle(-45, -60, 10, 220, 0x3d2b1f);
-          legLeft.setAngle(-8);
-          const legRight = this.add.rectangle(45, -60, 10, 220, 0x3d2b1f);
-          legRight.setAngle(8);
-          targetGroup.add([legLeft, legRight]);
-
+          // Target - hangs inside a wooden frame from a pole, rather
+          // than resting on two ground legs (matches the reference:
+          // a suspended target, not a tripod stand). The frame is
+          // just one oversized wood-colored rectangle added *behind*
+          // the target face - the face's own fill fully covers its
+          // center, leaving a clean visible border ring around all
+          // four edges, so there's only one extra shape to keep in
+          // sync with TARGET_RADIUS if the ring sizing ever changes.
           const boardSize = TARGET_RADIUS * 2 + 60;
+          const FRAME_BEAM = 20; // width of the visible wood border
+          const FRAME_BEVEL = 8; // inset highlight strip, for a two-tone routed-edge look
+          const frameOuterSize = boardSize + FRAME_BEAM * 2;
+          const frameBevelSize = boardSize + FRAME_BEVEL * 2;
+
+          // Soft drop shadow cast by the frame itself (a slightly
+          // offset, translucent duplicate behind it - Phaser has no
+          // blur filter for a plain rectangle, so this flat offset
+          // reads as "cast a slight shadow" at this art style's level
+          // of fidelity without pulling in a shader/plugin).
+          const frameDropShadow = this.add.rectangle(
+            6, 6, frameOuterSize, frameOuterSize, 0x000000, 0.22
+          );
+          targetGroup.add(frameDropShadow);
+
+          const frameOuter = this.add.rectangle(0, 0, frameOuterSize, frameOuterSize, 0x6b4226);
+          frameOuter.setStrokeStyle(2, 0x4a2c17, 0.9);
+          targetGroup.add(frameOuter);
+
+          const frameBevel = this.add.rectangle(0, 0, frameBevelSize, frameBevelSize, 0x8a5a34);
+          targetGroup.add(frameBevel);
+
           const backboard = this.add.rectangle(0, 0, boardSize, boardSize, 0xf7f5f0);
           backboard.setStrokeStyle(3, 0xcfcac0);
           targetGroup.add(backboard);
@@ -189,7 +213,35 @@ export default function ArcheryBoard({ matchId, userId }: { matchId: string; use
             targetGroup.add(ring);
           }
 
-          const targetShadow = this.add.ellipse(0, 200, 150, 30, 0x000000, 0.3);
+          // Support pole - rises from the frame's top edge rather
+          // than legs at its base, so the frame itself reads as
+          // suspended. Drawn behind the frame (added first) so its
+          // top end, which pokes up past the frame's top-back corner
+          // in a real mount, doesn't visually sit in front of the
+          // frame face.
+          const POLE_WIDTH = 16;
+          const POLE_HEIGHT = frameOuterSize * 0.55;
+          const frameTopY = -frameOuterSize / 2;
+          const pole = this.add.rectangle(
+            0, frameTopY - POLE_HEIGHT / 2 + 4, POLE_WIDTH, POLE_HEIGHT, 0x5c4033
+          );
+          pole.setStrokeStyle(1, 0x3d2b1f, 0.6);
+          targetGroup.addAt(pole, 0);
+
+          // Small triangular pennant near the pole's top, matching
+          // the reference's lane-marker flags.
+          const flagY = frameTopY - POLE_HEIGHT + 18;
+          const flag = this.add.triangle(
+            POLE_WIDTH / 2, flagY,
+            0, -12, 34, -4, 0, 4,
+            0xd63031
+          );
+          flag.setStrokeStyle(1, 0x8b1a1a, 0.8);
+          targetGroup.addAt(flag, 1);
+
+          const targetShadow = this.add.ellipse(
+            0, frameOuterSize / 2 + 22, frameOuterSize * 0.65, 26, 0x000000, 0.3
+          );
           targetGroup.add(targetShadow);
 
           // Arrow (in flight) - only ever shown while a shot is

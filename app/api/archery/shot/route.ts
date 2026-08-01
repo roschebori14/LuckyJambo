@@ -13,10 +13,6 @@ export async function POST(request: Request) {
     }
 
     const body = await request.json();
-    // Only the raw aim gesture is accepted from the client - no
-    // landing position or score. Those are always derived server-side
-    // in applyShot, from this input plus the wind/distance the server
-    // itself generated (see lib/games/archery/engine.ts).
     const { matchId, input } = body as {
       matchId: string;
       input: ArcheryShotInput;
@@ -46,16 +42,24 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Not an archery match" }, { status: 400 });
     }
 
+    // Validate the aim input only - this is not scoring the shot, just
+    // rejecting garbage no legitimate client could produce. The actual
+    // landing position and score are derived below, server-side, from
+    // this input plus the server's own stored wind/distance - never
+    // from anything the client reports about where its shot landed.
     const validation = validateShotInput(state, user.id, input);
     if (!validation.valid) {
       return NextResponse.json({ error: validation.error }, { status: 400 });
     }
 
+    // Independently re-simulates the trajectory server-side and
+    // derives the score from that - see engine.ts's applyShot.
     const newState = applyShot(state, user.id, input);
 
     const isGameOver = newState.game_over;
     const winner = newState.winner;
 
+    // Call RPC to persist
     const { data: rpcData, error: rpcError } = await supabase.rpc(
       "apply_archery_shot_result",
       {
