@@ -105,27 +105,58 @@ export default function ArcheryBoard({ matchId, userId }: { matchId: string; use
           this.registry.set("cameraX", 0);
           this.registry.set("cameraY", -120);
 
+          // bg.jpg's ground path converges to a vanishing point at
+          // roughly (65%, 50%) of the image, not image-center - the
+          // horizon this photo actually has. The projection's screen
+          // origin (where world (0,0,z) lands) needs to sit there
+          // too, or the target/arrow float in a different "world"
+          // than the ground lines painted in the photo, which was the
+          // original bug (target rendered high and off-center from
+          // the path).
+          const HORIZON_FRAC_X = 0.65;
+          const HORIZON_FRAC_Y = 0.5;
+
           const project = (x: number, y: number, z: number) => {
             const camX = this.registry.get("cameraX");
             const camY = this.registry.get("cameraY");
             const camZ = this.registry.get("cameraZ");
+            const originX = this.registry.get("originX") ?? cx;
+            const originY = this.registry.get("originY") ?? cy;
             const relativeZ = z - camZ;
             if (relativeZ <= 0) return { x: 0, y: 0, scale: 0, visible: false };
             const scale = FOCAL_LENGTH / (FOCAL_LENGTH + relativeZ);
             return {
-              x: cx + (x - camX) * scale,
-              y: cy - (y - camY) * scale,
+              x: originX + (x - camX) * scale,
+              y: originY - (y - camY) * scale,
               scale,
               visible: true,
             };
           };
           this.registry.set("project", project);
 
-          // Background
+          // Background - bg.jpg is a tall/narrow photo (roughly 0.56
+          // width:height) but the play area is 3:4 (0.75). Math.max
+          // (cover) against that mismatch was cropping the vast
+          // majority of the image's height off the top and bottom,
+          // which is why the target/arrow (positioned against the
+          // full-frame horizon) ended up floating above and beside
+          // the ground path actually visible in the crop. Math.min
+          // (contain) keeps the whole horizon inside the visible
+          // frame so the drawn target and the photo's path line up.
           const bgImg = this.add.image(cx, cy, "bg");
-          const baseScale = Math.max(w / bgImg.width, h / bgImg.height);
+          const baseScale = Math.min(w / bgImg.width, h / bgImg.height);
           bgImg.setScale(baseScale);
           this.registry.set("bgImg", bgImg);
+          this.registry.set("bgBaseScale", baseScale);
+
+          // Convert the photo's horizon point into this frame's
+          // screen pixels now that we know the real crop, and use
+          // that as the projection origin instead of raw screen
+          // center.
+          const bgLeft = cx - (bgImg.width * baseScale) / 2;
+          const bgTop = cy - (bgImg.height * baseScale) / 2;
+          this.registry.set("originX", bgLeft + bgImg.width * baseScale * HORIZON_FRAC_X);
+          this.registry.set("originY", bgTop + bgImg.height * baseScale * HORIZON_FRAC_Y);
 
           // Target
           const targetGroup = this.add.container(0, 0);
@@ -261,11 +292,14 @@ export default function ArcheryBoard({ matchId, userId }: { matchId: string; use
 
           const camZ = this.registry.get("cameraZ");
           const camX = this.registry.get("cameraX");
-          const baseScale = Math.max(w / bgImg.width, h / bgImg.height);
+          const baseScale = this.registry.get("bgBaseScale") ?? Math.min(w / bgImg.width, h / bgImg.height);
           bgImg.setScale(baseScale * (1 + camZ * 0.0001));
           bgImg.setPosition(cx - camX * 0.05, cy + camZ * 0.02);
 
-          const targetPos = project(0, 50, targetZ);
+          // Target sits at world y=0 (ground level, at the horizon) -
+          // not y=50, which was floating it above the vanishing point
+          // even after the origin fix above.
+          const targetPos = project(0, 0, targetZ);
           if (targetPos.visible) {
             targetGroup.setPosition(targetPos.x, targetPos.y);
             targetGroup.setScale(targetPos.scale);
