@@ -434,31 +434,55 @@ export default function ArcheryBoard({ matchId, userId }: { matchId: string; use
             targetGroup.add(ring);
           }
 
-          // Support pole - rises from the frame's top edge rather
-          // than legs at its base, so the frame itself reads as
-          // suspended. Drawn behind the frame (added first) so its
-          // top end, which pokes up past the frame's top-back corner
-          // in a real mount, doesn't visually sit in front of the
-          // frame face.
-          const POLE_WIDTH = 16;
-          const POLE_HEIGHT = frameOuterSize * 0.55;
-          const frameTopY = -frameOuterSize / 2;
-          const pole = this.add.rectangle(
-            0, frameTopY - POLE_HEIGHT / 2 + 4, POLE_WIDTH, POLE_HEIGHT, 0x5c4033
-          );
-          pole.setStrokeStyle(1, 0x3d2b1f, 0.6);
-          targetGroup.addAt(pole, 0);
+          // Printed ring-number guide along the right edge (10 at
+          // center out to 1 at the outer ring) - visible in every shot
+          // of the reference footage and a real cue for how close a
+          // near-miss actually was, not just decoration.
+          for (let i = 0; i < 10; i++) {
+            const midRadius = TARGET_RADIUS - i * RING_WIDTH - RING_WIDTH / 2;
+            const label = this.add
+              .text(midRadius, 0, String(i + 1), {
+                fontSize: "9px",
+                fontFamily: "Inter, sans-serif",
+                fontStyle: "700",
+                color: i >= 6 ? "#3a2a00" : "#1a1a1a",
+              })
+              .setOrigin(0.5);
+            targetGroup.add(label);
+          }
 
-          // Small triangular pennant near the pole's top, matching
-          // the reference's lane-marker flags.
-          const flagY = frameTopY - POLE_HEIGHT + 18;
-          const flag = this.add.triangle(
-            POLE_WIDTH / 2, flagY,
-            0, -12, 34, -4, 0, 4,
-            0xd63031
-          );
-          flag.setStrokeStyle(1, 0x8b1a1a, 0.8);
-          targetGroup.addAt(flag, 1);
+          // Ground stand - four thin wooden legs propping the target up
+          // from the grass. The earlier "hangs from a pole with a
+          // pennant flag" mount was checked against a different
+          // reference image; the actual gameplay footage (GamePigeon
+          // Archery) consistently shows a simple 4-leg ground stand in
+          // every round/distance shown, no pole, no flag - drawn behind
+          // the frame (added first) so the frame face sits in front of
+          // where the legs meet it.
+          const legBottomY = frameOuterSize / 2 - 6;
+          const legTopInset = frameOuterSize * 0.2;
+          const legs = this.add.graphics();
+          legs.lineStyle(7, 0x4a2c17, 1);
+          [
+            { topX: -legTopInset, spread: 0.85 },
+            { topX: legTopInset, spread: 0.85 },
+          ].forEach(({ topX, spread }) => {
+            const botX = topX * spread * 1.6;
+            const botY = legBottomY + frameOuterSize * 0.42;
+            legs.beginPath();
+            legs.moveTo(topX, legBottomY - 10);
+            legs.lineTo(botX, botY);
+            legs.strokePath();
+            // Small crossbar near the ground for a sturdier, less
+            // spindly stand silhouette.
+            legs.lineStyle(4, 0x3d2417, 0.9);
+            legs.beginPath();
+            legs.moveTo(botX * 0.55, botY - 14);
+            legs.lineTo(botX * 1.15, botY - 6);
+            legs.strokePath();
+            legs.lineStyle(7, 0x4a2c17, 1);
+          });
+          targetGroup.addAt(legs, 0);
 
           const targetShadow = this.add.ellipse(
             0, frameOuterSize / 2 + 22, frameOuterSize * 0.65, 26, 0x000000, 0.3
@@ -1120,7 +1144,29 @@ export default function ArcheryBoard({ matchId, userId }: { matchId: string; use
             const scoreText = scene.registry.get("scoreText") as Phaser.GameObjects.Text;
             scoreText.setText(score > 0 ? `+${score}` : "MISS");
             scoreText.setColor(score >= 9 ? "#ffd166" : score > 0 ? "#ffffff" : "#ef4444");
-            scoreText.setPosition(scene.scale.width / 2, scene.scale.height / 2 - 100);
+
+            // Callout appears at the arrow's actual landing spot on the
+            // target, not a fixed screen position - matches the
+            // reference (the "+10" pops up right where the shot hit).
+            // targetGroup's x/y/scale are re-projected from the same
+            // camera every frame in update(), the identical transform
+            // already used to plant each past shot's arrow, so this
+            // stays correct even mid-camera-shake.
+            const targetGroup = scene.registry.get("targetGroup") as Phaser.GameObjects.Container | undefined;
+            let calloutX = scene.scale.width / 2;
+            let calloutY = scene.scale.height / 2 - 100;
+            if (targetGroup) {
+              if (result.hit) {
+                calloutX = targetGroup.x + result.finalX * targetGroup.scaleX;
+                calloutY = targetGroup.y + -result.finalY * targetGroup.scaleY;
+              } else {
+                // No on-target landing point for a miss - anchor just
+                // above the target itself rather than screen-center.
+                calloutX = targetGroup.x;
+                calloutY = targetGroup.y - 60;
+              }
+            }
+            scoreText.setPosition(calloutX, calloutY);
             scoreText.visible = true;
             scoreText.setAlpha(1);
             scoreText.setScale(0.5);
@@ -1180,7 +1226,7 @@ export default function ArcheryBoard({ matchId, userId }: { matchId: string; use
             Arrow {state.round} / 3
           </span>
           <span className="mt-0.5 text-[10px] font-semibold text-[var(--lj-muted)]">
-            {Math.round(state.target_dist * 20)}yd
+            {Math.round(state.target_dist * 20)}ft
           </span>
         </div>
 
