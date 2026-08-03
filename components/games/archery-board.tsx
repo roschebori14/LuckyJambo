@@ -496,7 +496,27 @@ export default function ArcheryBoard({ matchId, userId }: { matchId: string; use
           // arrow, always fully nocked, never a separate cheaper prop).
           const nockRestX = -w * 0.3;
           const nockRestY = -h * 0.38;
-          const nockLeanAngle = 164; // empirically tuned: local +y (head) points up-and-slightly-left, matching the reference's lean
+
+          // The arrow's rest angle is derived from the actual
+          // nock->target vector, not a hand-tuned constant - a fixed
+          // guess (previously 164deg) pointed the arrow almost
+          // straight up with only a token leftward lean, because it
+          // was never actually checked against where the target sits
+          // on screen. The target's rest screen position is the
+          // horizon/vanishing point (originX, originY) computed above
+          // from the background photo itself - buildArrowGraphics's
+          // local +y is the head/tip (see its doc comment), and at
+          // rotation 0 that local +y points straight down in screen
+          // space, so the rotation needed to aim it at (originX,
+          // originY) is atan2(-dx, dy) where (dx,dy) is the
+          // nock->target screen vector.
+          const originXAbs = this.registry.get("originX") ?? cx;
+          const originYAbs = this.registry.get("originY") ?? cy;
+          const nockAbsX = w + nockRestX;
+          const nockAbsY = h + nockRestY;
+          const nockLeanAngle = Phaser.Math.RadToDeg(
+            Math.atan2(-(originXAbs - nockAbsX), originYAbs - nockAbsY)
+          );
 
           const nockedArrow = buildArrowGraphics(this, {
             length: w * 0.42,
@@ -541,6 +561,8 @@ export default function ArcheryBoard({ matchId, userId }: { matchId: string; use
           reticle.add([reticleRing, reticleDot]);
           reticle.visible = false;
           this.registry.set("reticle", reticle);
+          this.registry.set("reticleRing", reticleRing);
+          this.registry.set("reticleDot", reticleDot);
 
           // Trajectory arc
           const trajectoryDots = Array.from({ length: 18 }).map(() => {
@@ -750,16 +772,33 @@ export default function ArcheryBoard({ matchId, userId }: { matchId: string; use
           }
 
           const reticle = this.registry.get("reticle") as Phaser.GameObjects.Container;
+          const reticleRing = this.registry.get("reticleRing") as Phaser.GameObjects.Arc | undefined;
+          const reticleDot = this.registry.get("reticleDot") as Phaser.GameObjects.Arc | undefined;
           const reticleTarget = this.registry.get("reticleTarget");
           if (reticle && reticleTarget) {
-            const p = project(reticleTarget.x, reticleTarget.y, targetZ);
+            // Miss-case predictions carry their own z (wherever the
+            // arc actually ends up); a clean-hit prediction has no z
+            // and projects against the target's own plane instead -
+            // see updatePreview()'s two branches above.
+            const p = project(reticleTarget.x, reticleTarget.y, reticleTarget.z ?? targetZ);
             if (p.visible) {
               reticle.setPosition(p.x, p.y);
               reticle.setScale(Math.max(0.3, p.scale));
               reticle.visible = true;
+              const color = reticleTarget.onTarget ? 0xffd166 : 0xef4444;
+              if (reticleRing) reticleRing.setStrokeStyle(2, color, 0.9);
+              if (reticleDot) reticleDot.setFillStyle(color, 1);
             } else {
               reticle.visible = false;
             }
+          } else if (reticle) {
+            // Explicitly hidden rather than left at whatever it was
+            // last frame - previously this branch didn't exist, so a
+            // reticle left visible from a hit prediction could stick
+            // around after the very next frame's draw predicted a
+            // miss (reticleTarget briefly null before the miss-case
+            // fallback above existed).
+            reticle.visible = false;
           }
         },
       },
@@ -893,7 +932,30 @@ export default function ArcheryBoard({ matchId, userId }: { matchId: string; use
         currentState.target_dist
       );
       scene.registry.set("trajectory", result.path);
-      scene.registry.set("reticleTarget", result.hit ? { x: result.finalX, y: -result.finalY } : null);
+
+      // Previously only showed the reticle when this exact draw was
+      // predicted to land a clean hit (result.hit), which meant most
+      // of a normal drag - anything short of a fully dialed-in pull -
+      // showed no reticle at all. Now it always tracks *something*:
+      // the real predicted impact point for a hit, or the arc's own
+      // last sampled point (still real simulateTrajectory output, not
+      // invented) for a shot that would currently fall short/miss -
+      // same continuous "this is where it's headed" feedback real
+      // archery games give throughout the whole draw, not only once
+      // you happen to be dialed in.
+      if (result.hit) {
+        // No z here deliberately - finalX/finalY are already relative
+        // to the target's own center at its plane, so update() should
+        // project them against targetZ (see the fallback there), not
+        // a z value from this scope.
+        scene.registry.set("reticleTarget", { x: result.finalX, y: -result.finalY, onTarget: true });
+      } else {
+        const last = result.path[result.path.length - 1];
+        scene.registry.set(
+          "reticleTarget",
+          last ? { x: last.x, y: -last.y, z: last.z, onTarget: false } : null
+        );
+      }
     };
 
     const onPointerDown = (pointer: Phaser.Input.Pointer) => {
