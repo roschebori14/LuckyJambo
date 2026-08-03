@@ -287,7 +287,13 @@ export default function ArcheryBoard({ matchId, userId }: { matchId: string; use
     const height = containerRef.current.clientHeight;
 
     const config: Phaser.Types.Core.GameConfig = {
-      type: Phaser.CANVAS,
+      // AUTO (WebGL, falling back to Canvas2D automatically if a
+      // device genuinely can't do WebGL) instead of forcing CANVAS -
+      // WebGL is what actually anti-aliases the bow's curved limbs
+      // and the target rings; Canvas2D's shape edges are visibly
+      // more jagged at this level of detail. No behavior or input
+      // handling here depends on which renderer is active.
+      type: Phaser.AUTO,
       parent: containerRef.current,
       width,
       height,
@@ -722,7 +728,26 @@ export default function ArcheryBoard({ matchId, userId }: { matchId: string; use
           }
 
           const bowGroup = this.registry.get("bowGroup");
-          if (bowGroup) bowGroup.setPosition(w, h);
+          if (bowGroup) {
+            // The sway inside project() (above) only ever reached
+            // world-projected objects - target, flying arrow,
+            // trajectory dots - because the bow is a screen-space HUD
+            // element (setScrollFactor(0)) positioned directly here,
+            // not run through project() at all. That left the one
+            // thing you're actually holding perfectly static. This is
+            // a separate, independent sway on bowGroup itself, paused
+            // during the brief flight animation (bowGroup is hidden
+            // then anyway) so it can never fight the release
+            // recoil/flight motion.
+            if (!shootingRef.current) {
+              const swayT = this.time.now * 0.0011;
+              bowGroup.setPosition(w + Math.sin(swayT) * 2.4, h + Math.cos(swayT * 0.8) * 1.7);
+              bowGroup.angle = Math.sin(swayT * 0.55) * 0.55;
+            } else {
+              bowGroup.setPosition(w, h);
+              bowGroup.angle = 0;
+            }
+          }
 
           const reticle = this.registry.get("reticle") as Phaser.GameObjects.Container;
           const reticleTarget = this.registry.get("reticleTarget");
