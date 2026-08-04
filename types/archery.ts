@@ -1,59 +1,40 @@
-export type ArcheryPhase = "aiming" | "shooting" | "game_over";
+/**
+ * Shared types for the archery game. Kept framework-agnostic (no
+ * Three.js/Rapier imports) so the Zustand store and the HTML overlay
+ * can both depend on this file without pulling in WebGL-only code -
+ * that's what keeps the store safe to import from a server component
+ * or during SSR, even though the 3D tree itself never renders there.
+ */
 
-/** What the client sends when releasing a shot - aim only. The server
- *  (lib/games/archery/engine.ts + physics.ts) is the sole authority
- *  on where that aim actually lands; the client never reports a
- *  position or score for its own shot. */
-export interface ArcheryShotInput {
-  angleX: number;
-  angleY: number;
-  power: number; // 0 to MAX_POWER (physics.ts), not a 0-1 fraction
+/** Horizontal wind vector, in the same world units the arrow's
+ * velocity is measured in (roughly m/s). `x` is left(-)/right(+)
+ * crosswind, `z` is a head/tail-wind component along the shooting
+ * lane. There's no `y` - wind doesn't push straight up/down here,
+ * gravity already owns the vertical axis. */
+export interface WindVector {
+  x: number;
+  z: number;
 }
 
-/** A resolved, already-scored shot as stored in game_state - the
- *  server's own record of what happened, not something a client ever
- *  constructs directly. */
-export interface ArcheryShot {
-  playerId: string;
-  angleX: number;
-  angleY: number;
-  power: number;
-  windX: number;      // the wind this shot was actually resolved against
-  targetDist: number;  // the distance this shot was actually resolved against
-  finalX: number;      // landing position relative to target center (0,0)
-  finalY: number;
-  score: number;
+/** Result of a single arrow's impact, used both to update score and
+ * to drive the "+10" / "MISS" style HUD callout. */
+export interface ImpactResult {
+  points: number;
+  label: string;
+  /** Hit position on the target face, relative to its center, in the
+   * target's own local space (meters). Null for a clean miss that
+   * never touched the target at all. */
+  localX: number | null;
+  localY: number | null;
 }
 
-export interface ArcheryState {
-  game_type: "archery";
-  a_player_id: string;
-  b_player_id: string | null;
-  current_turn: "A" | "B";
-
-  // Game progresses in rounds. A round consists of both players
-  // shooting once. Game lasts 3 rounds (see engine.ts's applyShot).
-  round: number;
-
-  // Accumulated scores
-  a_score: number;
-  b_score: number;
-
-  // History of shots
-  a_shots: ArcheryShot[];
-  b_shots: ArcheryShot[];
-
-  // Wind for the current round - a single horizontal crosswind value.
-  // There's deliberately no vertical wind component: archery games in
-  // this genre (Archery King, GamePigeon Archery) only ever show a
-  // single crosswind indicator, and a Y-axis wind has no intuitive
-  // on-screen representation a player could actually aim against.
-  wind_x: number;
-
-  // Distance scalar for the current round (physics.ts's targetZFor
-  // multiplies TARGET_Z_BASE by this).
-  target_dist: number;
-
-  winner: "A" | "B" | null;
-  game_over: boolean;
-}
+export const GAME_CONFIG = {
+  defaultArrows: 5,
+  targetPosition: [0, 1.6, -22] as [number, number, number],
+  targetRadius: 1.1,
+  /** Ring boundaries as fractions of targetRadius, outer to inner.
+   * A hit inside ring[i]'s radius but outside ring[i+1]'s scores
+   * `ringPoints[i]`. */
+  ringRadii: [1.0, 0.8, 0.6, 0.42, 0.26, 0.1],
+  ringPoints: [1, 3, 5, 7, 9, 10],
+} as const;
