@@ -99,22 +99,8 @@ export default function ArcheryExperience() {
         <color attach="background" args={["#bcdcf0"]} />
         <fog attach="fog" args={["#cfe6f2", 30, 95]} />
         <Sky sunPosition={[80, 40, -60]} turbidity={4} rayleigh={1.2} />
-        <Cloud
-          position={[-18, 16, -50]}
-          opacity={0.45}
-          speed={0.08}
-          width={14}
-          depth={2}
-          segments={12}
-        />
-        <Cloud
-          position={[16, 20, -65]}
-          opacity={0.35}
-          speed={0.06}
-          width={18}
-          depth={2}
-          segments={12}
-        />
+        <Cloud position={[-18, 16, -50]} opacity={0.45} speed={0.08} />
+        <Cloud position={[16, 20, -65]} opacity={0.35} speed={0.06} />
 
         <hemisphereLight args={["#dff0ff", "#4c7a3d", 0.6]} />
         <ambientLight intensity={0.3} />
