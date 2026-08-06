@@ -3,7 +3,7 @@
 import { useCallback, useRef, useState } from "react";
 import { Canvas } from "@react-three/fiber";
 import { Physics, RigidBody } from "@react-three/rapier";
-import { Sky } from "@react-three/drei";
+import { Sky, Cloud } from "@react-three/drei";
 import * as THREE from "three";
 import Target from "./target";
 import Bow from "./bow";
@@ -79,7 +79,8 @@ export default function ArcheryExperience() {
 
   const { aimRef, onPointerDown, onPointerMove, onPointerUp } = useAimControls({
     onFire: handleFire,
-    canAim: () => !isFlyingRef.current && useArcheryStore.getState().arrowsLeft > 0,
+    canAim: () =>
+      !isFlyingRef.current && useArcheryStore.getState().arrowsLeft > 0,
   });
 
   return (
@@ -95,11 +96,31 @@ export default function ArcheryExperience() {
         camera={{ position: [0, 1.7, 6], fov: 50, near: 0.1, far: 200 }}
         dpr={[1, 1.75]}
       >
+        <color attach="background" args={["#bcdcf0"]} />
+        <fog attach="fog" args={["#cfe6f2", 30, 95]} />
         <Sky sunPosition={[80, 40, -60]} turbidity={4} rayleigh={1.2} />
-        <ambientLight intensity={0.55} />
+        <Cloud
+          position={[-18, 16, -50]}
+          opacity={0.45}
+          speed={0.08}
+          width={14}
+          depth={2}
+          segments={12}
+        />
+        <Cloud
+          position={[16, 20, -65]}
+          opacity={0.35}
+          speed={0.06}
+          width={18}
+          depth={2}
+          segments={12}
+        />
+
+        <hemisphereLight args={["#dff0ff", "#4c7a3d", 0.6]} />
+        <ambientLight intensity={0.3} />
         <directionalLight
           position={[12, 20, 8]}
-          intensity={1.4}
+          intensity={1.5}
           castShadow
           shadow-mapSize={[2048, 2048]}
           shadow-camera-left={-20}
@@ -117,6 +138,9 @@ export default function ArcheryExperience() {
         </Physics>
 
         <Bow aimRef={aimRef} />
+        <TreeLine />
+        <LaneFence />
+        <DistanceMarkers />
       </Canvas>
     </div>
   );
@@ -125,10 +149,120 @@ export default function ArcheryExperience() {
 function Ground() {
   return (
     <RigidBody type="fixed" colliders="cuboid" friction={0.9}>
+      {/* Wider fairway strip, slightly brighter, reads as the shooting lane */}
       <mesh position={[0, -0.1, -10]} receiveShadow>
-        <boxGeometry args={[60, 0.2, 80]} />
-        <meshStandardMaterial color="#4c7a3d" roughness={1} />
+        <boxGeometry args={[10, 0.2, 80]} />
+        <meshStandardMaterial color="#5a9146" roughness={1} />
+      </mesh>
+      {/* Surrounding rough grass, darker so the lane pops */}
+      <mesh position={[-25, -0.12, -10]} receiveShadow>
+        <boxGeometry args={[40, 0.16, 80]} />
+        <meshStandardMaterial color="#3f6633" roughness={1} />
+      </mesh>
+      <mesh position={[25, -0.12, -10]} receiveShadow>
+        <boxGeometry args={[40, 0.16, 80]} />
+        <meshStandardMaterial color="#3f6633" roughness={1} />
       </mesh>
     </RigidBody>
+  );
+}
+
+// Backdrop tree wall - cheap cone+cylinder trees, instanced by hand
+// along both sides of the lane and across the far end, so the target
+// reads as sitting in a clearing rather than floating in empty fog.
+const TREE_OFFSETS: [number, number][] = [
+  [-6.5, -6],
+  [-8, -14],
+  [-6, -22],
+  [-9, -30],
+  [-6.5, -38],
+  [6.5, -6],
+  [8, -14],
+  [6, -22],
+  [9, -30],
+  [6.5, -38],
+  [-4, -46],
+  [-1.5, -47],
+  [1.5, -47],
+  [4, -46],
+  [7, -45],
+  [-7, -45],
+];
+
+function Tree({ x, z }: { x: number; z: number }) {
+  const scale = 0.85 + ((Math.abs(x * 13 + z * 7) % 10) / 10) * 0.5;
+  return (
+    <group position={[x, 0, z]} scale={scale}>
+      <mesh position={[0, 1, 0]} castShadow>
+        <cylinderGeometry args={[0.15, 0.2, 2, 6]} />
+        <meshStandardMaterial color="#4a3320" roughness={0.9} />
+      </mesh>
+      <mesh position={[0, 2.6, 0]} castShadow>
+        <coneGeometry args={[1.1, 2.2, 8]} />
+        <meshStandardMaterial color="#2f6b34" roughness={0.9} />
+      </mesh>
+      <mesh position={[0, 3.7, 0]} castShadow>
+        <coneGeometry args={[0.8, 1.7, 8]} />
+        <meshStandardMaterial color="#3a7d3f" roughness={0.9} />
+      </mesh>
+    </group>
+  );
+}
+
+function TreeLine() {
+  return (
+    <>
+      {TREE_OFFSETS.map(([x, z], i) => (
+        <Tree key={i} x={x} z={z} />
+      ))}
+    </>
+  );
+}
+
+// Low wooden fence rails marking the edges of the shooting lane -
+// purely decorative, no collider, just visual framing.
+function LaneFence() {
+  const posts: [number, number][] = [];
+  for (let z = 0; z >= -34; z -= 4) {
+    posts.push([-5.2, z]);
+    posts.push([5.2, z]);
+  }
+  return (
+    <>
+      {posts.map(([x, z], i) => (
+        <mesh key={i} position={[x, 0.35, z]} castShadow>
+          <boxGeometry args={[0.08, 0.7, 0.08]} />
+          <meshStandardMaterial color="#5c3b22" roughness={0.85} />
+        </mesh>
+      ))}
+      {[-5.2, 5.2].map((x) => (
+        <mesh key={x} position={[x, 0.55, -17]} castShadow>
+          <boxGeometry args={[0.06, 0.06, 34]} />
+          <meshStandardMaterial color="#6b4a2c" roughness={0.85} />
+        </mesh>
+      ))}
+    </>
+  );
+}
+
+// Small ground flags at 10/20/30 units downrange so distance actually
+// reads visually instead of only appearing as text in the HUD.
+function DistanceMarkers() {
+  const marks = [10, 20, 30];
+  return (
+    <>
+      {marks.map((d) => (
+        <group key={d} position={[-4.6, 0, 4 - d]}>
+          <mesh position={[0, 0.25, 0]} castShadow>
+            <cylinderGeometry args={[0.02, 0.02, 0.5, 6]} />
+            <meshStandardMaterial color="#d8d0bf" />
+          </mesh>
+          <mesh position={[0.12, 0.45, 0]} castShadow>
+            <boxGeometry args={[0.22, 0.14, 0.01]} />
+            <meshStandardMaterial color={d === 20 ? "#d6362e" : "#e8e0d0"} />
+          </mesh>
+        </group>
+      ))}
+    </>
   );
 }
