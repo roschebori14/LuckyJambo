@@ -38,3 +38,50 @@ export const GAME_CONFIG = {
   ringRadii: [1.0, 0.8, 0.6, 0.42, 0.26, 0.1],
   ringPoints: [1, 3, 5, 7, 9, 10],
 } as const;
+
+/**
+ * Types for the turn-based, server-authoritative archery board game
+ * (see lib/games/archery/engine.ts and app/api/archery/shot/route.ts).
+ * Distinct from the 3D experience types above - this game is played
+ * as alternating shots between two players, persisted as a match's
+ * `game_state` in the database.
+ */
+
+/** The aim input a client submits for a single shot. The server never
+ * trusts a client-reported landing position or score - only these
+ * raw aim values, which it re-simulates itself. */
+export interface ArcheryShotInput {
+  angleX: number;
+  angleY: number;
+  power: number;
+}
+
+/** A single resolved shot, as recorded in match history. */
+export interface ArcheryShot {
+  playerId: string;
+  angleX: number;
+  angleY: number;
+  power: number;
+  windX: number;
+  targetDist: number;
+  finalX: number;
+  finalY: number;
+  score: number;
+}
+
+/** Full authoritative state of one archery match. */
+export interface ArcheryState {
+  game_type: "archery";
+  game_over: boolean;
+  current_turn: "A" | "B";
+  a_player_id: string;
+  b_player_id: string | null;
+  a_shots: ArcheryShot[];
+  b_shots: ArcheryShot[];
+  a_score: number;
+  b_score: number;
+  round: number;
+  wind_x: number;
+  target_dist: number;
+  winner: "A" | "B" | null;
+}
