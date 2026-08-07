@@ -1,4 +1,8 @@
-import { useCallback, useRef, type PointerEvent as ReactPointerEvent } from "react";
+import {
+  useCallback,
+  useRef,
+  type PointerEvent as ReactPointerEvent,
+} from "react";
 
 /**
  * Live aim state, mutated in place every pointermove. This is the
@@ -35,7 +39,14 @@ export function createAimState(): AimState {
 // A drag needs to travel this many pixels to reach full draw power -
 // tuned for a comfortable thumb-length drag on a phone screen, not a
 // full-arm mouse swing.
-const MAX_DRAG_PX = 180;
+//
+// Exported (not just module-local) because AimCamera and Reticle both
+// read aimRef.current.dragX/dragY directly every frame for
+// performance (see AimState's doc comment) and need to normalize
+// those raw pixel deltas into the same [-1,1]-ish units onFire's
+// dx/dy already use, via computeAimDirection - otherwise the sight
+// picture and the true launch trajectory would use different scales.
+export const MAX_DRAG_PX = 180;
 // Below this power a release doesn't count as a shot at all (treats
 // a light tap/twitch as "changed my mind", matching every reference
 // game's dead zone).

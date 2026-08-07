@@ -4,12 +4,14 @@ import { useCallback, useRef, useState } from "react";
 import { Canvas } from "@react-three/fiber";
 import { Physics, RigidBody } from "@react-three/rapier";
 import { Sky, Cloud } from "@react-three/drei";
-import * as THREE from "three";
 import Target from "./target";
 import Bow from "./bow";
 import Arrow, { type ArrowLaunch } from "./arrow";
+import AimCamera from "./aim-camera";
+import Reticle from "./reticle";
 import { useAimControls } from "@/hooks/use-archery-3d-aim";
 import { useArcheryStore } from "@/store/archery-3d-store";
+import { computeAimDirection } from "@/lib/archery-aim";
 
 // Base forward speed at full draw power, before wind/gravity act on
 // it - tuned against the target sitting ~22 units downrange so a
@@ -34,25 +36,22 @@ export default function ArcheryExperience() {
 
       // Aim: this is a slingshot/inverse-drag mechanic (drag down-and-
       // left, the arrow launches up-and-right) - the same gesture
-      // every mobile archery/Angry-Birds-style game uses, and why
-      // yaw gets negated below rather than applied directly. Vertical
+      // every mobile archery/Angry-Birds-style game uses. Vertical
       // drag adds a touch of extra arc on top of the natural gravity
-      // drop. Both axes are clamped so a wild drag can't send the
-      // arrow somewhere absurd.
-      const yaw = THREE.MathUtils.clamp(drag.dx, -0.6, 0.6);
-      const pitch = 0.12 + THREE.MathUtils.clamp(drag.dy * 0.18, -0.05, 0.25);
+      // drop. computeAimDirection is the single source of truth for
+      // this mapping (shared with AimCamera/Reticle - see
+      // lib/archery-aim.ts) so the sight picture the player was just
+      // looking at and the trajectory that actually fires can never
+      // drift apart.
       const speed = BASE_LAUNCH_SPEED * (0.55 + drag.power * 0.45);
 
-      // Build a single unit "downrange" direction from yaw/pitch and
-      // *then* scale by speed - grafting `pitch * speed` and
-      // `-yaw * speed` onto separate axes of an already -Z-length-`speed`
-      // vector (the old approach) silently inflates the vector's real
-      // magnitude past `speed` as soon as either angle is nonzero, so
-      // a lofted or angled shot was actually launching faster than a
-      // flat center shot at the same draw power. Composing yaw/pitch
-      // into a unit vector first keeps `speed` meaning exactly what it
-      // says regardless of aim angle.
-      const direction = new THREE.Vector3(-yaw, pitch, -1).normalize();
+      // computeAimDirection already returns a unit vector, so scaling
+      // it by speed afterward (rather than grafting angle terms onto
+      // separate axes of an already-`speed`-length vector) keeps
+      // `speed` meaning exactly what it says regardless of aim angle -
+      // a lofted or angled shot doesn't end up launching faster than
+      // a flat center shot at the same draw power.
+      const direction = computeAimDirection(drag.dx, drag.dy);
 
       // Combine aim with the current wind for the shot's initial
       // heading - the launch impulse itself only needs a *fraction*
@@ -102,11 +101,12 @@ export default function ArcheryExperience() {
       onPointerUp={onPointerUp}
       onPointerCancel={onPointerUp}
     >
-      <Canvas
-        shadows
-        camera={{ position: [0, 1.7, 6], fov: 50, near: 0.1, far: 200 }}
-        dpr={[1, 1.75]}
-      >
+      <Canvas shadows dpr={[1, 1.75]}>
+        {/* AimCamera replaces the old static `camera` prop - it
+            renders its own <PerspectiveCamera makeDefault> at the
+            same rest pose/fov, then eases into a zoomed, sighted-down
+            view as the shot is drawn. */}
+        <AimCamera aimRef={aimRef} />
         <color attach="background" args={["#bcdcf0"]} />
         <fog attach="fog" args={["#cfe6f2", 30, 95]} />
         <Sky sunPosition={[80, 40, -60]} turbidity={4} rayleigh={1.2} />
@@ -135,6 +135,7 @@ export default function ArcheryExperience() {
         </Physics>
 
         <Bow aimRef={aimRef} hasArrowNocked={!isFlyingRef.current} />
+        <Reticle aimRef={aimRef} origin={NOCK_POSITION} />
         <TreeLine />
         <LaneFence />
         <DistanceMarkers />
