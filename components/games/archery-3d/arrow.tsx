@@ -46,6 +46,14 @@ const LOCAL_FORWARD = new THREE.Vector3(0, 1, 0);
 const MAX_LIFETIME_MS = 6000;
 const REST_Y = -5; // world Y below which the arrow is considered gone
 
+// How quickly the arrow's lateral velocity eases toward the wind's
+// velocity, in 1/s (bigger = snappier response to wind, reaches near-
+// full drift sooner). ~3.5 gives a noticeable curve within the first
+// third of a full-power shot's flight while staying bounded - see the
+// comment above the wind block in useFrame for why this replaced a
+// constant-force model.
+const WIND_LATERAL_RELAX_RATE = 3.5;
+
 export default function Arrow({ launch, onSettled }: ArrowProps) {
   const rigidBodyRef = useRef<RapierRigidBody>(null);
   const visualRef = useRef<THREE.Group>(null);
@@ -95,7 +103,7 @@ export default function Arrow({ launch, onSettled }: ArrowProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  useFrame(() => {
+  useFrame((_state, delta) => {
     const rb = rigidBodyRef.current;
     const visual = visualRef.current;
     if (!rb || !visual || settledRef.current) return;
@@ -141,23 +149,36 @@ export default function Arrow({ launch, onSettled }: ArrowProps) {
       visual.quaternion.identity();
     }
 
-    // Continuous wind: applied as a per-frame force (not baked into
-    // the one-time launch impulse) so it curves the arrow progressively
-    // over its flight, the way real wind drift works - reading directly
-    // from the store here (not a subscribed selector) is deliberate,
-    // since useFrame already runs outside React's render cycle and a
-    // subscription would only add overhead without adding correctness.
+    // Continuous wind - reading directly from the store here (not a
+    // subscribed selector) is deliberate, since useFrame already runs
+    // outside React's render cycle and a subscription would only add
+    // overhead without adding correctness.
     //
-    // Coefficient note: now that the collider has a realistic mass
-    // (~25g, see the CylinderCollider's `density` below) instead of
-    // the ~1g Rapier was defaulting to, F=m*a means the same force
-    // produces ~25x less acceleration than before. 0.4 was tuned
-    // against that old, accidentally-tiny mass, so it's scaled down
-    // here too - this keeps peak wind (currentWind.x up to +/-4) as a
-    // noticeable but not dominant drift, on the same order as gravity
-    // rather than three orders of magnitude past it.
+    // Deliberately NOT a constant addForce (an earlier version of
+    // this used one): under a constant force, lateral displacement
+    // grows with t^2, since velocity itself keeps climbing for the
+    // whole flight with nothing to cap it - that reads as "barely
+    // curves, then bends hard right at the end," and gets *worse*,
+    // not better, for slower/higher-arcing shots that spend longer in
+    // the air. Bumping the RigidBody's overall linearDamping doesn't
+    // fix that either - it damps the *whole* velocity vector, so it
+    // bleeds off forward speed too, which means more airtime for the
+    // same wind force to keep compounding, netting even more drift.
+    //
+    // Instead, this eases the arrow's lateral speed toward the wind's
+    // speed - like real aerodynamic drag depends on the *relative*
+    // velocity between the arrow and the moving air, not a flat push.
+    // That's self-limiting (it stops accelerating once it's drifting
+    // with the wind) and front-loads the curve instead of back-
+    // loading it. It's applied straight to velocity via setLinvel,
+    // not through addForce, so it's independent of the collider's
+    // mass/density and the RigidBody's linearDamping entirely - wind
+    // feel is tuned only by WIND_LATERAL_RELAX_RATE below, not by
+    // physics params that also affect flight arc/reach.
     const wind = useArcheryStore.getState().currentWind;
-    rb.addForce({ x: wind.x * 0.05, y: 0, z: wind.z * 0.05 }, true);
+    const newVx = v.x + WIND_LATERAL_RELAX_RATE * (wind.x - v.x) * delta;
+    const newVz = v.z + WIND_LATERAL_RELAX_RATE * (wind.z - v.z) * delta;
+    rb.setLinvel({ x: newVx, y: v.y, z: newVz }, true);
 
     // Cleanup: an arrow that's fallen well below the ground, or has
     // simply been alive too long (grazed something and got stuck),
