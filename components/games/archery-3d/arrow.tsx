@@ -147,8 +147,17 @@ export default function Arrow({ launch, onSettled }: ArrowProps) {
     // from the store here (not a subscribed selector) is deliberate,
     // since useFrame already runs outside React's render cycle and a
     // subscription would only add overhead without adding correctness.
+    //
+    // Coefficient note: now that the collider has a realistic mass
+    // (~25g, see the CylinderCollider's `density` below) instead of
+    // the ~1g Rapier was defaulting to, F=m*a means the same force
+    // produces ~25x less acceleration than before. 0.4 was tuned
+    // against that old, accidentally-tiny mass, so it's scaled down
+    // here too - this keeps peak wind (currentWind.x up to +/-4) as a
+    // noticeable but not dominant drift, on the same order as gravity
+    // rather than three orders of magnitude past it.
     const wind = useArcheryStore.getState().currentWind;
-    rb.addForce({ x: wind.x * 0.4, y: 0, z: wind.z * 0.4 }, true);
+    rb.addForce({ x: wind.x * 0.05, y: 0, z: wind.z * 0.05 }, true);
 
     // Cleanup: an arrow that's fallen well below the ground, or has
     // simply been alive too long (grazed something and got stuck),
@@ -174,8 +183,18 @@ export default function Arrow({ launch, onSettled }: ArrowProps) {
       {/* Thin capsule-ish collider approximating the shaft - cheaper
           and more stable at high speed than an auto-generated hull
           around the visual mesh (thin fast-moving hulls are exactly
-          the shape that tunnels through thin colliders most easily). */}
-      <CylinderCollider args={[0.4, 0.02]} />
+          the shape that tunnels through thin colliders most easily).
+          `density` is explicit and deliberate: this collider's volume
+          is tiny (halfHeight 0.4, radius 0.02 -> ~0.001 m^3), so
+          Rapier's default density of 1 would auto-compute a mass of
+          about 1 gram. A real arrow is roughly 20-30g; at 1g, any
+          per-frame force (wind, in particular - see Arrow's useFrame)
+          produces wildly exaggerated acceleration because F = m*a
+          divides by that tiny mass. Setting density so the resolved
+          mass lands around 25g (density = mass / volume ≈ 25 for
+          this collider's volume) is what keeps gravity and wind in
+          realistic proportion instead of wind dominating every shot. */}
+      <CylinderCollider args={[0.4, 0.02]} density={25} />
       <group ref={visualRef}>
         {/* Shaft */}
         <mesh position={[0, 0, 0]} castShadow>
