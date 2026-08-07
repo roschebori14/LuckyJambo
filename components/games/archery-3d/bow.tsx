@@ -1,89 +1,145 @@
 "use client";
 
-import { useRef, type MutableRefObject, type Ref } from "react";
-import { useFrame } from "@react-three/fiber";
-import * as THREE from "three";
-import type { AimState } from "@/hooks/use-archery-3d-aim";
+import { useRef } from "react";
+import {
+  RigidBody,
+  CylinderCollider,
+  type CollisionEnterPayload,
+} from "@react-three/rapier";
+import { GAME_CONFIG } from "@/types/archery-3d";
+import { useArcheryStore } from "@/store/archery-3d-store";
 
-interface BowProps {
-  aimRef: MutableRefObject<AimState>;
+const { targetPosition, targetRadius, ringRadii, ringPoints } = GAME_CONFIG;
+
+// After this rotation (90deg about X), the cylinder's flat circular
+// face - originally perpendicular to Y - ends up perpendicular to Z,
+// i.e. lying in the local XY plane and facing the shooter. That's
+// what makes `localContactPoint.x/.y` below directly usable as
+// "horizontal/vertical offset from the target's center": no further
+// projection math needed, the collider's local frame already *is*
+// the target face's own plane.
+const FACE_ROTATION: [number, number, number] = [Math.PI / 2, 0, 0];
+
+function scoreFromOffset(
+  x: number,
+  y: number,
+): { points: number; label: string } {
+  const dist = Math.sqrt(x * x + y * y);
+  if (dist > targetRadius) return { points: 0, label: "MISS" };
+  for (let i = 0; i < ringRadii.length; i++) {
+    if (dist <= targetRadius * ringRadii[i]) {
+      return {
+        points: ringPoints[i],
+        label: ringPoints[i] === 10 ? "BULLSEYE" : `+${ringPoints[i]}`,
+      };
+    }
+  }
+  return { points: 1, label: "+1" };
 }
 
-/**
- * Purely presentational - a bow built from primitives (a bent torus
- * arc for the limbs, a box grip, a line-ish string) that leans/sways
- * and pulls back to visualize the live drag, entirely driven by
- * reading `aimRef.current` inside useFrame. No React state anywhere
- * in this component: the whole point of threading a ref in from
- * useAimControls is that a 60fps drag never triggers React's render
- * cycle, only Three.js object mutations.
- */
-export default function Bow({ aimRef }: BowProps) {
-  const groupRef = useRef<THREE.Group>(null);
-  const stringRef = useRef<THREE.Line>(null);
-  const stringGeomRef = useRef<THREE.BufferGeometry>(null);
+export default function Target() {
+  const addScore = useArcheryStore((s) => s.addScore);
+  // An arrow can, in principle, generate more than one collision
+  // event against the target (e.g. a graze followed by a proper
+  // settle) - this tracks which rigid bodies have already been
+  // scored so a single shaft can never award points twice. Keyed by
+  // object identity (the rigid body reference itself stays stable for
+  // that arrow's whole physics lifetime), not by re-render, so a
+  // plain ref/Set is correct here rather than React state.
+  const scoredBodies = useRef(new WeakSet<object>());
 
-  // Static string endpoints (top/bottom nock) in the bow's local
-  // space - only the middle point moves as the string is drawn back.
-  const topNock = new THREE.Vector3(0, 0.62, 0.05);
-  const bottomNock = new THREE.Vector3(0, -0.62, 0.05);
+  function handleCollisionEnter(payload: CollisionEnterPayload) {
+    const otherBody = payload.other.rigidBody;
+    const isArrow =
+      (payload.other.rigidBodyObject?.userData as { type?: string } | undefined)
+        ?.type === "arrow";
+    if (!otherBody || !isArrow) return;
+    if (scoredBodies.current.has(otherBody)) return;
+    scoredBodies.current.add(otherBody);
 
-  useFrame(() => {
-    const aim = aimRef.current;
-    const group = groupRef.current;
-    if (!group) return;
+    // Prefer the real contact manifold - it's the exact point where
+    // the arrow tip actually touched the target face, in the target
+    // collider's own local space. `flipped` tells us whether the
+    // manifold's "collider 1" is us (the target) or the other body;
+    // grab whichever side corresponds to the target so the offset is
+    // always relative to *our* center regardless of collision order.
+    const manifold = payload.manifold;
+    const contact =
+      manifold.numContacts() > 0
+        ? payload.flipped
+          ? manifold.localContactPoint2(0)
+          : manifold.localContactPoint1(0)
+        : null;
 
-    // Visual sway/lean toward the drag direction, and a slight
-    // backward push (positive Z, toward the camera) that reads as
-    // "drawing the string toward your face" as power increases.
-    const swayX = THREE.MathUtils.clamp(aim.dragX * 0.002, -0.35, 0.35);
-    const swayY = THREE.MathUtils.clamp(-aim.dragY * 0.0015, -0.2, 0.25);
-    group.rotation.z = THREE.MathUtils.lerp(group.rotation.z, -swayX * 0.6, 0.25);
-    group.rotation.x = THREE.MathUtils.lerp(group.rotation.x, swayY * 0.3, 0.25);
-    group.position.x = THREE.MathUtils.lerp(group.position.x, swayX * 0.3, 0.25);
-    group.position.z = THREE.MathUtils.lerp(group.position.z, aim.power * 0.25, 0.25);
+    // Fallback for the rare case a manifold has zero contact points
+    // by the time this fires (very fast-moving thin colliders can
+    // occasionally report an enter event a step after the deepest
+    // penetration) - approximate using the arrow's own current
+    // position relative to the target instead of failing to score.
+    const localX = contact?.x ?? otherBody.translation().x - targetPosition[0];
+    const localY = contact
+      ? contact.y
+      : otherBody.translation().y - targetPosition[1];
 
-    // Redraw the string with its midpoint pulled back along +Z,
-    // proportional to power - a cheap way to sell "the string is
-    // under tension" without a skinned/animated asset.
-    const geom = stringGeomRef.current;
-    if (geom) {
-      const pullZ = 0.05 + aim.power * 0.42;
-      const mid = new THREE.Vector3(0, -0.02, pullZ);
-      geom.setFromPoints([topNock, mid, bottomNock]);
-    }
-  });
+    const { points, label } = scoreFromOffset(localX, localY);
+    addScore({ points, label, localX, localY });
+  }
 
   return (
-    <group ref={groupRef} position={[0.55, 1.35, 4.4]}>
-      {/* Limbs: two bent tori standing in for a recurve bow's curve,
-          built from primitives only per the prototyping constraint. */}
-      <mesh rotation={[0, Math.PI / 2, 0]} position={[0, 0.35, 0]} castShadow>
-        <torusGeometry args={[0.32, 0.025, 8, 16, Math.PI * 0.9]} />
-        <meshStandardMaterial color="#6b4326" roughness={0.6} />
+    <RigidBody
+      type="fixed"
+      position={targetPosition}
+      colliders={false}
+      onCollisionEnter={handleCollisionEnter}
+    >
+      <CylinderCollider args={[0.15, targetRadius]} rotation={FACE_ROTATION} />
+
+      {/* Backing board */}
+      <mesh rotation={FACE_ROTATION} receiveShadow castShadow>
+        <cylinderGeometry args={[targetRadius, targetRadius, 0.3, 32]} />
+        <meshStandardMaterial color="#e8e0d0" roughness={0.9} />
       </mesh>
-      <mesh
-        rotation={[0, Math.PI / 2, Math.PI]}
-        position={[0, -0.35, 0]}
-        castShadow
-      >
-        <torusGeometry args={[0.32, 0.025, 8, 16, Math.PI * 0.9]} />
-        <meshStandardMaterial color="#6b4326" roughness={0.6} />
-      </mesh>
-      {/* Grip */}
-      <mesh castShadow>
-        <cylinderGeometry args={[0.03, 0.035, 0.34, 10]} />
-        <meshStandardMaterial color="#3a2415" roughness={0.7} />
-      </mesh>
-      {/* String - R3F's <line> intrinsic and the DOM SVGLineElement
-          type collide at the JSX.IntrinsicElements level; casting the
-          ref explicitly is the reliable fix (a `@ts-expect-error`
-          comment inside a JSX `{}` block isn't recognized as a
-          suppression directive by tsc). */}
-      <line ref={stringRef as unknown as Ref<SVGLineElement>}>
-        <bufferGeometry ref={stringGeomRef} />
-        <lineBasicMaterial color="#e8e0d0" />
-      </line>
-    </group>
+
+      {/* Painted rings, largest/outermost first so each smaller disc
+          draws on top - stacked just in front of the backing board's
+          own front face (board spans z -0.15..+0.15, so rings start
+          past +0.15) rather than buried inside its solid body. */}
+      {ringRadii.map((frac, i) => (
+        <mesh
+          key={frac}
+          rotation={FACE_ROTATION}
+          position={[0, 0, 0.16 + 0.004 * (i + 1)]}
+        >
+          <cylinderGeometry
+            args={[targetRadius * frac, targetRadius * frac, 0.02, 32]}
+          />
+          <meshStandardMaterial color={RING_COLORS[i]} roughness={0.8} />
+        </mesh>
+      ))}
+
+      {/* Simple 4-leg ground stand */}
+      {[
+        [-0.55, -1.6, 0.35],
+        [0.55, -1.6, 0.35],
+        [-0.55, -1.6, -0.35],
+        [0.55, -1.6, -0.35],
+      ].map((p, i) => (
+        <mesh key={i} position={p as [number, number, number]} castShadow>
+          <boxGeometry args={[0.08, 1.9, 0.08]} />
+          <meshStandardMaterial color="#4a2c17" roughness={0.9} />
+        </mesh>
+      ))}
+    </RigidBody>
   );
 }
+
+// White outer ring down to a yellow/gold bullseye, matching the
+// ringRadii/ringPoints ordering in GAME_CONFIG (outer to inner).
+const RING_COLORS = [
+  "#f4f1ea",
+  "#1a1a1a",
+  "#3d7dd6",
+  "#3d7dd6",
+  "#d6362e",
+  "#f2c230",
+];
