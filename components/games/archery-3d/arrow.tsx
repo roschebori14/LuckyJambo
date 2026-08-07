@@ -175,10 +175,18 @@ export default function Arrow({ launch, onSettled }: ArrowProps) {
     // mass/density and the RigidBody's linearDamping entirely - wind
     // feel is tuned only by WIND_LATERAL_RELAX_RATE below, not by
     // physics params that also affect flight arc/reach.
+    // Only the LATERAL (x) component eases toward wind. z is the
+    // arrow's main forward/downrange speed (tens of m/s), whereas
+    // wind.z is only ever a small head/tailwind nudge (+/-1.2) - so
+    // relaxing v.z toward wind.z at this rate was effectively braking
+    // the arrow to a near-stop within a fraction of a second after
+    // release, leaving gravity/pitch to produce a stunted lob that
+    // gains height without gaining distance. Forward speed should be
+    // governed by gravity/launch impulse only; wind's downrange effect
+    // is deliberately left out here (see the comment above this block).
     const wind = useArcheryStore.getState().currentWind;
     const newVx = v.x + WIND_LATERAL_RELAX_RATE * (wind.x - v.x) * delta;
-    const newVz = v.z + WIND_LATERAL_RELAX_RATE * (wind.z - v.z) * delta;
-    rb.setLinvel({ x: newVx, y: v.y, z: newVz }, true);
+    rb.setLinvel({ x: newVx, y: v.y, z: v.z }, true);
 
     // Cleanup: an arrow that's fallen well below the ground, or has
     // simply been alive too long (grazed something and got stuck),
