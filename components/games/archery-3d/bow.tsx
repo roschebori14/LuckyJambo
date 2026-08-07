@@ -7,6 +7,11 @@ import type { AimState } from "@/hooks/use-archery-3d-aim";
 
 interface BowProps {
   aimRef: RefObject<AimState>;
+  /** Hide the nocked arrow while a physics arrow is actually in
+   * flight - otherwise you'd see two arrows (the static nocked one
+   * plus the live one from experience.tsx) between release and the
+   * next draw. */
+  hasArrowNocked: boolean;
 }
 
 /**
@@ -20,10 +25,19 @@ interface BowProps {
  */
 const BASE_POSITION = new THREE.Vector3(0.55, 1.35, 4.4);
 
-export default function Bow({ aimRef }: BowProps) {
+// Nocked-arrow rest length/offset, in the bow's own local space -
+// kept in sync with the string's rest position (pullZ at power=0)
+// and pointing back through the grip toward the shooter along +Z,
+// which is "backward" in this bow's local frame (see the string
+// geometry below - power pulls the midpoint toward +Z).
+const ARROW_LENGTH = 0.9;
+const ARROW_REST_Z = 0.05;
+
+export default function Bow({ aimRef, hasArrowNocked }: BowProps) {
   const groupRef = useRef<THREE.Group>(null);
   const stringRef = useRef<THREE.Line>(null);
   const stringGeomRef = useRef<THREE.BufferGeometry>(null);
+  const arrowRef = useRef<THREE.Group>(null);
 
   // Static string endpoints (top/bottom nock) in the bow's local
   // space - only the middle point moves as the string is drawn back.
@@ -68,13 +82,38 @@ export default function Bow({ aimRef }: BowProps) {
     // Redraw the string with its midpoint pulled back along +Z,
     // proportional to power - a cheap way to sell "the string is
     // under tension" without a skinned/animated asset.
+    const pullZ = ARROW_REST_Z + aim.power * 0.42;
     const geom = stringGeomRef.current;
     if (geom) {
-      const pullZ = 0.05 + aim.power * 0.42;
       const mid = new THREE.Vector3(0, -0.02, pullZ);
       geom.setFromPoints([topNock, mid, bottomNock]);
     }
+
+    // The nocked arrow's tail rides the string's midpoint, its head
+    // stays fixed near the front of the bow (arrows don't get
+    // shorter as you draw - the whole shaft slides backward with the
+    // string). Nudging it up slightly onto the grip's arrow rest and
+    // out to +X keeps it from clipping through the riser/torus limbs.
+    const arrow = arrowRef.current;
+    if (arrow) {
+      const headZ = ARROW_REST_Z - ARROW_LENGTH / 2;
+      const tailZ = mid_z(pullZ);
+      arrow.position.set(0.045, 0.05, (headZ + tailZ) / 2);
+      // Arrow mesh geometry is authored tip-first along local +Y (see
+      // arrow.tsx); rotating -90deg about X points that same +Y
+      // convention down the bow's local +Z draw axis instead, so the
+      // nocked arrow and the fired arrow always share one "forward"
+      // definition and never visually snap into a different pose on
+      // release.
+      arrow.rotation.set(-Math.PI / 2, 0, 0);
+      const length = tailZ - headZ;
+      arrow.scale.set(1, length / ARROW_LENGTH, 1);
+    }
   });
+
+  function mid_z(pullZ: number) {
+    return pullZ;
+  }
 
   return (
     <group ref={groupRef} position={BASE_POSITION.toArray()}>
@@ -106,6 +145,32 @@ export default function Bow({ aimRef }: BowProps) {
         <bufferGeometry ref={stringGeomRef} />
         <lineBasicMaterial color="#e8e0d0" />
       </line>
+
+      {/* Nocked arrow - same shaft/head/fletching styling as the
+          fired Arrow component, so there's no visible swap on
+          release. Scale (not geometry) stretches it to bridge from
+          the fixed head position to the string's current pull point,
+          which is cheap and avoids rebuilding geometry every frame. */}
+      {hasArrowNocked && (
+        <group ref={arrowRef} visible={hasArrowNocked}>
+          <mesh castShadow>
+            <cylinderGeometry args={[0.012, 0.012, ARROW_LENGTH, 8]} />
+            <meshStandardMaterial color="#caa472" roughness={0.6} />
+          </mesh>
+          <mesh position={[0, ARROW_LENGTH / 2, 0]} castShadow>
+            <coneGeometry args={[0.025, 0.12, 8]} />
+            <meshStandardMaterial
+              color="#8a8a8a"
+              metalness={0.6}
+              roughness={0.35}
+            />
+          </mesh>
+          <mesh position={[0, -ARROW_LENGTH / 2 + 0.06, 0]}>
+            <coneGeometry args={[0.05, 0.14, 4]} />
+            <meshStandardMaterial color="#d1483a" roughness={0.8} />
+          </mesh>
+        </group>
+      )}
     </group>
   );
 }

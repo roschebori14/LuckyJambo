@@ -2,7 +2,11 @@
 
 import { useEffect, useRef } from "react";
 import { useFrame } from "@react-three/fiber";
-import { RigidBody, CylinderCollider, type RapierRigidBody } from "@react-three/rapier";
+import {
+  RigidBody,
+  CylinderCollider,
+  type RapierRigidBody,
+} from "@react-three/rapier";
 import * as THREE from "three";
 import { useArcheryStore } from "@/store/archery-3d-store";
 
@@ -65,6 +69,19 @@ export default function Arrow({ launch, onSettled }: ArrowProps) {
       { x: launch.velocity[0], y: launch.velocity[1], z: launch.velocity[2] },
       true,
     );
+
+    // Face the launch direction immediately, rather than waiting for
+    // the first useFrame tick to notice a nonzero speed - without
+    // this the arrow renders one frame (sometimes more, if the very
+    // first tick's speed reads under the 0.05 threshold) in its
+    // default +Y rest pose before snapping to face where it's
+    // actually headed, which reads as a visible pop on release.
+    const v = launch.velocity;
+    const initialSpeed = Math.hypot(v[0], v[1], v[2]);
+    if (visualRef.current && initialSpeed > 1e-4) {
+      const dir = new THREE.Vector3(v[0], v[1], v[2]).normalize();
+      visualRef.current.quaternion.setFromUnitVectors(LOCAL_FORWARD, dir);
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -135,7 +152,11 @@ export default function Arrow({ launch, onSettled }: ArrowProps) {
         {/* Head */}
         <mesh position={[0, 0.42, 0]} castShadow>
           <coneGeometry args={[0.025, 0.12, 8]} />
-          <meshStandardMaterial color="#8a8a8a" metalness={0.6} roughness={0.35} />
+          <meshStandardMaterial
+            color="#8a8a8a"
+            metalness={0.6}
+            roughness={0.35}
+          />
         </mesh>
         {/* Fletching */}
         <mesh position={[0, -0.36, 0]} rotation={[0, 0, 0]}>

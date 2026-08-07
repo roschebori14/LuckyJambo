@@ -43,6 +43,17 @@ export default function ArcheryExperience() {
       const pitch = 0.12 + THREE.MathUtils.clamp(drag.dy * 0.18, -0.05, 0.25);
       const speed = BASE_LAUNCH_SPEED * (0.55 + drag.power * 0.45);
 
+      // Build a single unit "downrange" direction from yaw/pitch and
+      // *then* scale by speed - grafting `pitch * speed` and
+      // `-yaw * speed` onto separate axes of an already -Z-length-`speed`
+      // vector (the old approach) silently inflates the vector's real
+      // magnitude past `speed` as soon as either angle is nonzero, so
+      // a lofted or angled shot was actually launching faster than a
+      // flat center shot at the same draw power. Composing yaw/pitch
+      // into a unit vector first keeps `speed` meaning exactly what it
+      // says regardless of aim angle.
+      const direction = new THREE.Vector3(-yaw, pitch, -1).normalize();
+
       // Combine aim with the current wind for the shot's initial
       // heading - the launch impulse itself only needs a *fraction*
       // of the wind folded in (a rough "you compensated your aim"
@@ -52,9 +63,9 @@ export default function ArcheryExperience() {
       // than just its initial direction.
       const wind = useArcheryStore.getState().currentWind;
       const velocity: [number, number, number] = [
-        -yaw * speed + wind.x * 0.5,
-        pitch * speed,
-        -speed + wind.z * 0.5,
+        direction.x * speed + wind.x * 0.5,
+        direction.y * speed,
+        direction.z * speed + wind.z * 0.5,
       ];
 
       isFlyingRef.current = true;
@@ -123,7 +134,7 @@ export default function ArcheryExperience() {
           ))}
         </Physics>
 
-        <Bow aimRef={aimRef} />
+        <Bow aimRef={aimRef} hasArrowNocked={!isFlyingRef.current} />
         <TreeLine />
         <LaneFence />
         <DistanceMarkers />
