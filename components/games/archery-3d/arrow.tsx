@@ -59,12 +59,16 @@ export default function Arrow({ launch, onSettled }: ArrowProps) {
 
   useEffect(() => {
     // Give the arrow its initial launch velocity exactly once, right
-    // after the physics body exists. Rotations are locked (see the
-    // RigidBody props below) so gravity/impact never makes the body
-    // itself tumble - all visible rotation instead comes from the
-    // per-frame velocity-alignment below, which is the effect the
+    // after the physics body exists. Rotation is driven explicitly
+    // every frame from the current velocity (see useFrame below)
+    // rather than left to physics torque, so gravity/impact never
+    // makes the body tumble on its own - all visible rotation comes
+    // from that per-frame velocity-alignment, which is the effect the
     // brief is actually asking for ("tip always points where it's
-    // traveling", not "physically accurate tumbling").
+    // traveling", not "physically accurate tumbling"). Critically,
+    // this also keeps the real collider's orientation in sync with
+    // the flight path (see the note in useFrame) - `lockRotations`
+    // would prevent that sync entirely.
     rigidBodyRef.current?.setLinvel(
       { x: launch.velocity[0], y: launch.velocity[1], z: launch.velocity[2] },
       true,
@@ -75,12 +79,18 @@ export default function Arrow({ launch, onSettled }: ArrowProps) {
     // this the arrow renders one frame (sometimes more, if the very
     // first tick's speed reads under the 0.05 threshold) in its
     // default +Y rest pose before snapping to face where it's
-    // actually headed, which reads as a visible pop on release.
+    // actually headed, which reads as a visible pop on release. This
+    // sets the real body rotation (not just the visual mesh) so the
+    // collider starts out correctly aligned too.
     const v = launch.velocity;
     const initialSpeed = Math.hypot(v[0], v[1], v[2]);
-    if (visualRef.current && initialSpeed > 1e-4) {
+    if (rigidBodyRef.current && initialSpeed > 1e-4) {
       const dir = new THREE.Vector3(v[0], v[1], v[2]).normalize();
-      visualRef.current.quaternion.setFromUnitVectors(LOCAL_FORWARD, dir);
+      const q = new THREE.Quaternion().setFromUnitVectors(LOCAL_FORWARD, dir);
+      rigidBodyRef.current.setRotation(
+        { x: q.x, y: q.y, z: q.z, w: q.w },
+        true,
+      );
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -101,11 +111,34 @@ export default function Arrow({ launch, onSettled }: ArrowProps) {
     if (speed > 0.05) {
       velocityVec.current.normalize();
       targetQuat.current.setFromUnitVectors(LOCAL_FORWARD, velocityVec.current);
-      // A short slerp rather than a hard snap smooths out the
-      // high-frequency velocity jitter physics engines produce on
-      // the exact frame of a collision, without adding any visible
-      // lag to the arc itself.
-      visual.quaternion.slerp(targetQuat.current, 0.6);
+
+      // Rotate the REAL physics body to face velocity, not just the
+      // visual mesh. Previously only `visual.quaternion` was updated
+      // here while the RigidBody had `lockRotations` set, meaning the
+      // actual CylinderCollider never turned to follow the flight
+      // path - it stayed pointed straight up (its spawn orientation)
+      // for the whole flight while only its on-screen mesh looked
+      // correctly angled. That mismatched collider would then catch
+      // the Ground/Target/fence colliders at odd angles the visual
+      // mesh looked clear of, producing exactly the sideways
+      // "deflection" bend during flight. Setting the body's rotation
+      // directly (instead of relying on lockRotations + physics
+      // torque) keeps the same "always face velocity, no physical
+      // tumbling" intent, just applied to the shape that's actually
+      // colliding.
+      rb.setRotation(
+        {
+          x: targetQuat.current.x,
+          y: targetQuat.current.y,
+          z: targetQuat.current.z,
+          w: targetQuat.current.w,
+        },
+        true,
+      );
+      // The visual mesh is a child of the RigidBody's own group, so
+      // it inherits that real rotation automatically - no separate
+      // slerp needed, and no risk of the two ever disagreeing again.
+      visual.quaternion.identity();
     }
 
     // Continuous wind: applied as a per-frame force (not baked into
@@ -134,8 +167,8 @@ export default function Arrow({ launch, onSettled }: ArrowProps) {
       ref={rigidBodyRef}
       position={launch.position}
       colliders={false}
-      lockRotations
       linearDamping={0.02}
+      angularDamping={2}
       userData={{ type: "arrow", id: launch.id }}
     >
       {/* Thin capsule-ish collider approximating the shaft - cheaper
